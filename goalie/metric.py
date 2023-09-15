@@ -16,26 +16,23 @@ __all__ = ["enforce_variable_constraints", "space_time_normalise", "ramp_complex
 
 @PETSc.Log.EventDecorator()
 def enforce_variable_constraints(
-    metrics: List[RiemannianMetric],
-    h_min: List[firedrake.Function],
-    h_max: List[firedrake.Function],
-    a_max: List[firedrake.Function],
-    boundary_tag: Optional[Union[str, int]] = None,
-) -> List[firedrake.Function]:
+    metrics,
+    h_min=1.0e-30,
+    h_max=1.0e30,
+    a_max=1.0e5,
+    boundary_tag=None,
+):
     """
-    Post-process a list of metrics to enforce minimum and
-    maximum element sizes, as well as maximum anisotropy.
+    Post-process a list of metrics to enforce minimum and maximum element sizes, as well
+    as maximum anisotropy.
 
     :arg metrics: the metrics
-    :arg h_min: minimum tolerated element size,
-        which could be a :class:`firedrake.function.Function`
-        or a number.
-    :arg h_max: maximum tolerated element size,
-        which could be a :class:`firedrake.function.Function`
-        or a number.
-    :arg a_max: maximum tolerated element anisotropy,
-        which could be a :class:`firedrake.function.Function`
-        or a number.
+    :kwarg h_min: minimum tolerated element size, which could be a
+        :class:`firedrake.function.Function` or a number.
+    :kwarg h_max: maximum tolerated element size, which could be a
+        :class:`firedrake.function.Function` or a number.
+    :kwarg a_max: maximum tolerated element anisotropy, which could be a
+        :class:`firedrake.function.Function` or a number.
     :kwarg boundary_tag: optional tag to enforce sizes on.
     """
     from collections.abc import Iterable
