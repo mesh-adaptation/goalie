@@ -1,32 +1,26 @@
 """
 Driver functions for metric-based mesh adaptation.
 """
-from animate.interpolation import clement_interpolant
-import animate.metric
-import animate.recovery
 from .log import debug
 from .time_partition import TimePartition
 from animate.metric import RiemannianMetric
 import firedrake
 from firedrake.petsc import PETSc
 import numpy as np
-from pyop2 import op2
 from typing import List, Optional, Union
 import ufl
 
 
-__all__ = ["enforce_element_constraints", "space_time_normalise", "ramp_complexity"]
+__all__ = ["enforce_variable_constraints", "space_time_normalise", "ramp_complexity"]
 
 
-# TODO: Implement this on the PETSc level and port it through to Firedrake
 @PETSc.Log.EventDecorator()
-def enforce_element_constraints(
+def enforce_variable_constraints(
     metrics: List[RiemannianMetric],
     h_min: List[firedrake.Function],
     h_max: List[firedrake.Function],
     a_max: List[firedrake.Function],
     boundary_tag: Optional[Union[str, int]] = None,
-    optimise: bool = False,
 ) -> List[firedrake.Function]:
     """
     Post-process a list of metrics to enforce minimum and
@@ -43,12 +37,12 @@ def enforce_element_constraints(
         which could be a :class:`firedrake.function.Function`
         or a number.
     :kwarg boundary_tag: optional tag to enforce sizes on.
-    :kwarg optimise: is this a timed run?
     """
     from collections.abc import Iterable
 
     if isinstance(metrics, RiemannianMetric):
         metrics = [metrics]
+    assert isinstance(metrics, Iterable)
     if not isinstance(h_min, Iterable):
         h_min = [h_min] * len(metrics)
     if not isinstance(h_max, Iterable):
@@ -56,57 +50,7 @@ def enforce_element_constraints(
     if not isinstance(a_max, Iterable):
         a_max = [a_max] * len(metrics)
     for metric, hmin, hmax, amax in zip(metrics, h_min, h_max, a_max):
-        fs = metric.function_space()
-        mesh = fs.mesh()
-        P1 = firedrake.FunctionSpace(mesh, "CG", 1)
-
-        def interp(f):
-            if isinstance(f, firedrake.Function):
-                return clement_interpolant(f)
-            else:
-                return firedrake.Function(P1).assign(f)
-
-        # Interpolate hmin, hmax and amax into P1
-        hmin = interp(hmin)
-        hmax = interp(hmax)
-        amax = interp(amax)
-
-        # Check the values are okay
-        if not optimise:
-            _hmin = hmin.vector().gather().min()
-            if _hmin <= 0.0:
-                raise ValueError(
-                    f"Encountered negative non-positive hmin value: {_hmin}."
-                )
-            _hmax = hmax.vector().gather().min()
-            if _hmax < _hmin:
-                raise ValueError(
-                    f"Encountered hmax value smaller than hmin: {_hmax} vs. {_hmin}."
-                )
-            dx = ufl.dx(domain=mesh)
-            integral = firedrake.assemble(ufl.conditional(hmax < hmin, 1, 0) * dx)
-            if not np.isclose(integral, 0.0):
-                raise ValueError(
-                    f"Encountered regions where hmax < hmin: volume {integral}."
-                )
-            _amax = amax.vector().gather().min()
-            if _amax < 1.0:
-                raise ValueError(f"Encountered amax value smaller than unity: {_amax}.")
-
-        # Enforce constraints
-        dim = fs.mesh().topological_dimension()
-        if boundary_tag is None:
-            node_set = fs.node_set
-        else:
-            node_set = firedrake.DirichletBC(fs, 0, boundary_tag).node_set
-        op2.par_loop(
-            animate.recovery.get_metric_kernel("postproc_metric", dim),
-            node_set,
-            metric.dat(op2.RW),
-            hmin.dat(op2.READ),
-            hmax.dat(op2.READ),
-            amax.dat(op2.READ),
-        )
+        metric.enforce_variable_constraints(hmin, hmax, amax, boundary_tag=boundary_tag)
     return metrics
 
 
