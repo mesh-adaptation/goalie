@@ -18,8 +18,7 @@ __all__ = ["GoalOrientedMeshSeq"]
 
 class GoalOrientedMeshSeq(AdjointMeshSeq):
     """
-    An extension of :class:`~.AdjointMeshSeq` to account for
-    goal-oriented problems.
+    An extension of :class:`~.AdjointMeshSeq` to account for goal-oriented problems.
     """
 
     def __init__(self, *args, **kwargs):
@@ -33,13 +32,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         """
         Construct a sequence of globally enriched spaces.
 
-        Currently, global enrichment may be
-        achieved using one of:
+        Currently, global enrichment may be achieved using one of:
         * h-refinement (``enrichment_method = 'h'``);
         * p-refinement (``enrichment_method = 'p'``).
 
-        The number of refinements may be controlled by
-        the keyword argument ``num_enrichments``.
+        The number of refinements may be controlled by the keyword argument
+        ``num_enrichments``.
         """
         if enrichment_method not in ("h", "p"):
             raise ValueError(f"Enrichment method {enrichment_method} not supported")
@@ -84,21 +82,17 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self, enrichment_method: str = "p", num_enrichments: int = 1, **kwargs
     ) -> dict:
         """
-        Solve the forward and adjoint problems
-        associated with
-        :meth:`~.GoalOrientedMeshSeq.solver` in a
-        sequence of globally enriched spaces.
+        Solve the forward and adjoint problems associated with
+        :meth:`~.GoalOrientedMeshSeq.solver` in a sequence of globally enriched spaces.
 
-        Currently, global enrichment may be
-        achieved using one of:
+        Currently, global enrichment may be achieved using one of:
         * h-refinement (``enrichment_method = 'h'``);
         * p-refinement (``enrichment_method = 'p'``).
 
-        The number of refinements may be controlled by
-        the keyword argument ``num_enrichments``.
+        The number of refinements may be controlled by the keyword argument
+        ``num_enrichments``.
 
-        :kwarg kwargs: keyword arguments to pass to the
-            :meth:`~.AdjointMeshSeq.solve_adjoint` method
+        :kwarg kwargs: keyword arguments to pass to the :meth:`~.AdjointMeshSeq.solve_adjoint` method
         """
         mesh_seq = self.get_enriched_mesh_seq(
             enrichment_method=enrichment_method,
@@ -114,17 +108,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         indicator_fn: Callable = get_dwr_indicator,
     ) -> Tuple[dict, AttrDict]:
         """
-        Compute goal-oriented error indicators for each
-        subinterval based on solving the adjoint problem
-        in a globally enriched space.
+        Compute goal-oriented error indicators for each subinterval based on solving the
+        adjoint problem in a globally enriched space.
 
-        :kwarg enrichment_kwargs: keyword arguments to pass
-            to the global enrichment method
-        :kwarg adj_kwargs: keyword arguments to pass to the
-            adjoint solver
-        :kwarg indicator_fn: function for error indication,
-            which takes the form, adjoint error and enriched
-            space(s) as arguments
+        :kwarg enrichment_kwargs: keyword arguments to pass to the global enrichment
+            method
+        :kwarg adj_kwargs: keyword arguments to pass to the adjoint solver
+        :kwarg indicator_fn: function for error indication, which takes the form,
+            adjoint error and enriched space(s) as arguments
         """
         enrichment_method = enrichment_kwargs.get("enrichment_method", "p")
         if enrichment_method == "h":
