@@ -216,3 +216,40 @@ class TestGlobalEnrichment(unittest.TestCase):
         self.assertEqual(element.family(), enriched_element.family())
         self.assertEqual(element.degree(), enriched_element.degree())
         self.assertEqual(element.value_shape, enriched_element.value_shape)
+
+    def test_p_enrichment_mesh(self):
+        mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("R", 0, 0))
+        mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
+            enrichment_method="p", num_enrichments=1
+        )
+        self.assertEqual(self.meshes[0], mesh_seq[0])
+        self.assertEqual(self.meshes[0], mesh_seq_e[0])
+
+    @parameterized.expand(
+        [
+            ("DG", 0, 0, 1),
+            ("DG", 0, 0, 2),
+            ("DG", 0, 1, 1),
+            ("DG", 0, 1, 2),
+            ("CG", 1, 0, 1),
+            ("CG", 1, 0, 2),
+            ("CG", 1, 1, 1),
+            ("CG", 1, 1, 2),
+            ("CG", 2, 0, 1),
+            ("CG", 2, 0, 2),
+            ("CG", 2, 1, 1),
+            ("CG", 2, 1, 2),
+        ]
+    )
+    def test_p_enrichment_space(self, family, degree, rank, num_enrichments):
+        mesh_seq = self.go_mesh_seq(
+            self.get_function_spaces_decorator(family, degree, rank)
+        )
+        mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
+            enrichment_method="p", num_enrichments=num_enrichments
+        )
+        element = mesh_seq.function_spaces[self.field][0].ufl_element()
+        enriched_element = mesh_seq_e.function_spaces[self.field][0].ufl_element()
+        self.assertEqual(element.family(), enriched_element.family())
+        self.assertEqual(element.degree() + num_enrichments, enriched_element.degree())
+        self.assertEqual(element.value_shape, enriched_element.value_shape)
