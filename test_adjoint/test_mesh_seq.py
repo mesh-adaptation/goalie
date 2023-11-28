@@ -162,6 +162,20 @@ class TestGlobalEnrichment(unittest.TestCase):
 
         return get_function_spaces
 
+    def test_enrichment_error(self):
+        mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("R", 0, 0))
+        with self.assertRaises(ValueError) as cm:
+            mesh_seq_e = mesh_seq.get_enriched_mesh_seq(enrichment_method="q")
+        msg = "Enrichment method 'q' not supported."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_num_enrichments_error(self):
+        mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("R", 0, 0))
+        with self.assertRaises(ValueError) as cm:
+            mesh_seq_e = mesh_seq.get_enriched_mesh_seq(num_enrichments=0)
+        msg = "A positive number of enrichments is required."
+        self.assertEqual(str(cm.exception), msg)
+
     @parameterized.expand([[1], [2]])
     def test_h_enrichment_mesh(self, num_enrichments):
         """

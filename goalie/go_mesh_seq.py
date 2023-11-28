@@ -40,9 +40,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         ``num_enrichments``.
         """
         if enrichment_method not in ("h", "p"):
-            raise ValueError(f"Enrichment method {enrichment_method} not supported")
+            raise ValueError(f"Enrichment method '{enrichment_method}' not supported.")
         if num_enrichments <= 0:
-            raise ValueError("A positive number of enrichments is required")
+            raise ValueError("A positive number of enrichments is required.")
 
         # Apply h-refinement
         if enrichment_method == "h":
