@@ -25,7 +25,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         super().__init__(*args, **kwargs)
         self.estimator_values = []
 
-    @PETSc.Log.EventDecorator("goalie.GoalOrientedMeshSeq.get_enriched_mesh_seq")
+    @PETSc.Log.EventDecorator()
     def get_enriched_mesh_seq(
         self, enrichment_method: str = "p", num_enrichments: int = 1
     ) -> AdjointMeshSeq:
@@ -77,7 +77,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         return mesh_seq_e
 
-    @PETSc.Log.EventDecorator("goalie.GoalOrientedMeshSeq.global_enrichment")
+    @PETSc.Log.EventDecorator()
     def global_enrichment(
         self, enrichment_method: str = "p", num_enrichments: int = 1, **kwargs
     ) -> dict:
@@ -100,7 +100,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         )
         return mesh_seq.solve_adjoint(**kwargs)
 
-    @PETSc.Log.EventDecorator("goalie.GoalOrientedMeshSeq.indicate_errors")
+    @PETSc.Log.EventDecorator()
     def indicate_errors(
         self,
         enrichment_kwargs: dict = {},
