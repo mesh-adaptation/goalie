@@ -1,32 +1,8 @@
 from firedrake import *
 from goalie_adjoint import *
+from setup_adjoint_tests import *
 from parameterized import parameterized
 import unittest
-
-
-def get_function_spaces(mesh):
-    return {}
-
-
-def get_form(mesh_seq):
-    def form(index, sols):
-        return {}
-
-    return form
-
-
-def get_bcs(mesh_seq):
-    def bcs(index):
-        return []
-
-    return bcs
-
-
-def get_solver(mesh_seq):
-    def solver(index, ic):
-        return {}
-
-    return solver
 
 
 def get_qoi(mesh_seq, solutions, index):
@@ -55,10 +31,10 @@ class TestMeshSeq(unittest.TestCase):
         return MeshSeq(
             time_partition,
             mesh,
-            get_function_spaces=get_function_spaces,
-            get_form=get_form,
-            get_bcs=get_bcs,
-            get_solver=get_solver,
+            get_function_spaces=empty_get_function_spaces,
+            get_form=empty_get_form,
+            get_bcs=empty_get_bcs,
+            get_solver=empty_get_solver,
             parameters=parameters or self.parameters,
         )
 
@@ -145,10 +121,10 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         return GoalOrientedMeshSeq(
             time_partition,
             mesh,
-            get_function_spaces=get_function_spaces,
-            get_form=get_form,
-            get_bcs=get_bcs,
-            get_solver=get_solver,
+            get_function_spaces=empty_get_function_spaces,
+            get_form=empty_get_form,
+            get_bcs=empty_get_bcs,
+            get_solver=empty_get_solver,
             get_qoi=get_qoi,
             parameters=parameters or self.parameters,
             qoi_type=qoi_type,
