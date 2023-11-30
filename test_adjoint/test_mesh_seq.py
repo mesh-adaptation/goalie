@@ -141,7 +141,7 @@ class TrivalGoalOrientedBaseClass(unittest.TestCase):
         self.time_interval = TimeInterval(1.0, [1.0], [self.field])
         self.meshes = [UnitSquareMesh(1, 1)]
 
-    def go_mesh_seq(self, get_function_spaces):
+    def go_mesh_seq(self, get_function_spaces, parameters=None):
         return GoalOrientedMeshSeq(
             self.time_interval,
             self.meshes,
@@ -150,6 +150,7 @@ class TrivalGoalOrientedBaseClass(unittest.TestCase):
             get_bcs=empty_get_bcs,
             get_solver=empty_get_solver,
             qoi_type="steady",
+            parameters=parameters,
         )
 
 class TestGlobalEnrichment(TrivalGoalOrientedBaseClass):
@@ -273,3 +274,28 @@ class TestGlobalEnrichment(TrivalGoalOrientedBaseClass):
         self.assertEqual(element.family(), enriched_element.family())
         self.assertEqual(element.degree() + num_enrichments, enriched_element.degree())
         self.assertEqual(element.value_shape, enriched_element.value_shape)
+
+
+class TestEstimatorConvergence(TrivalGoalOrientedBaseClass):
+    """
+    Unit tests for :meth:`check_estimator_convergence`.
+    """
+
+    def go_mesh_seq(self, parameters):
+        return super().go_mesh_seq(empty_get_function_spaces, parameters=parameters)
+
+    def test_estimator_convergence_lt_miniter(self):
+        mesh_seq = self.go_mesh_seq(GoalOrientedParameters({"drop_out_converged": True}))
+        mesh_seq.check_estimator_convergence()
+        self.assertFalse(mesh_seq.converged)
+
+    def test_estimator_convergence_true(self):
+        mesh_seq = self.go_mesh_seq(GoalOrientedParameters({"drop_out_converged": True}))
+        mesh_seq.estimator_values = np.ones((mesh_seq.params.miniter + 1, 1))
+        self.assertTrue(mesh_seq.check_estimator_convergence())
+
+    def test_estimator_convergence_false(self):
+        mesh_seq = self.go_mesh_seq(GoalOrientedParameters({"drop_out_converged": True}))
+        mesh_seq.estimator_values = np.ones((mesh_seq.params.miniter + 1, 1))
+        mesh_seq.estimator_values[-1] = 2
+        self.assertFalse(mesh_seq.check_estimator_convergence())
