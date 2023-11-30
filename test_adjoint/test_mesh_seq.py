@@ -5,6 +5,7 @@ from firedrake import *
 from goalie_adjoint import *
 from goalie.log import *
 from goalie.mesh_seq import MeshSeq
+from goalie.options import GoalOrientedParameters
 from goalie.go_mesh_seq import GoalOrientedMeshSeq
 from goalie.time_partition import TimeInterval
 from parameterized import parameterized
@@ -130,9 +131,9 @@ class TestGetSolveBlocks(unittest.TestCase):
         self.assertEqual(str(cm.exception), msg)
 
 
-class TestGlobalEnrichment(unittest.TestCase):
+class TrivalGoalOrientedBaseClass(unittest.TestCase):
     """
-    Unit tests for global enrichment of a :class:`GoalOrientedMeshSeq`.
+    Base class for tests with a trivial :class:`GoalOrientedMeshSeq`.
     """
 
     def setUp(self):
@@ -150,6 +151,11 @@ class TestGlobalEnrichment(unittest.TestCase):
             get_solver=empty_get_solver,
             qoi_type="steady",
         )
+
+class TestGlobalEnrichment(TrivalGoalOrientedBaseClass):
+    """
+    Unit tests for global enrichment of a :class:`GoalOrientedMeshSeq`.
+    """
 
     def get_function_spaces_decorator(self, degree, family, rank):
         def get_function_spaces(mesh):
