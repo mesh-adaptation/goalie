@@ -1,6 +1,7 @@
 from firedrake import *
 from goalie_adjoint import *
 from setup_adjoint_tests import *
+import abc
 from parameterized import parameterized
 import unittest
 
@@ -14,7 +15,27 @@ def get_qoi(mesh_seq, solutions, index):
     return qoi
 
 
-class TestMeshSeq(unittest.TestCase):
+class MeshSeqBaseClass:
+    """
+    Base class for :meth:`fixed_point_iteration` unit tests.
+    """
+
+    @abc.abstractmethod
+    def setUp(self):
+        pass
+
+    def test_update_params(self):
+        def update_params(params, fp_iteration):
+            params.element_rtol = fp_iteration
+
+        self.parameters.miniter = self.parameters.maxiter
+        self.parameters.element_rtol = 0.5
+        mesh_seq = self.mesh_seq(TimeInstant([]), UnitTriangleMesh())
+        mesh_seq.fixed_point_iteration(empty_adaptor, update_params=update_params)
+        self.assertEqual(self.parameters.element_rtol + 1, 5)
+
+
+class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
     """
     Unit tests for :meth:`MeshSeq.fixed_point_iteration`.
     """
@@ -100,17 +121,8 @@ class TestMeshSeq(unittest.TestCase):
         self.assertTrue(np.allclose(mesh_seq.converged, [False, False]))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, [True, True]))
 
-    def test_update_params(self):
-        def update_params(params, fp_iteration):
-            params.element_rtol = fp_iteration
 
-        ap = AdaptParameters({"miniter": 5, "maxiter": 5, "element_rtol": 0.5})
-        mesh_seq = self.mesh_seq(TimeInstant([]), UnitTriangleMesh(), parameters=ap)
-        mesh_seq.fixed_point_iteration(empty_adaptor, update_params=update_params)
-        self.assertEqual(ap.element_rtol + 1, 5)
-
-
-class TestGoalOrientedMeshSeq(unittest.TestCase):
+class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
     """
     Unit tests for :meth:`GoalOrientedMeshSeq.fixed_point_iteration`.
     """
