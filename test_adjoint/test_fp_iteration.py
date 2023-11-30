@@ -192,6 +192,14 @@ class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
         mesh_seq.qoi_values[-1] = 2
         self.assertFalse(mesh_seq.check_qoi_convergence())
 
+    def test_qoi_convergence_check_false(self):
+        self.parameters.drop_out_converged = True
+        mesh_seq = self.mesh_seq()
+        mesh_seq.qoi_values = np.ones((self.parameters.miniter + 1, 1))
+        mesh_seq.check_convergence[:] = True
+        mesh_seq.check_convergence[-1] = False
+        self.assertFalse(mesh_seq.check_qoi_convergence())
+
 
 class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
     """
