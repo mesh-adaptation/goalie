@@ -153,6 +153,7 @@ class TrivalGoalOrientedBaseClass(unittest.TestCase):
             parameters=parameters,
         )
 
+
 class TestGlobalEnrichment(TrivalGoalOrientedBaseClass):
     """
     Unit tests for global enrichment of a :class:`GoalOrientedMeshSeq`.
@@ -172,14 +173,14 @@ class TestGlobalEnrichment(TrivalGoalOrientedBaseClass):
     def test_enrichment_error(self):
         mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("R", 0, 0))
         with self.assertRaises(ValueError) as cm:
-            mesh_seq_e = mesh_seq.get_enriched_mesh_seq(enrichment_method="q")
+            mesh_seq.get_enriched_mesh_seq(enrichment_method="q")
         msg = "Enrichment method 'q' not supported."
         self.assertEqual(str(cm.exception), msg)
 
     def test_num_enrichments_error(self):
         mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("R", 0, 0))
         with self.assertRaises(ValueError) as cm:
-            mesh_seq_e = mesh_seq.get_enriched_mesh_seq(num_enrichments=0)
+            mesh_seq.get_enriched_mesh_seq(num_enrichments=0)
         msg = "A positive number of enrichments is required."
         self.assertEqual(str(cm.exception), msg)
 
@@ -202,8 +203,6 @@ class TestGlobalEnrichment(TrivalGoalOrientedBaseClass):
         mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
             enrichment_method="h", num_enrichments=num_enrichments
         )
-        element = mesh_seq.function_spaces[self.field][0].ufl_element()
-        enriched_element = mesh_seq_e.function_spaces[self.field][0].ufl_element()
         self.assertEqual(mesh_seq[0].num_cells(), 2)
         self.assertEqual(mesh_seq[0].num_vertices(), 4)
         self.assertEqual(mesh_seq[0].num_edges(), 5)
