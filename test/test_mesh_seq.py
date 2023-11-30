@@ -58,27 +58,6 @@ class TestGeneric(unittest.TestCase):
         msg = "'get_solver' needs implementing."
         self.assertEqual(str(cm.exception), msg)
 
-    def test_element_convergence_lt_miniter(self):
-        ap = AdaptParameters({"drop_out_converged": True})
-        mesh_seq = MeshSeq(self.time_interval, [UnitTriangleMesh()], parameters=ap)
-        mesh_seq.check_element_count_convergence()
-        self.assertFalse(mesh_seq.converged)
-
-    def test_element_convergence_true(self):
-        ap = AdaptParameters({"drop_out_converged": True})
-        mesh_seq = MeshSeq(self.time_interval, [UnitTriangleMesh()], parameters=ap)
-        mesh_seq.element_counts = np.ones((mesh_seq.params.miniter + 1, 1))
-        mesh_seq.check_element_count_convergence()
-        self.assertTrue(mesh_seq.converged)
-
-    def test_element_convergence_false(self):
-        ap = AdaptParameters({"drop_out_converged": True})
-        mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)], parameters=ap)
-        mesh_seq.element_counts = np.ones((mesh_seq.params.miniter + 1, 1))
-        mesh_seq.element_counts[-1] = 2
-        mesh_seq.check_element_count_convergence()
-        self.assertFalse(mesh_seq.converged)
-
     def test_counting(self):
         mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(3, 3)])
         self.assertEqual(mesh_seq.count_elements(), [18])

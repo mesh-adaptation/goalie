@@ -127,6 +127,27 @@ class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             parameters=parameters or self.parameters,
         )
 
+    def test_element_convergence_lt_miniter(self):
+        self.parameters.drop_out_converged = True
+        mesh_seq = self.mesh_seq()
+        self.assertFalse(mesh_seq.check_element_count_convergence())
+        self.assertFalse(mesh_seq.converged)
+
+    def test_element_convergence_true(self):
+        self.parameters.drop_out_converged = True
+        mesh_seq = self.mesh_seq()
+        mesh_seq.element_counts = np.ones((mesh_seq.params.miniter + 1, 1))
+        self.assertTrue(mesh_seq.check_element_count_convergence())
+        self.assertTrue(mesh_seq.converged)
+
+    def test_element_convergence_false(self):
+        self.parameters.drop_out_converged = True
+        mesh_seq = self.mesh_seq()
+        mesh_seq.element_counts = np.ones((mesh_seq.params.miniter + 1, 1))
+        mesh_seq.element_counts[-1] = 2
+        self.assertFalse(mesh_seq.check_element_count_convergence())
+        self.assertFalse(mesh_seq.converged)
+
 
 class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
     """
