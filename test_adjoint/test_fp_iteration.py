@@ -28,6 +28,14 @@ class MeshSeqBaseClass:
     def mesh_seq(self, *args, **kwargs):
         pass
 
+    @abc.abstractmethod
+    def set_values(self, mesh_seq, value):
+        pass
+
+    @abc.abstractmethod
+    def check_convergence(self, mesh_seq):
+        pass
+
     def test_convergence_noop(self):
         miniter = self.parameters.miniter
         mesh_seq = self.mesh_seq()
@@ -126,25 +134,32 @@ class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             get_solver=empty_get_solver,
             parameters=parameters or self.parameters,
         )
+    
+    def set_values(self, mesh_seq, value):
+        mesh_seq.element_counts = value
+
+    def check_convergence(self, mesh_seq):
+        return mesh_seq.check_element_count_convergence()
 
     def test_element_convergence_lt_miniter(self):
         mesh_seq = self.mesh_seq()
-        self.assertFalse(mesh_seq.check_element_count_convergence())
+        self.assertFalse(self.check_convergence(mesh_seq))
         self.assertFalse(mesh_seq.converged)
 
     def test_element_convergence_true(self):
         self.parameters.drop_out_converged = True
         mesh_seq = self.mesh_seq()
-        mesh_seq.element_counts = np.ones((mesh_seq.params.miniter + 1, 1))
-        self.assertTrue(mesh_seq.check_element_count_convergence())
+        self.set_values(mesh_seq, np.ones((mesh_seq.params.miniter + 1, 1)))
+        self.assertTrue(self.check_convergence(mesh_seq))
         self.assertTrue(mesh_seq.converged)
 
     def test_element_convergence_false(self):
         self.parameters.drop_out_converged = True
         mesh_seq = self.mesh_seq()
-        mesh_seq.element_counts = np.ones((mesh_seq.params.miniter + 1, 1))
-        mesh_seq.element_counts[-1] = 2
-        self.assertFalse(mesh_seq.check_element_count_convergence())
+        values = np.ones((self.parameters.miniter + 1, 1))
+        values[-1] = 2
+        self.set_values(mesh_seq, values)
+        self.assertFalse(self.check_convergence(mesh_seq))
         self.assertFalse(mesh_seq.converged)
 
 
@@ -175,30 +190,37 @@ class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             parameters=parameters or self.parameters,
             qoi_type=qoi_type,
         )
+    
+    def set_values(self, mesh_seq, value):
+        mesh_seq.qoi_values = value
+
+    def check_convergence(self, mesh_seq):
+        return mesh_seq.check_qoi_convergence()
 
     def test_qoi_convergence_lt_miniter(self):
         mesh_seq = self.mesh_seq()
-        self.assertFalse(mesh_seq.check_qoi_convergence())
+        self.assertFalse(self.check_convergence(mesh_seq))
         self.assertFalse(mesh_seq.converged)
 
     def test_qoi_convergence_true(self):
         mesh_seq = self.mesh_seq()
-        mesh_seq.qoi_values = np.ones((self.parameters.miniter + 1, 1))
-        self.assertTrue(mesh_seq.check_qoi_convergence())
+        self.set_values(mesh_seq, np.ones((mesh_seq.params.miniter + 1, 1)))
+        self.assertTrue(self.check_convergence(mesh_seq))
 
     def test_qoi_convergence_false(self):
         mesh_seq = self.mesh_seq()
-        mesh_seq.qoi_values = np.ones((self.parameters.miniter + 1, 1))
-        mesh_seq.qoi_values[-1] = 2
-        self.assertFalse(mesh_seq.check_qoi_convergence())
+        values = np.ones((self.parameters.miniter + 1, 1))
+        values[-1] = 2
+        self.set_values(mesh_seq, values)
+        self.assertFalse(self.check_convergence(mesh_seq))
 
     def test_qoi_convergence_check_false(self):
         self.parameters.drop_out_converged = True
         mesh_seq = self.mesh_seq()
-        mesh_seq.qoi_values = np.ones((self.parameters.miniter + 1, 1))
+        self.set_values(mesh_seq, np.ones((mesh_seq.params.miniter + 1, 1)))
         mesh_seq.check_convergence[:] = True
         mesh_seq.check_convergence[-1] = False
-        self.assertFalse(mesh_seq.check_qoi_convergence())
+        self.assertFalse(self.check_convergence(mesh_seq))
 
 
 class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
@@ -228,32 +250,39 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             parameters=parameters or self.parameters,
             qoi_type=qoi_type,
         )
+    
+    def set_values(self, mesh_seq, value):
+        mesh_seq.estimator_values = value
+
+    def check_convergence(self, mesh_seq):
+        return mesh_seq.check_estimator_convergence()
 
     def test_estimator_convergence_lt_miniter(self):
         mesh_seq = self.mesh_seq()
-        self.assertFalse(mesh_seq.check_estimator_convergence())
+        self.assertFalse(self.check_convergence(mesh_seq))
         self.assertFalse(mesh_seq.converged)
 
     def test_estimator_convergence_true(self):
         self.parameters.drop_out_converged = True
         mesh_seq = self.mesh_seq()
-        mesh_seq.estimator_values = np.ones((self.parameters.miniter + 1, 1))
-        self.assertTrue(mesh_seq.check_estimator_convergence())
+        self.set_values(mesh_seq, np.ones((mesh_seq.params.miniter + 1, 1)))
+        self.assertTrue(self.check_convergence(mesh_seq))
 
     def test_estimator_convergence_false(self):
         self.parameters.drop_out_converged = True
         mesh_seq = self.mesh_seq()
-        mesh_seq.estimator_values = np.ones((self.parameters.miniter + 1, 1))
-        mesh_seq.estimator_values[-1] = 2
-        self.assertFalse(mesh_seq.check_estimator_convergence())
+        values = np.ones((self.parameters.miniter + 1, 1))
+        values[-1] = 2
+        self.set_values(mesh_seq, values)
+        self.assertFalse(self.check_convergence(mesh_seq))
 
     def test_estimator_convergence_check_false(self):
         self.parameters.drop_out_converged = True
         mesh_seq = self.mesh_seq()
-        mesh_seq.estimator_values = np.ones((self.parameters.miniter + 1, 1))
+        self.set_values(mesh_seq, np.ones((mesh_seq.params.miniter + 1, 1)))
         mesh_seq.check_convergence[:] = True
         mesh_seq.check_convergence[-1] = False
-        self.assertFalse(mesh_seq.check_estimator_convergence())
+        self.assertFalse(self.check_convergence(mesh_seq))
 
     def test_convergence_criteria_all(self):
         mesh = UnitSquareMesh(1, 1)
