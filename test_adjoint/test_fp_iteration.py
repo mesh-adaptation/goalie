@@ -156,6 +156,33 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             qoi_type=qoi_type,
         )
 
+    def test_estimator_convergence_lt_miniter(self):
+        self.parameters.drop_out_converged = True
+        mesh_seq = self.mesh_seq()
+        self.assertFalse(mesh_seq.check_estimator_convergence())
+        self.assertFalse(mesh_seq.converged)
+
+    def test_estimator_convergence_true(self):
+        self.parameters.drop_out_converged = True
+        mesh_seq = self.mesh_seq()
+        mesh_seq.estimator_values = np.ones((self.parameters.miniter + 1, 1))
+        self.assertTrue(mesh_seq.check_estimator_convergence())
+
+    def test_estimator_convergence_false(self):
+        self.parameters.drop_out_converged = True
+        mesh_seq = self.mesh_seq()
+        mesh_seq.estimator_values = np.ones((self.parameters.miniter + 1, 1))
+        mesh_seq.estimator_values[-1] = 2
+        self.assertFalse(mesh_seq.check_estimator_convergence())
+
+    def test_estimator_convergence_check_false(self):
+        self.parameters.drop_out_converged = True
+        mesh_seq = self.mesh_seq()
+        mesh_seq.estimator_values = np.ones((self.parameters.miniter + 1, 1))
+        mesh_seq.check_convergence[:] = True
+        mesh_seq.check_convergence[-1] = False
+        self.assertFalse(mesh_seq.check_estimator_convergence())
+
     def test_convergence_criteria_all(self):
         mesh = UnitSquareMesh(1, 1)
         time_partition = TimePartition(1.0, 1, 0.5, [])
