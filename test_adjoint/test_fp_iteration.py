@@ -30,7 +30,7 @@ class MeshSeqBaseClass:
 
     def test_convergence_noop(self):
         miniter = self.parameters.miniter
-        mesh_seq = self.mesh_seq(TimeInstant([]), UnitTriangleMesh())
+        mesh_seq = self.mesh_seq()
         mesh_seq.fixed_point_iteration(empty_adaptor)
         self.assertEqual(len(mesh_seq.element_counts), miniter + 1)
         self.assertTrue(np.allclose(mesh_seq.converged, True))
@@ -45,7 +45,7 @@ class MeshSeqBaseClass:
             return [False]
 
         maxiter = self.parameters.maxiter
-        mesh_seq = self.mesh_seq(TimeInstant([]), mesh2)
+        mesh_seq = self.mesh_seq(mesh=mesh2)
         mesh_seq.fixed_point_iteration(adaptor)
         self.assertEqual(len(mesh_seq.element_counts), maxiter + 1)
         self.assertTrue(np.allclose(mesh_seq.converged, False))
@@ -56,7 +56,9 @@ class MeshSeqBaseClass:
         mesh2 = UnitTriangleMesh()
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
         self.parameters.drop_out_converged = True
-        mesh_seq = self.mesh_seq(time_partition, mesh2, qoi_type="end_time")
+        mesh_seq = self.mesh_seq(
+            time_partition=time_partition, mesh=mesh2, qoi_type="end_time"
+        )
 
         def adaptor(mesh_seq, *args):
             mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
@@ -74,7 +76,9 @@ class MeshSeqBaseClass:
         mesh2 = UnitTriangleMesh()
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
         self.parameters.drop_out_converged = drop_out_converged
-        mesh_seq = self.mesh_seq(time_partition, mesh2, qoi_type="end_time")
+        mesh_seq = self.mesh_seq(
+            time_partition=time_partition, mesh=mesh2, qoi_type="end_time"
+        )
 
         def adaptor(mesh_seq, *args):
             mesh_seq[1] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
@@ -94,7 +98,7 @@ class MeshSeqBaseClass:
 
         self.parameters.miniter = self.parameters.maxiter
         self.parameters.element_rtol = 0.5
-        mesh_seq = self.mesh_seq(TimeInstant([]), UnitTriangleMesh())
+        mesh_seq = self.mesh_seq()
         mesh_seq.fixed_point_iteration(empty_adaptor, update_params=update_params)
         self.assertEqual(self.parameters.element_rtol + 1, 5)
 
@@ -112,10 +116,10 @@ class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             }
         )
 
-    def mesh_seq(self, time_partition, mesh, parameters=None, **kwargs):
+    def mesh_seq(self, time_partition=None, mesh=None, parameters=None, **kwargs):
         return MeshSeq(
-            time_partition,
-            mesh,
+            time_partition or TimeInstant([]),
+            mesh or UnitTriangleMesh(),
             get_function_spaces=empty_get_function_spaces,
             get_form=empty_get_form,
             get_bcs=empty_get_bcs,
@@ -137,10 +141,12 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             }
         )
 
-    def mesh_seq(self, time_partition, mesh, parameters=None, qoi_type="steady"):
+    def mesh_seq(
+        self, time_partition=None, mesh=None, parameters=None, qoi_type="steady"
+    ):
         return GoalOrientedMeshSeq(
-            time_partition,
-            mesh,
+            time_partition or TimeInstant([]),
+            mesh or UnitTriangleMesh(),
             get_function_spaces=empty_get_function_spaces,
             get_form=empty_get_form,
             get_bcs=empty_get_bcs,
@@ -153,10 +159,9 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
     def test_convergence_criteria_all(self):
         mesh = UnitSquareMesh(1, 1)
         time_partition = TimePartition(1.0, 1, 0.5, [])
-        ap = GoalOrientedParameters(self.parameters)
-        ap.update({"convergence_criteria": "all"})
+        self.parameters.convergence_criteria = "all"
         mesh_seq = self.mesh_seq(
-            time_partition, mesh, parameters=ap, qoi_type="end_time"
+            time_partition=time_partition, mesh=mesh, qoi_type="end_time"
         )
         mesh_seq.fixed_point_iteration(empty_adaptor)
         self.assertTrue(np.allclose(mesh_seq.element_counts, 2))
