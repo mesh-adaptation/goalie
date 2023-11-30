@@ -5,7 +5,6 @@ from firedrake import *
 from goalie_adjoint import *
 from goalie.log import *
 from goalie.mesh_seq import MeshSeq
-from goalie.options import GoalOrientedParameters
 from goalie.go_mesh_seq import GoalOrientedMeshSeq
 from goalie.time_partition import TimeInterval
 from parameterized import parameterized

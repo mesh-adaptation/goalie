@@ -1,12 +1,10 @@
 """
 Testing for the mesh sequence objects.
 """
-from goalie.options import AdaptParameters
 from goalie.mesh_seq import MeshSeq
 from goalie.time_partition import TimePartition, TimeInterval
 from firedrake import *
 from pyadjoint.block_variable import BlockVariable
-import numpy as np
 import re
 import unittest
 from unittest.mock import patch
