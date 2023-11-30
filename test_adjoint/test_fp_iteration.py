@@ -51,6 +51,23 @@ class MeshSeqBaseClass:
         self.assertTrue(np.allclose(mesh_seq.converged, False))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
+    def test_no_late_convergence(self):
+        mesh1 = UnitSquareMesh(1, 1)
+        mesh2 = UnitTriangleMesh()
+        time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
+        self.parameters.drop_out_converged = True
+        mesh_seq = self.mesh_seq(time_partition, mesh2, qoi_type="end_time")
+
+        def adaptor(mesh_seq, *args):
+            mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
+            return [False, False]
+
+        mesh_seq.fixed_point_iteration(adaptor)
+        expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
+        self.assertEqual(mesh_seq.element_counts, expected)
+        self.assertTrue(np.allclose(mesh_seq.converged, [False, False]))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, [True, True]))
+
     def test_update_params(self):
         def update_params(params, fp_iteration):
             params.element_rtol = fp_iteration
@@ -75,7 +92,7 @@ class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             }
         )
 
-    def mesh_seq(self, time_partition, mesh, parameters=None):
+    def mesh_seq(self, time_partition, mesh, parameters=None, **kwargs):
         return MeshSeq(
             time_partition,
             mesh,
@@ -106,24 +123,6 @@ class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
         self.assertTrue(
             np.allclose(mesh_seq.check_convergence, [not drop_out_converged, True])
         )
-
-    def test_no_late_convergence(self):
-        mesh1 = UnitSquareMesh(1, 1)
-        mesh2 = UnitTriangleMesh()
-        time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
-        ap = AdaptParameters(self.parameters)
-        ap.update({"drop_out_converged": True})
-        mesh_seq = self.mesh_seq(time_partition, mesh2, parameters=ap)
-
-        def adaptor(mesh_seq, sols):
-            mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
-            return [False, False]
-
-        mesh_seq.fixed_point_iteration(adaptor)
-        expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
-        self.assertEqual(mesh_seq.element_counts, expected)
-        self.assertTrue(np.allclose(mesh_seq.converged, [False, False]))
-        self.assertTrue(np.allclose(mesh_seq.check_convergence, [True, True]))
 
 
 class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
@@ -174,26 +173,6 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
         self.assertTrue(
             np.allclose(mesh_seq.check_convergence, [not drop_out_converged, True])
         )
-
-    def test_no_late_convergence(self):
-        mesh1 = UnitSquareMesh(1, 1)
-        mesh2 = UnitTriangleMesh()
-        time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
-        ap = GoalOrientedParameters(self.parameters)
-        ap.update({"drop_out_converged": True})
-        mesh_seq = self.mesh_seq(
-            time_partition, mesh2, parameters=ap, qoi_type="end_time"
-        )
-
-        def adaptor(mesh_seq, sols, indicators):
-            mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
-            return [False, False]
-
-        mesh_seq.fixed_point_iteration(adaptor)
-        expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
-        self.assertEqual(mesh_seq.element_counts, expected)
-        self.assertTrue(np.allclose(mesh_seq.converged, [False, False]))
-        self.assertTrue(np.allclose(mesh_seq.check_convergence, [True, True]))
 
     def test_convergence_criteria_all(self):
         mesh = UnitSquareMesh(1, 1)
