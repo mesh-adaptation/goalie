@@ -304,3 +304,12 @@ class TestEstimatorConvergence(TrivalGoalOrientedBaseClass):
         mesh_seq.estimator_values = np.ones((mesh_seq.params.miniter + 1, 1))
         mesh_seq.estimator_values[-1] = 2
         self.assertFalse(mesh_seq.check_estimator_convergence())
+
+    def test_estimator_convergence_check_false(self):
+        mesh_seq = self.go_mesh_seq(
+            GoalOrientedParameters({"drop_out_converged": True})
+        )
+        mesh_seq.estimator_values = np.ones((mesh_seq.params.miniter + 1, 1))
+        mesh_seq.check_convergence[:] = True
+        mesh_seq.check_convergence[-1] = False
+        self.assertFalse(mesh_seq.check_estimator_convergence())
