@@ -284,17 +284,23 @@ class TestEstimatorConvergence(TrivalGoalOrientedBaseClass):
         return super().go_mesh_seq(empty_get_function_spaces, parameters=parameters)
 
     def test_estimator_convergence_lt_miniter(self):
-        mesh_seq = self.go_mesh_seq(GoalOrientedParameters({"drop_out_converged": True}))
+        mesh_seq = self.go_mesh_seq(
+            GoalOrientedParameters({"drop_out_converged": True})
+        )
         mesh_seq.check_estimator_convergence()
         self.assertFalse(mesh_seq.converged)
 
     def test_estimator_convergence_true(self):
-        mesh_seq = self.go_mesh_seq(GoalOrientedParameters({"drop_out_converged": True}))
+        mesh_seq = self.go_mesh_seq(
+            GoalOrientedParameters({"drop_out_converged": True})
+        )
         mesh_seq.estimator_values = np.ones((mesh_seq.params.miniter + 1, 1))
         self.assertTrue(mesh_seq.check_estimator_convergence())
 
     def test_estimator_convergence_false(self):
-        mesh_seq = self.go_mesh_seq(GoalOrientedParameters({"drop_out_converged": True}))
+        mesh_seq = self.go_mesh_seq(
+            GoalOrientedParameters({"drop_out_converged": True})
+        )
         mesh_seq.estimator_values = np.ones((mesh_seq.params.miniter + 1, 1))
         mesh_seq.estimator_values[-1] = 2
         self.assertFalse(mesh_seq.check_estimator_convergence())
