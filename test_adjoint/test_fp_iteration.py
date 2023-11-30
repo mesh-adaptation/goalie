@@ -36,6 +36,21 @@ class MeshSeqBaseClass:
         self.assertTrue(np.allclose(mesh_seq.converged, True))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
+    def test_noconvergence(self):
+        mesh1 = UnitSquareMesh(1, 1)
+        mesh2 = UnitTriangleMesh()
+
+        def adaptor(mesh_seq, *args):
+            mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
+            return [False]
+
+        maxiter = self.parameters.maxiter
+        mesh_seq = self.mesh_seq(TimeInstant([]), mesh2)
+        mesh_seq.fixed_point_iteration(adaptor)
+        self.assertEqual(len(mesh_seq.element_counts), maxiter + 1)
+        self.assertTrue(np.allclose(mesh_seq.converged, False))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
+
     def test_update_params(self):
         def update_params(params, fp_iteration):
             params.element_rtol = fp_iteration
@@ -70,21 +85,6 @@ class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             get_solver=empty_get_solver,
             parameters=parameters or self.parameters,
         )
-
-    def test_noconvergence(self):
-        mesh1 = UnitSquareMesh(1, 1)
-        mesh2 = UnitTriangleMesh()
-
-        def adaptor(mesh_seq, sols):
-            mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
-            return [False]
-
-        maxiter = self.parameters.maxiter
-        mesh_seq = self.mesh_seq(TimeInstant([]), mesh2)
-        mesh_seq.fixed_point_iteration(adaptor)
-        self.assertEqual(len(mesh_seq.element_counts), maxiter + 1)
-        self.assertTrue(np.allclose(mesh_seq.converged, False))
-        self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
     @parameterized.expand([[True], [False]])
     def test_dropout(self, drop_out_converged):
@@ -151,21 +151,6 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             parameters=parameters or self.parameters,
             qoi_type=qoi_type,
         )
-
-    def test_noconvergence(self):
-        mesh1 = UnitSquareMesh(1, 1)
-        mesh2 = UnitTriangleMesh()
-
-        def adaptor(mesh_seq, sols, indicators):
-            mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
-            return [False]
-
-        maxiter = self.parameters.maxiter
-        mesh_seq = self.mesh_seq(TimeInstant([]), mesh2)
-        mesh_seq.fixed_point_iteration(adaptor)
-        self.assertEqual(len(mesh_seq.element_counts), maxiter + 1)
-        self.assertTrue(np.allclose(mesh_seq.converged, False))
-        self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
     @parameterized.expand([[True], [False]])
     def test_dropout(self, drop_out_converged):
