@@ -130,6 +130,14 @@ class MeshSeqBaseClass:
         self.set_values(mesh_seq, values)
         self.assertFalse(self.check_convergence(mesh_seq))
         return mesh_seq
+    
+    def test_convergence_check_false(self):
+        self.parameters.drop_out_converged = True
+        mesh_seq = self.mesh_seq()
+        self.set_values(mesh_seq, np.ones((mesh_seq.params.miniter + 1, 1)))
+        mesh_seq.check_convergence[:] = True
+        mesh_seq.check_convergence[-1] = False
+        self.assertFalse(self.check_convergence(mesh_seq))
 
 
 class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
@@ -203,14 +211,6 @@ class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
     def check_convergence(self, mesh_seq):
         return mesh_seq.check_qoi_convergence()
 
-    def test_qoi_convergence_check_false(self):
-        self.parameters.drop_out_converged = True
-        mesh_seq = self.mesh_seq()
-        self.set_values(mesh_seq, np.ones((mesh_seq.params.miniter + 1, 1)))
-        mesh_seq.check_convergence[:] = True
-        mesh_seq.check_convergence[-1] = False
-        self.assertFalse(self.check_convergence(mesh_seq))
-
 
 class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
     """
@@ -245,14 +245,6 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
 
     def check_convergence(self, mesh_seq):
         return mesh_seq.check_estimator_convergence()
-
-    def test_estimator_convergence_check_false(self):
-        self.parameters.drop_out_converged = True
-        mesh_seq = self.mesh_seq()
-        self.set_values(mesh_seq, np.ones((mesh_seq.params.miniter + 1, 1)))
-        mesh_seq.check_convergence[:] = True
-        mesh_seq.check_convergence[-1] = False
-        self.assertFalse(self.check_convergence(mesh_seq))
 
     def test_convergence_criteria_all(self):
         mesh = UnitSquareMesh(1, 1)
