@@ -110,6 +110,27 @@ class MeshSeqBaseClass:
         mesh_seq.fixed_point_iteration(empty_adaptor, update_params=update_params)
         self.assertEqual(self.parameters.element_rtol + 1, 5)
 
+    def test_convergence_lt_miniter(self):
+        mesh_seq = self.mesh_seq()
+        self.assertFalse(self.check_convergence(mesh_seq))
+        self.assertFalse(mesh_seq.converged)
+
+    def test_convergence_true(self):
+        self.parameters.drop_out_converged = True
+        mesh_seq = self.mesh_seq()
+        self.set_values(mesh_seq, np.ones((mesh_seq.params.miniter + 1, 1)))
+        self.assertTrue(self.check_convergence(mesh_seq))
+        return mesh_seq
+
+    def test_convergence_false(self):
+        self.parameters.drop_out_converged = True
+        mesh_seq = self.mesh_seq()
+        values = np.ones((self.parameters.miniter + 1, 1))
+        values[-1] = 2
+        self.set_values(mesh_seq, values)
+        self.assertFalse(self.check_convergence(mesh_seq))
+        return mesh_seq
+
 
 class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
     """
@@ -140,27 +161,12 @@ class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
 
     def check_convergence(self, mesh_seq):
         return mesh_seq.check_element_count_convergence()
+    
+    def test_converged_array_true(self):
+        self.assertTrue(super().test_convergence_true().converged)
 
-    def test_element_convergence_lt_miniter(self):
-        mesh_seq = self.mesh_seq()
-        self.assertFalse(self.check_convergence(mesh_seq))
-        self.assertFalse(mesh_seq.converged)
-
-    def test_element_convergence_true(self):
-        self.parameters.drop_out_converged = True
-        mesh_seq = self.mesh_seq()
-        self.set_values(mesh_seq, np.ones((mesh_seq.params.miniter + 1, 1)))
-        self.assertTrue(self.check_convergence(mesh_seq))
-        self.assertTrue(mesh_seq.converged)
-
-    def test_element_convergence_false(self):
-        self.parameters.drop_out_converged = True
-        mesh_seq = self.mesh_seq()
-        values = np.ones((self.parameters.miniter + 1, 1))
-        values[-1] = 2
-        self.set_values(mesh_seq, values)
-        self.assertFalse(self.check_convergence(mesh_seq))
-        self.assertFalse(mesh_seq.converged)
+    def test_converged_array_false(self):
+        self.assertFalse(super().test_convergence_false().converged)
 
 
 class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
@@ -196,23 +202,6 @@ class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
 
     def check_convergence(self, mesh_seq):
         return mesh_seq.check_qoi_convergence()
-
-    def test_qoi_convergence_lt_miniter(self):
-        mesh_seq = self.mesh_seq()
-        self.assertFalse(self.check_convergence(mesh_seq))
-        self.assertFalse(mesh_seq.converged)
-
-    def test_qoi_convergence_true(self):
-        mesh_seq = self.mesh_seq()
-        self.set_values(mesh_seq, np.ones((mesh_seq.params.miniter + 1, 1)))
-        self.assertTrue(self.check_convergence(mesh_seq))
-
-    def test_qoi_convergence_false(self):
-        mesh_seq = self.mesh_seq()
-        values = np.ones((self.parameters.miniter + 1, 1))
-        values[-1] = 2
-        self.set_values(mesh_seq, values)
-        self.assertFalse(self.check_convergence(mesh_seq))
 
     def test_qoi_convergence_check_false(self):
         self.parameters.drop_out_converged = True
@@ -256,25 +245,6 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
 
     def check_convergence(self, mesh_seq):
         return mesh_seq.check_estimator_convergence()
-
-    def test_estimator_convergence_lt_miniter(self):
-        mesh_seq = self.mesh_seq()
-        self.assertFalse(self.check_convergence(mesh_seq))
-        self.assertFalse(mesh_seq.converged)
-
-    def test_estimator_convergence_true(self):
-        self.parameters.drop_out_converged = True
-        mesh_seq = self.mesh_seq()
-        self.set_values(mesh_seq, np.ones((mesh_seq.params.miniter + 1, 1)))
-        self.assertTrue(self.check_convergence(mesh_seq))
-
-    def test_estimator_convergence_false(self):
-        self.parameters.drop_out_converged = True
-        mesh_seq = self.mesh_seq()
-        values = np.ones((self.parameters.miniter + 1, 1))
-        values[-1] = 2
-        self.set_values(mesh_seq, values)
-        self.assertFalse(self.check_convergence(mesh_seq))
 
     def test_estimator_convergence_check_false(self):
         self.parameters.drop_out_converged = True
