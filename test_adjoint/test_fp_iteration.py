@@ -128,7 +128,6 @@ class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
         )
 
     def test_element_convergence_lt_miniter(self):
-        self.parameters.drop_out_converged = True
         mesh_seq = self.mesh_seq()
         self.assertFalse(mesh_seq.check_element_count_convergence())
         self.assertFalse(mesh_seq.converged)
@@ -177,6 +176,22 @@ class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             qoi_type=qoi_type,
         )
 
+    def test_qoi_convergence_lt_miniter(self):
+        mesh_seq = self.mesh_seq()
+        self.assertFalse(mesh_seq.check_qoi_convergence())
+        self.assertFalse(mesh_seq.converged)
+
+    def test_qoi_convergence_true(self):
+        mesh_seq = self.mesh_seq()
+        mesh_seq.qoi_values = np.ones((self.parameters.miniter + 1, 1))
+        self.assertTrue(mesh_seq.check_qoi_convergence())
+
+    def test_qoi_convergence_false(self):
+        mesh_seq = self.mesh_seq()
+        mesh_seq.qoi_values = np.ones((self.parameters.miniter + 1, 1))
+        mesh_seq.qoi_values[-1] = 2
+        self.assertFalse(mesh_seq.check_qoi_convergence())
+
 
 class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
     """
@@ -207,7 +222,6 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
         )
 
     def test_estimator_convergence_lt_miniter(self):
-        self.parameters.drop_out_converged = True
         mesh_seq = self.mesh_seq()
         self.assertFalse(mesh_seq.check_estimator_convergence())
         self.assertFalse(mesh_seq.converged)
