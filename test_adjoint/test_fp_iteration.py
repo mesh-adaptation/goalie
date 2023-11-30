@@ -39,12 +39,9 @@ class TestMeshSeq(unittest.TestCase):
         )
 
     def test_convergence_noop(self):
-        def adaptor(mesh_seq, sols):
-            return [False]
-
         miniter = self.parameters.miniter
         mesh_seq = self.mesh_seq(TimeInstant([]), UnitTriangleMesh())
-        mesh_seq.fixed_point_iteration(adaptor)
+        mesh_seq.fixed_point_iteration(empty_adaptor)
         self.assertEqual(len(mesh_seq.element_counts), miniter + 1)
         self.assertTrue(np.allclose(mesh_seq.converged, True))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
@@ -104,15 +101,12 @@ class TestMeshSeq(unittest.TestCase):
         self.assertTrue(np.allclose(mesh_seq.check_convergence, [True, True]))
 
     def test_update_params(self):
-        def adaptor(mesh_seq, sols):
-            return [False]
-        
         def update_params(params, fp_iteration):
             params.element_rtol = fp_iteration
 
         ap = AdaptParameters({"miniter": 5, "maxiter": 5, "element_rtol": 0.5})
         mesh_seq = self.mesh_seq(TimeInstant([]), UnitTriangleMesh(), parameters=ap)
-        mesh_seq.fixed_point_iteration(adaptor, update_params=update_params)
+        mesh_seq.fixed_point_iteration(empty_adaptor, update_params=update_params)
         self.assertEqual(ap.element_rtol + 1, 5)
 
 
@@ -143,12 +137,9 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         )
 
     def test_convergence_noop(self):
-        def adaptor(mesh_seq, sols, indicators):
-            return [False]
-
         miniter = self.parameters.miniter
         mesh_seq = self.mesh_seq(TimeInstant([]), UnitTriangleMesh())
-        mesh_seq.fixed_point_iteration(adaptor)
+        mesh_seq.fixed_point_iteration(empty_adaptor)
         self.assertEqual(len(mesh_seq.element_counts), miniter + 1)
         self.assertTrue(np.allclose(mesh_seq.converged, True))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
@@ -219,11 +210,7 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         mesh_seq = self.mesh_seq(
             time_partition, mesh, parameters=ap, qoi_type="end_time"
         )
-
-        def adaptor(mesh_seq, sols, indicators):
-            return [False]
-
-        mesh_seq.fixed_point_iteration(adaptor)
+        mesh_seq.fixed_point_iteration(empty_adaptor)
         self.assertTrue(np.allclose(mesh_seq.element_counts, 2))
         self.assertTrue(np.allclose(mesh_seq.converged, False))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))

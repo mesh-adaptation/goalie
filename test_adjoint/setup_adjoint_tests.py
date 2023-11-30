@@ -52,3 +52,7 @@ def empty_get_solver(mesh_seq):
         return {}
 
     return solver
+
+
+def empty_adaptor(*args):
+    return [False]
