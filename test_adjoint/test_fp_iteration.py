@@ -149,6 +149,35 @@ class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
         self.assertFalse(mesh_seq.converged)
 
 
+class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
+    """
+    Unit tests for :meth:`AdjointMeshSeq.fixed_point_iteration`.
+    """
+
+    def setUp(self):
+        self.parameters = GoalOrientedParameters(
+            {
+                "miniter": 3,
+                "maxiter": 5,
+            }
+        )
+
+    def mesh_seq(
+        self, time_partition=None, mesh=None, parameters=None, qoi_type="steady"
+    ):
+        return AdjointMeshSeq(
+            time_partition or TimeInstant([]),
+            mesh or UnitTriangleMesh(),
+            get_function_spaces=empty_get_function_spaces,
+            get_form=empty_get_form,
+            get_bcs=empty_get_bcs,
+            get_solver=empty_get_solver,
+            get_qoi=get_qoi,
+            parameters=parameters or self.parameters,
+            qoi_type=qoi_type,
+        )
+
+
 class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
     """
     Unit tests for :meth:`GoalOrientedMeshSeq.fixed_point_iteration`.
