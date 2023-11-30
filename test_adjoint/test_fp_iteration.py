@@ -24,6 +24,18 @@ class MeshSeqBaseClass:
     def setUp(self):
         pass
 
+    @abc.abstractmethod
+    def mesh_seq(self, *args, **kwargs):
+        pass
+
+    def test_convergence_noop(self):
+        miniter = self.parameters.miniter
+        mesh_seq = self.mesh_seq(TimeInstant([]), UnitTriangleMesh())
+        mesh_seq.fixed_point_iteration(empty_adaptor)
+        self.assertEqual(len(mesh_seq.element_counts), miniter + 1)
+        self.assertTrue(np.allclose(mesh_seq.converged, True))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
+
     def test_update_params(self):
         def update_params(params, fp_iteration):
             params.element_rtol = fp_iteration
@@ -58,14 +70,6 @@ class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             get_solver=empty_get_solver,
             parameters=parameters or self.parameters,
         )
-
-    def test_convergence_noop(self):
-        miniter = self.parameters.miniter
-        mesh_seq = self.mesh_seq(TimeInstant([]), UnitTriangleMesh())
-        mesh_seq.fixed_point_iteration(empty_adaptor)
-        self.assertEqual(len(mesh_seq.element_counts), miniter + 1)
-        self.assertTrue(np.allclose(mesh_seq.converged, True))
-        self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
     def test_noconvergence(self):
         mesh1 = UnitSquareMesh(1, 1)
@@ -147,14 +151,6 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             parameters=parameters or self.parameters,
             qoi_type=qoi_type,
         )
-
-    def test_convergence_noop(self):
-        miniter = self.parameters.miniter
-        mesh_seq = self.mesh_seq(TimeInstant([]), UnitTriangleMesh())
-        mesh_seq.fixed_point_iteration(empty_adaptor)
-        self.assertEqual(len(mesh_seq.element_counts), miniter + 1)
-        self.assertTrue(np.allclose(mesh_seq.converged, True))
-        self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
     def test_noconvergence(self):
         mesh1 = UnitSquareMesh(1, 1)
