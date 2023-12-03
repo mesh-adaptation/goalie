@@ -247,16 +247,16 @@ class TestGoalOrientedMeshSeq(TestAdjointMeshSeq):
         )
         mesh_seq.indicators2estimator = MagicMock(return_value=1)
         mesh_seq.fixed_point_iteration(empty_adaptor)
-        print(mesh_seq.estimator_values)
         self.assertTrue(np.allclose(mesh_seq.element_counts, 1))
         self.assertTrue(np.allclose(mesh_seq.converged, True))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
-    # def test_convergence_criteria_any_element(self):
-    #     raise NotImplementedError  # TODO
-
-    # def test_convergence_criteria_any_qoi(self):
-    #     raise NotImplementedError  # TODO
-
-    # def test_convergence_criteria_any_estimator(self):
-    #     raise NotImplementedError  # TODO
+    @parameterized.expand([(True, False, False), (False, True, False), (False, False, True)])
+    def test_convergence_criteria_any(self, element, qoi, estimator):
+        self.parameters.convergence_criteria = "any"
+        mesh_seq = self.mesh_seq(time_partition=TimePartition(1.0, 1, 0.5, []))
+        mesh_seq.check_element_count_convergence = MagicMock(return_value=element)
+        mesh_seq.check_qoi_convergence = MagicMock(return_value=qoi)
+        mesh_seq.check_estimator_convergence = MagicMock(return_value=estimator)
+        mesh_seq.fixed_point_iteration(empty_adaptor)
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
