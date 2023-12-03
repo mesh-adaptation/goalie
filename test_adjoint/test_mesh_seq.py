@@ -272,3 +272,48 @@ class TestGlobalEnrichment(TrivalGoalOrientedBaseClass):
         self.assertEqual(element.family(), enriched_element.family())
         self.assertEqual(element.degree() + num_enrichments, enriched_element.degree())
         self.assertEqual(element.value_shape, enriched_element.value_shape)
+
+    @parameterized.expand(
+        [
+            ("DG", 0, 0, "h", 1),
+            ("DG", 0, 0, "h", 2),
+            ("CG", 1, 0, "h", 1),
+            ("CG", 1, 0, "h", 2),
+            ("CG", 2, 0, "h", 1),
+            ("CG", 2, 0, "h", 2),
+            ("DG", 0, 0, "p", 1),
+            ("DG", 0, 0, "p", 2),
+            ("CG", 1, 0, "p", 1),
+            ("CG", 1, 0, "p", 2),
+            ("CG", 2, 0, "p", 1),
+            ("CG", 2, 0, "p", 2),
+            ("DG", 0, 1, "h", 1),
+            ("DG", 0, 1, "h", 2),
+            ("CG", 1, 1, "h", 1),
+            ("CG", 1, 1, "h", 2),
+            ("CG", 2, 1, "h", 1),
+            ("CG", 2, 1, "h", 2),
+            ("DG", 0, 1, "p", 1),
+            ("DG", 0, 1, "p", 2),
+            ("CG", 1, 1, "p", 1),
+            ("CG", 1, 1, "p", 2),
+            ("CG", 2, 1, "p", 1),
+            ("CG", 2, 1, "p", 2),
+        ]
+    )
+    def test_enrichment_transfer(
+        self, family, degree, rank, enrichment_method, num_enrichments
+    ):
+        mesh_seq = self.go_mesh_seq(
+            self.get_function_spaces_decorator(family, degree, rank)
+        )
+        mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
+            enrichment_method=enrichment_method, num_enrichments=num_enrichments
+        )
+        transfer = mesh_seq._get_transfer_function(enrichment_method)
+        source = Function(mesh_seq.function_spaces["field"][0])
+        x = SpatialCoordinate(mesh_seq[0])
+        source.project(x if rank == 1 else sum(x))
+        target = Function(mesh_seq_e.function_spaces["field"][0])
+        transfer(source, target)
+        self.assertAlmostEqual(norm(source), norm(target))

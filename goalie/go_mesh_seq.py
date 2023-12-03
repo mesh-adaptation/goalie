@@ -77,6 +77,13 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         return mesh_seq_e
 
+    @staticmethod
+    def _get_transfer_function(enrichment_method):
+        if enrichment_method == "h":
+            return TransferManager().prolong
+        else:
+            return lambda source, target: target.interpolate(source)
+
     @PETSc.Log.EventDecorator()
     def indicate_errors(
         self,
@@ -94,16 +101,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :kwarg indicator_fn: function for error indication, which takes the form,
             adjoint error and enriched space(s) as arguments
         """
-        enrichment_method = enrichment_kwargs.get("enrichment_method", "p")
-        if enrichment_method == "h":
-            tm = TransferManager()
-            transfer = tm.prolong
-        else:
-
-            def transfer(source, target):
-                target.interpolate(source)
-
+        enrichment_kwargs.setdefault("enrichment_method", "p")
+        enrichment_kwargs.setdefault("num_enrichments", 1)
         mesh_seq_e = self.get_enriched_mesh_seq(**enrichment_kwargs)
+        transfer = self._get_transfer_function(enrichment_kwargs["enrichment_method"])
+
+        # Solve the forward and adjoint problems on the MeshSeq and its enriched version
         sols = self.solve_adjoint(**adj_kwargs)
         sols_e = mesh_seq_e.solve_adjoint(**adj_kwargs)
 
