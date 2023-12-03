@@ -74,9 +74,7 @@ class MeshSeqBaseClass:
         mesh2 = UnitTriangleMesh()
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
         self.parameters.drop_out_converged = True
-        mesh_seq = self.mesh_seq(
-            time_partition=time_partition, mesh=mesh2, qoi_type="end_time"
-        )
+        mesh_seq = self.mesh_seq(time_partition=time_partition, mesh=mesh2)
 
         def adaptor(mesh_seq, *args):
             mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
@@ -94,9 +92,7 @@ class MeshSeqBaseClass:
         mesh2 = UnitTriangleMesh()
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
         self.parameters.drop_out_converged = drop_out_converged
-        mesh_seq = self.mesh_seq(
-            time_partition=time_partition, mesh=mesh2, qoi_type="end_time"
-        )
+        mesh_seq = self.mesh_seq(time_partition=time_partition, mesh=mesh2)
 
         def adaptor(mesh_seq, *args):
             mesh_seq[1] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
@@ -200,9 +196,8 @@ class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             }
         )
 
-    def mesh_seq(
-        self, time_partition=None, mesh=None, parameters=None, qoi_type="steady"
-    ):
+    def mesh_seq(self, time_partition=None, mesh=None, parameters=None):
+        num_timesteps = 1 if time_partition is None else time_partition.num_timesteps
         return AdjointMeshSeq(
             time_partition or TimeInstant([]),
             mesh or UnitTriangleMesh(),
@@ -212,7 +207,7 @@ class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             get_solver=empty_get_solver,
             get_qoi=oscillating_qoi,
             parameters=parameters or self.parameters,
-            qoi_type=qoi_type,
+            qoi_type="steady" if num_timesteps == 1 else "end_time",
         )
 
     def set_values(self, mesh_seq, value):
@@ -241,8 +236,8 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
         mesh=None,
         parameters=None,
         get_qoi=None,
-        qoi_type="steady",
     ):
+        num_timesteps = 1 if time_partition is None else time_partition.num_timesteps
         return GoalOrientedMeshSeq(
             time_partition or TimeInstant([]),
             mesh or UnitTriangleMesh(),
@@ -252,7 +247,7 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             get_solver=empty_get_solver,
             get_qoi=get_qoi or oscillating_qoi,
             parameters=parameters or self.parameters,
-            qoi_type=qoi_type,
+            qoi_type="steady" if num_timesteps == 1 else "end_time",
         )
 
     def set_values(self, mesh_seq, value):
@@ -263,9 +258,7 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
 
     def test_convergence_criteria_all_false(self):
         self.parameters.convergence_criteria = "all"
-        mesh_seq = self.mesh_seq(
-            time_partition=TimePartition(1.0, 1, 0.5, []), qoi_type="end_time"
-        )
+        mesh_seq = self.mesh_seq(time_partition=TimePartition(1.0, 1, 0.5, []))
         mesh_seq.fixed_point_iteration(empty_adaptor)
         self.assertTrue(np.allclose(mesh_seq.element_counts, 1))
         self.assertTrue(np.allclose(mesh_seq.converged, False))
@@ -276,7 +269,6 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
         mesh_seq = self.mesh_seq(
             time_partition=TimePartition(1.0, 1, 0.5, []),
             get_qoi=constant_qoi,
-            qoi_type="end_time",
         )
         mesh_seq.indicators2estimator = MagicMock(return_value=1)
         mesh_seq.fixed_point_iteration(empty_adaptor)
