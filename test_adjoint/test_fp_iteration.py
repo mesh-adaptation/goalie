@@ -1,6 +1,5 @@
 from firedrake import *
 from goalie_adjoint import *
-from setup_adjoint_tests import *
 import abc
 from parameterized import parameterized
 import unittest
@@ -39,6 +38,10 @@ def oscillating_adaptor1(mesh_seq, *args):
     return [False] * len(mesh_seq)
 
 
+def empty_adaptor(*args):
+    return [False]
+
+
 class MeshSeqBaseClass:
     """
     Base class for :meth:`fixed_point_iteration` unit tests.
@@ -65,10 +68,6 @@ class MeshSeqBaseClass:
         return {
             "time_partition": TimeInstant([]),
             "mesh": UnitTriangleMesh(),
-            "get_function_spaces": empty_get_function_spaces,
-            "get_form": empty_get_form,
-            "get_bcs": empty_get_bcs,
-            "get_solver": empty_get_solver,
             "parameters": self.parameters,
         }
 
@@ -167,7 +166,11 @@ class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
     def mesh_seq(self, **kwargs):
         kw = self.default_kwargs
         kw.update(kwargs)
-        return self.seq(kw.pop("time_partition"), kw.pop("mesh"), **kw)
+        mesh_seq = self.seq(kw.pop("time_partition"), kw.pop("mesh"), **kw)
+        mesh_seq._get_function_spaces = lambda _: {}
+        mesh_seq._get_form = lambda _: lambda *_: {}
+        mesh_seq._get_solver = lambda _: lambda *_: {}
+        return mesh_seq
 
     def set_values(self, mesh_seq, value):
         mesh_seq.element_counts = value
@@ -209,7 +212,11 @@ class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
         tp = kw["time_partition"]
         num_timesteps = 1 if tp is None else tp.num_timesteps
         kw["qoi_type"] = "steady" if num_timesteps == 1 else "end_time"
-        return self.seq(kw.pop("time_partition"), kw.pop("mesh"), **kw)
+        mesh_seq = self.seq(kw.pop("time_partition"), kw.pop("mesh"), **kw)
+        mesh_seq._get_function_spaces = lambda _: {}
+        mesh_seq._get_form = lambda _: lambda *_: {}
+        mesh_seq._get_solver = lambda _: lambda *_: {}
+        return mesh_seq
 
     def set_values(self, mesh_seq, value):
         mesh_seq.qoi_values = value

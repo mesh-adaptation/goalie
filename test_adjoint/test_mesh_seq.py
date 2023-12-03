@@ -9,8 +9,9 @@ from goalie.go_mesh_seq import GoalOrientedMeshSeq
 from goalie.time_partition import TimeInterval
 from parameterized import parameterized
 import logging
+import pyadjoint
+import pytest
 import unittest
-from setup_adjoint_tests import *
 
 
 class TestGetSolveBlocks(unittest.TestCase):
@@ -145,9 +146,6 @@ class TrivalGoalOrientedBaseClass(unittest.TestCase):
             self.time_interval,
             self.meshes,
             get_function_spaces=get_function_spaces,
-            get_form=empty_get_form,
-            get_bcs=empty_get_bcs,
-            get_solver=empty_get_solver,
             qoi_type="steady",
             parameters=parameters,
         )

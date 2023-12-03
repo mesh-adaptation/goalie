@@ -3,7 +3,6 @@ from goalie_adjoint import *
 from goalie.adjoint import annotate_qoi
 import numpy as np
 import unittest
-from setup_adjoint_tests import *
 
 
 class TestAdjointUtils(unittest.TestCase):
