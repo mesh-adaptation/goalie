@@ -46,6 +46,18 @@ class MeshSeqBaseClass:
     def check_convergence(self, mesh_seq):
         pass
 
+    @property
+    def default_kwargs(self):
+        return {
+            "time_partition": TimeInstant([]),
+            "mesh": UnitTriangleMesh(),
+            "get_function_spaces": empty_get_function_spaces,
+            "get_form": empty_get_form,
+            "get_bcs": empty_get_bcs,
+            "get_solver": empty_get_solver,
+            "parameters": self.parameters,
+        }
+
     def test_convergence_noop(self):
         miniter = self.parameters.miniter
         mesh_seq = self.mesh_seq()
@@ -151,6 +163,8 @@ class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
     Unit tests for :meth:`MeshSeq.fixed_point_iteration`.
     """
 
+    seq = MeshSeq
+
     def setUp(self):
         self.parameters = AdaptParameters(
             {
@@ -159,16 +173,10 @@ class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             }
         )
 
-    def mesh_seq(self, time_partition=None, mesh=None, parameters=None, **kwargs):
-        return MeshSeq(
-            time_partition or TimeInstant([]),
-            mesh or UnitTriangleMesh(),
-            get_function_spaces=empty_get_function_spaces,
-            get_form=empty_get_form,
-            get_bcs=empty_get_bcs,
-            get_solver=empty_get_solver,
-            parameters=parameters or self.parameters,
-        )
+    def mesh_seq(self, **kwargs):
+        kw = self.default_kwargs
+        kw.update(kwargs)
+        return self.seq(kw.pop("time_partition"), kw.pop("mesh"), **kw)
 
     def set_values(self, mesh_seq, value):
         mesh_seq.element_counts = value
@@ -188,6 +196,8 @@ class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
     Unit tests for :meth:`AdjointMeshSeq.fixed_point_iteration`.
     """
 
+    seq = AdjointMeshSeq
+
     def setUp(self):
         self.parameters = GoalOrientedParameters(
             {
@@ -196,19 +206,19 @@ class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             }
         )
 
-    def mesh_seq(self, time_partition=None, mesh=None, parameters=None):
-        num_timesteps = 1 if time_partition is None else time_partition.num_timesteps
-        return AdjointMeshSeq(
-            time_partition or TimeInstant([]),
-            mesh or UnitTriangleMesh(),
-            get_function_spaces=empty_get_function_spaces,
-            get_form=empty_get_form,
-            get_bcs=empty_get_bcs,
-            get_solver=empty_get_solver,
-            get_qoi=oscillating_qoi,
-            parameters=parameters or self.parameters,
-            qoi_type="steady" if num_timesteps == 1 else "end_time",
-        )
+    @property
+    def default_kwargs(self):
+        kw = super().default_kwargs
+        kw["get_qoi"] = oscillating_qoi
+        return kw
+
+    def mesh_seq(self, **kwargs):
+        kw = self.default_kwargs.copy()
+        kw.update(kwargs)
+        tp = kw["time_partition"]
+        num_timesteps = 1 if tp is None else tp.num_timesteps
+        kw["qoi_type"] = "steady" if num_timesteps == 1 else "end_time"
+        return self.seq(kw.pop("time_partition"), kw.pop("mesh"), **kw)
 
     def set_values(self, mesh_seq, value):
         mesh_seq.qoi_values = value
@@ -217,38 +227,12 @@ class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
         return mesh_seq.check_qoi_convergence()
 
 
-class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
+class TestGoalOrientedMeshSeq(TestAdjointMeshSeq):
     """
     Unit tests for :meth:`GoalOrientedMeshSeq.fixed_point_iteration`.
     """
 
-    def setUp(self):
-        self.parameters = GoalOrientedParameters(
-            {
-                "miniter": 3,
-                "maxiter": 5,
-            }
-        )
-
-    def mesh_seq(
-        self,
-        time_partition=None,
-        mesh=None,
-        parameters=None,
-        get_qoi=None,
-    ):
-        num_timesteps = 1 if time_partition is None else time_partition.num_timesteps
-        return GoalOrientedMeshSeq(
-            time_partition or TimeInstant([]),
-            mesh or UnitTriangleMesh(),
-            get_function_spaces=empty_get_function_spaces,
-            get_form=empty_get_form,
-            get_bcs=empty_get_bcs,
-            get_solver=empty_get_solver,
-            get_qoi=get_qoi or oscillating_qoi,
-            parameters=parameters or self.parameters,
-            qoi_type="steady" if num_timesteps == 1 else "end_time",
-        )
+    seq = GoalOrientedMeshSeq
 
     def set_values(self, mesh_seq, value):
         mesh_seq.estimator_values = value
