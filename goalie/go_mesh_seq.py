@@ -78,29 +78,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         return mesh_seq_e
 
     @PETSc.Log.EventDecorator()
-    def global_enrichment(
-        self, enrichment_method: str = "p", num_enrichments: int = 1, **kwargs
-    ) -> dict:
-        """
-        Solve the forward and adjoint problems associated with
-        :meth:`~.GoalOrientedMeshSeq.solver` in a sequence of globally enriched spaces.
-
-        Currently, global enrichment may be achieved using one of:
-        * h-refinement (``enrichment_method = 'h'``);
-        * p-refinement (``enrichment_method = 'p'``).
-
-        The number of refinements may be controlled by the keyword argument
-        ``num_enrichments``.
-
-        :kwarg kwargs: keyword arguments to pass to the :meth:`~.AdjointMeshSeq.solve_adjoint` method
-        """
-        mesh_seq = self.get_enriched_mesh_seq(
-            enrichment_method=enrichment_method,
-            num_enrichments=num_enrichments,
-        )
-        return mesh_seq.solve_adjoint(**kwargs)
-
-    @PETSc.Log.EventDecorator()
     def indicate_errors(
         self,
         enrichment_kwargs: dict = {},

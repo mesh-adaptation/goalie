@@ -251,7 +251,9 @@ class TestGoalOrientedMeshSeq(TestAdjointMeshSeq):
         self.assertTrue(np.allclose(mesh_seq.converged, True))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
-    @parameterized.expand([(True, False, False), (False, True, False), (False, False, True)])
+    @parameterized.expand(
+        [(True, False, False), (False, True, False), (False, False, True)]
+    )
     def test_convergence_criteria_any(self, element, qoi, estimator):
         self.parameters.convergence_criteria = "any"
         mesh_seq = self.mesh_seq(time_partition=TimePartition(1.0, 1, 0.5, []))
