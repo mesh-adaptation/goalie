@@ -315,3 +315,29 @@ class TestGlobalEnrichment(TrivalGoalOrientedBaseClass):
         target = Function(mesh_seq_e.function_spaces["field"][0])
         transfer(source, target)
         self.assertAlmostEqual(norm(source), norm(target))
+
+
+class TestErrorIndication(TrivalGoalOrientedBaseClass):
+    """
+    Unit tests for :meth:`indicate_errors`.
+    """
+
+    @staticmethod
+    def constant_qoi(mesh_seq, solutions, index):
+        R = FunctionSpace(mesh_seq[index], "R", 0)
+        return lambda: Function(R).assign(1) * dx
+
+    def test_form_error(self):
+        mesh_seq = GoalOrientedMeshSeq(
+            TimeInstant([]),
+            UnitTriangleMesh(),
+            get_qoi=self.constant_qoi,
+            qoi_type="steady",
+        )
+        mesh_seq._get_function_spaces = lambda _: {}
+        mesh_seq._get_form = lambda _: lambda *_: 0
+        mesh_seq._get_solver = lambda _: lambda *_: {}
+        with self.assertRaises(TypeError) as cm:
+            mesh_seq.fixed_point_iteration(lambda *_: [False])
+        msg = "The function defined by get_form should return a dictionary, not type '<class 'int'>'."
+        self.assertEqual(str(cm.exception), msg)

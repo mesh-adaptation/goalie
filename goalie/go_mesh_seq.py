@@ -155,8 +155,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             forms = mesh_seq_e.form(i, mapping)
             if not isinstance(forms, dict):
                 raise TypeError(
-                    "The function defined by get_form should return a dictionary, not a"
-                    f" {type(forms)}."
+                    "The function defined by get_form should return a dictionary"
+                    f", not type '{type(forms)}'."
                 )
 
             # Loop over each strongly coupled field
