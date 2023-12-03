@@ -25,6 +25,20 @@ def oscillating_qoi(mesh_seq, solutions, index):
     return qoi
 
 
+def oscillating_adaptor0(mesh_seq, *args):
+    mesh_seq[0] = (
+        UnitSquareMesh(1, 1) if mesh_seq.fp_iteration % 2 == 0 else UnitTriangleMesh()
+    )
+    return [False] * len(mesh_seq)
+
+
+def oscillating_adaptor1(mesh_seq, *args):
+    mesh_seq[1] = (
+        UnitSquareMesh(1, 1) if mesh_seq.fp_iteration % 2 == 0 else UnitTriangleMesh()
+    )
+    return [False] * len(mesh_seq)
+
+
 class MeshSeqBaseClass:
     """
     Base class for :meth:`fixed_point_iteration` unit tests.
@@ -67,32 +81,18 @@ class MeshSeqBaseClass:
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
     def test_noconvergence(self):
-        mesh1 = UnitSquareMesh(1, 1)
-        mesh2 = UnitTriangleMesh()
-
-        def adaptor(mesh_seq, *args):
-            mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
-            return [False]
-
         maxiter = self.parameters.maxiter
-        mesh_seq = self.mesh_seq(mesh=mesh2)
-        mesh_seq.fixed_point_iteration(adaptor)
+        mesh_seq = self.mesh_seq(mesh=UnitTriangleMesh())
+        mesh_seq.fixed_point_iteration(oscillating_adaptor0)
         self.assertEqual(len(mesh_seq.element_counts), maxiter + 1)
         self.assertTrue(np.allclose(mesh_seq.converged, False))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
     def test_no_late_convergence(self):
-        mesh1 = UnitSquareMesh(1, 1)
-        mesh2 = UnitTriangleMesh()
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
         self.parameters.drop_out_converged = True
-        mesh_seq = self.mesh_seq(time_partition=time_partition, mesh=mesh2)
-
-        def adaptor(mesh_seq, *args):
-            mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
-            return [False, False]
-
-        mesh_seq.fixed_point_iteration(adaptor)
+        mesh_seq = self.mesh_seq(time_partition=time_partition, mesh=UnitTriangleMesh())
+        mesh_seq.fixed_point_iteration(oscillating_adaptor0)
         expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
         self.assertEqual(mesh_seq.element_counts, expected)
         self.assertTrue(np.allclose(mesh_seq.converged, [False, False]))
@@ -100,17 +100,10 @@ class MeshSeqBaseClass:
 
     @parameterized.expand([[True], [False]])
     def test_dropout(self, drop_out_converged):
-        mesh1 = UnitSquareMesh(1, 1)
-        mesh2 = UnitTriangleMesh()
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
         self.parameters.drop_out_converged = drop_out_converged
-        mesh_seq = self.mesh_seq(time_partition=time_partition, mesh=mesh2)
-
-        def adaptor(mesh_seq, *args):
-            mesh_seq[1] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
-            return [False, False]
-
-        mesh_seq.fixed_point_iteration(adaptor)
+        mesh_seq = self.mesh_seq(time_partition=time_partition, mesh=UnitTriangleMesh())
+        mesh_seq.fixed_point_iteration(oscillating_adaptor1)
         expected = [[1, 1], [1, 2], [1, 1], [1, 2], [1, 1], [1, 2]]
         self.assertEqual(mesh_seq.element_counts, expected)
         self.assertTrue(np.allclose(mesh_seq.converged, [True, False]))
