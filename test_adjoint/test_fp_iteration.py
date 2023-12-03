@@ -82,7 +82,7 @@ class MeshSeqBaseClass:
 
     def test_noconvergence(self):
         maxiter = self.parameters.maxiter
-        mesh_seq = self.mesh_seq(mesh=UnitTriangleMesh())
+        mesh_seq = self.mesh_seq()
         mesh_seq.fixed_point_iteration(oscillating_adaptor0)
         self.assertEqual(len(mesh_seq.element_counts), maxiter + 1)
         self.assertTrue(np.allclose(mesh_seq.converged, False))
@@ -91,7 +91,7 @@ class MeshSeqBaseClass:
     def test_no_late_convergence(self):
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
         self.parameters.drop_out_converged = True
-        mesh_seq = self.mesh_seq(time_partition=time_partition, mesh=UnitTriangleMesh())
+        mesh_seq = self.mesh_seq(time_partition=time_partition)
         mesh_seq.fixed_point_iteration(oscillating_adaptor0)
         expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
         self.assertEqual(mesh_seq.element_counts, expected)
@@ -102,7 +102,7 @@ class MeshSeqBaseClass:
     def test_dropout(self, drop_out_converged):
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
         self.parameters.drop_out_converged = drop_out_converged
-        mesh_seq = self.mesh_seq(time_partition=time_partition, mesh=UnitTriangleMesh())
+        mesh_seq = self.mesh_seq(time_partition=time_partition)
         mesh_seq.fixed_point_iteration(oscillating_adaptor1)
         expected = [[1, 1], [1, 2], [1, 1], [1, 2], [1, 1], [1, 2]]
         self.assertEqual(mesh_seq.element_counts, expected)
