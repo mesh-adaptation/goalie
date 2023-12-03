@@ -52,10 +52,6 @@ class MeshSeqBaseClass:
         pass
 
     @abc.abstractmethod
-    def mesh_seq(self, *args, **kwargs):
-        pass
-
-    @abc.abstractmethod
     def set_values(self, mesh_seq, value):
         pass
 
@@ -70,6 +66,15 @@ class MeshSeqBaseClass:
             "mesh": UnitTriangleMesh(),
             "parameters": self.parameters,
         }
+
+    def mesh_seq(self, **kwargs):
+        kw = self.default_kwargs
+        kw.update(kwargs)
+        mesh_seq = self.seq(kw.pop("time_partition"), kw.pop("mesh"), **kw)
+        mesh_seq._get_function_spaces = lambda _: {}
+        mesh_seq._get_form = lambda _: lambda *_: {}
+        mesh_seq._get_solver = lambda _: lambda *_: {}
+        return mesh_seq
 
     def test_convergence_noop(self):
         miniter = self.parameters.miniter
@@ -163,15 +168,6 @@ class TestMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             }
         )
 
-    def mesh_seq(self, **kwargs):
-        kw = self.default_kwargs
-        kw.update(kwargs)
-        mesh_seq = self.seq(kw.pop("time_partition"), kw.pop("mesh"), **kw)
-        mesh_seq._get_function_spaces = lambda _: {}
-        mesh_seq._get_form = lambda _: lambda *_: {}
-        mesh_seq._get_solver = lambda _: lambda *_: {}
-        return mesh_seq
-
     def set_values(self, mesh_seq, value):
         mesh_seq.element_counts = value
 
@@ -212,11 +208,7 @@ class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
         tp = kw["time_partition"]
         num_timesteps = 1 if tp is None else tp.num_timesteps
         kw["qoi_type"] = "steady" if num_timesteps == 1 else "end_time"
-        mesh_seq = self.seq(kw.pop("time_partition"), kw.pop("mesh"), **kw)
-        mesh_seq._get_function_spaces = lambda _: {}
-        mesh_seq._get_form = lambda _: lambda *_: {}
-        mesh_seq._get_solver = lambda _: lambda *_: {}
-        return mesh_seq
+        return super().mesh_seq(**kw)
 
     def set_values(self, mesh_seq, value):
         mesh_seq.qoi_values = value
