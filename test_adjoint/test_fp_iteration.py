@@ -89,9 +89,8 @@ class MeshSeqBaseClass:
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
     def test_no_late_convergence(self):
-        time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
         self.parameters.drop_out_converged = True
-        mesh_seq = self.mesh_seq(time_partition=time_partition)
+        mesh_seq = self.mesh_seq(time_partition=TimePartition(1.0, 2, [0.5, 0.5], []))
         mesh_seq.fixed_point_iteration(oscillating_adaptor0)
         expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
         self.assertEqual(mesh_seq.element_counts, expected)
@@ -100,9 +99,8 @@ class MeshSeqBaseClass:
 
     @parameterized.expand([[True], [False]])
     def test_dropout(self, drop_out_converged):
-        time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
         self.parameters.drop_out_converged = drop_out_converged
-        mesh_seq = self.mesh_seq(time_partition=time_partition)
+        mesh_seq = self.mesh_seq(time_partition=TimePartition(1.0, 2, [0.5, 0.5], []))
         mesh_seq.fixed_point_iteration(oscillating_adaptor1)
         expected = [[1, 1], [1, 2], [1, 1], [1, 2], [1, 1], [1, 2]]
         self.assertEqual(mesh_seq.element_counts, expected)
