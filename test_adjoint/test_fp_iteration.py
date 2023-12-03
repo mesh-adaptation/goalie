@@ -4,9 +4,19 @@ from setup_adjoint_tests import *
 import abc
 from parameterized import parameterized
 import unittest
+from unittest.mock import MagicMock
 
 
-def get_qoi(mesh_seq, solutions, index):
+def constant_qoi(mesh_seq, solutions, index):
+    R = FunctionSpace(mesh_seq[index], "R", 0)
+
+    def qoi():
+        return Function(R).assign(1) * dx
+
+    return qoi
+
+
+def oscillating_qoi(mesh_seq, solutions, index):
     R = FunctionSpace(mesh_seq[index], "R", 0)
 
     def qoi():
@@ -200,7 +210,7 @@ class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             get_form=empty_get_form,
             get_bcs=empty_get_bcs,
             get_solver=empty_get_solver,
-            get_qoi=get_qoi,
+            get_qoi=oscillating_qoi,
             parameters=parameters or self.parameters,
             qoi_type=qoi_type,
         )
@@ -226,7 +236,12 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
         )
 
     def mesh_seq(
-        self, time_partition=None, mesh=None, parameters=None, qoi_type="steady"
+        self,
+        time_partition=None,
+        mesh=None,
+        parameters=None,
+        get_qoi=None,
+        qoi_type="steady",
     ):
         return GoalOrientedMeshSeq(
             time_partition or TimeInstant([]),
@@ -235,7 +250,7 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
             get_form=empty_get_form,
             get_bcs=empty_get_bcs,
             get_solver=empty_get_solver,
-            get_qoi=get_qoi,
+            get_qoi=get_qoi or oscillating_qoi,
             parameters=parameters or self.parameters,
             qoi_type=qoi_type,
         )
@@ -246,14 +261,35 @@ class TestGoalOrientedMeshSeq(unittest.TestCase, MeshSeqBaseClass):
     def check_convergence(self, mesh_seq):
         return mesh_seq.check_estimator_convergence()
 
-    def test_convergence_criteria_all(self):
-        mesh = UnitSquareMesh(1, 1)
-        time_partition = TimePartition(1.0, 1, 0.5, [])
+    def test_convergence_criteria_all_false(self):
         self.parameters.convergence_criteria = "all"
         mesh_seq = self.mesh_seq(
-            time_partition=time_partition, mesh=mesh, qoi_type="end_time"
+            time_partition=TimePartition(1.0, 1, 0.5, []), qoi_type="end_time"
         )
         mesh_seq.fixed_point_iteration(empty_adaptor)
-        self.assertTrue(np.allclose(mesh_seq.element_counts, 2))
+        self.assertTrue(np.allclose(mesh_seq.element_counts, 1))
         self.assertTrue(np.allclose(mesh_seq.converged, False))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
+
+    def test_convergence_criteria_all_true(self):
+        self.parameters.convergence_criteria = "all"
+        mesh_seq = self.mesh_seq(
+            time_partition=TimePartition(1.0, 1, 0.5, []),
+            get_qoi=constant_qoi,
+            qoi_type="end_time",
+        )
+        mesh_seq.indicators2estimator = MagicMock(return_value=1)
+        mesh_seq.fixed_point_iteration(empty_adaptor)
+        print(mesh_seq.estimator_values)
+        self.assertTrue(np.allclose(mesh_seq.element_counts, 1))
+        self.assertTrue(np.allclose(mesh_seq.converged, True))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
+
+    # def test_convergence_criteria_any_element(self):
+    #     raise NotImplementedError  # TODO
+
+    # def test_convergence_criteria_any_qoi(self):
+    #     raise NotImplementedError  # TODO
+
+    # def test_convergence_criteria_any_estimator(self):
+    #     raise NotImplementedError  # TODO
