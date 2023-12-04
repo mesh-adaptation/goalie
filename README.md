@@ -6,11 +6,11 @@
 
 Goalie provides goal-oriented mesh adaptation pipelines for solving partial differential equations (PDEs) using adapted meshes built on the Python-based finite element library [Firedrake](http://www.firedrakeproject.org/).  It runs a fixed point iteration loop for progressively solving time-dependent PDEs and their adjoints on sequences of meshes, performing goal-oriented error estimation, and adapting the meshes in sequence with a user-provided adaptor function until defined convergence criteria have been met. It is recommended that users are familiar with adjoint methods, mesh adaptation and the goal-oriented framework before starting with Goalie.
 
-Goal-oriented mesh adaptation presents one of the clearest examples of the intersection between adjoint methods and mesh adaptation. It is an advanced topic, so it is highly recommended that users are familiar with adjoint methods, mesh adaptation and the goal-oriented framework before starting with Goalie.
-
 For more information on Firedrake, please see:  [Firedrake documentation](https://firedrakeproject.org/documentation.html).
 
 For more information on the implementation of the adjoint method, please see:  [dolfin-adjoint documentation](http://www.dolfin-adjoint.org/en/latest/documentation/maths/index.html) 
+
+For more information on the goal-oriented mesh adaptation, please see [Goalie documentation]([https://pyroteus.github.io/goalie/2-goal-oriented-error-estimation.html](https://pyroteus.github.io/goalie/3-goal-oriented-mesh-adaptation.html))
 
 ## Linux Installation
 
@@ -30,7 +30,7 @@ Instructions:
 - Download installation files either:
 	-  manually from: or via `curl -O <filename>`
 		- install/install_firedrake_custom_mpi.sh
-		- /install/petsc_options.txt
+		- install/petsc_options.txt
 	- via curl:
 		- `curl -O https://raw.githubusercontent.com/pyroteus/animate/main/install/install_firedrake_custom_mpi.sh`
 		- `curl -O https://raw.githubusercontent.com/pyroteus/animate/main/install/petsc_options.txt`
