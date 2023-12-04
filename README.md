@@ -10,7 +10,7 @@ For more information on Firedrake, please see:  [Firedrake documentation](http
 
 For more information on the implementation of the adjoint method, please see:  [dolfin-adjoint documentation](http://www.dolfin-adjoint.org/en/latest/documentation/maths/index.html). 
 
-For more information on the goal-oriented mesh adaptation, please see: [Goalie documentation](https://pyroteus.github.io/goalie/2-goal-oriented-error-estimation.html](https://pyroteus.github.io/goalie/3-goal-oriented-mesh-adaptation.html).
+For more information on the goal-oriented mesh adaptation, please see: [Goalie documentation](https://pyroteus.github.io/goalie/2-goal-oriented-error-estimation.html](https://pyroteus.github.io/goalie/3-goal-oriented-mesh-adaptation.html)
 
 ## Linux Installation
 
