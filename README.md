@@ -29,8 +29,8 @@ Firedrake, along with PETSc, is required by the Goalie package and is available 
 Instructions:
 - Download installation files either:
 	-  manually from: or via `curl -O <filename>`
-		- install/install_firedrake_custom_mpi.sh
-		- install/petsc_options.txt
+		- `install/install_firedrake_custom_mpi.sh`
+		- `install/petsc_options.txt`
 	- via curl:
 		- `curl -O https://raw.githubusercontent.com/pyroteus/animate/main/install/install_firedrake_custom_mpi.sh`
 		- `curl -O https://raw.githubusercontent.com/pyroteus/animate/main/install/petsc_options.txt`
