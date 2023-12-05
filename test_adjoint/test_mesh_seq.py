@@ -235,7 +235,7 @@ class TestGlobalEnrichment(TrivalGoalOrientedBaseClass):
         self.assertEqual(element.value_shape, enriched_element.value_shape)
 
     def test_p_enrichment_mesh(self):
-        mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("R", 0, 0))
+        mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("CG", 1, 0))
         mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
             enrichment_method="p", num_enrichments=1
         )
