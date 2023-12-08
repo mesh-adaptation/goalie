@@ -312,7 +312,7 @@ class AdjointMeshSeq(MeshSeq):
             else:
                 for field, fs in function_spaces.items():
                     checkpoint[field].block_variable.adj_value = project(
-                        seeds[field], fs[i], adjoint=True
+                        seeds[field], fs[i]
                     )
 
             # Update adjoint solver kwargs
@@ -389,10 +389,8 @@ class AdjointMeshSeq(MeshSeq):
                                 )
                         elif j * stride + 1 == num_solve_blocks:
                             if i + 1 < num_subintervals:
-                                sols.adjoint_next[i][j].assign(
-                                    project(
-                                        sols.adjoint_next[i + 1][0], fs[i], adjoint=True
-                                    )
+                                sols.adjoint_next[i][j].project(
+                                    sols.adjoint_next[i + 1][0], fs[i]
                                 )
                         else:
                             raise IndexError(
