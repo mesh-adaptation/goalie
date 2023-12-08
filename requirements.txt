@@ -1,5 +1,3 @@
 coverage
 parameterized
 pre-commit
-sphinx
-sphinxcontrib-bibtex
