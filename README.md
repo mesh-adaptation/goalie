@@ -35,7 +35,6 @@ Instructions:
 		- `curl -O https://raw.githubusercontent.com/pyroteus/animate/main/install/install_firedrake_custom_mpi.sh`
 		- `curl -O https://raw.githubusercontent.com/pyroteus/animate/main/install/petsc_options.txt`
 -  Install firedrake and associated dependencies to a local environment via `source install_firedrake_custom_mpi.sh`
--  Install firedrake and associated dependencies to a local environment via `source install_firedrake_custom_mpi.sh`
 - Continue to follow the instructions below in "To install Goalie via `git clone`" to complete the installation of Goalie.
 
 ### To install Firedrake via Docker image
