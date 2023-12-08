@@ -1,13 +1,11 @@
 """
 Tools to automate goal-oriented error estimation.
 """
-from .time_partition import TimePartition
 import firedrake
 from firedrake import Function, FunctionSpace
 from firedrake.functionspaceimpl import WithGeometry
 from firedrake.petsc import PETSc
 import ufl
-from collections.abc import Iterable
 from typing import Dict, Optional, Union
 
 
@@ -58,54 +56,6 @@ def form2indicator(F: ufl.form.Form) -> Function:
         },
     )
     return indicator
-
-
-@PETSc.Log.EventDecorator()
-def indicators2estimator(
-    indicators: Iterable, time_partition: TimePartition, absolute_value: bool = False
-) -> float:
-    r"""
-    Deduce the error estimator value associated with error indicator fields defined over
-    a :class:`~.MeshSeq`.
-
-    :arg indicators: the list of list of error indicator
-        :class:`firedrake.function.Function`\s
-    :arg time_partition: the :class:`~.TimePartition` instance for the problem being
-        solved
-    :kwarg absolute_value: toggle whether to take the modulus on each element
-    """
-    if not isinstance(indicators, dict):
-        raise TypeError(
-            f"Expected 'indicators' to be a dict, not '{type(indicators)}'."
-        )
-    if not isinstance(time_partition, TimePartition):
-        raise TypeError(
-            f"Expected 'time_partition' to be a TimePartition, not '{type(time_partition)}'."
-        )
-    if not isinstance(absolute_value, bool):
-        raise TypeError(
-            f"Expected 'absolute_value' to be a bool, not '{type(absolute_value)}'."
-        )
-    estimator = 0
-    for field, by_field in indicators.items():
-        if field not in time_partition.fields:
-            raise ValueError(
-                f"Key '{field}' does not exist in the TimePartition provided."
-            )
-        if isinstance(by_field, Function) or not isinstance(by_field, Iterable):
-            raise TypeError(
-                f"Expected values of 'indicators' to be iterables, not '{type(by_field)}'."
-            )
-        for by_mesh, dt in zip(by_field, time_partition.timesteps):
-            if isinstance(by_mesh, Function) or not isinstance(by_mesh, Iterable):
-                raise TypeError(
-                    f"Expected entries of 'indicators' to be iterables, not '{type(by_mesh)}'."
-                )
-            for indicator in by_mesh:
-                if absolute_value:
-                    indicator.interpolate(abs(indicator))
-                estimator += dt * indicator.vector().gather().sum()
-    return estimator
 
 
 @PETSc.Log.EventDecorator()

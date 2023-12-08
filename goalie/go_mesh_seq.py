@@ -2,12 +2,12 @@
 Drivers for goal-oriented error estimation on sequences of meshes.
 """
 from .adjoint import AdjointMeshSeq
-from .error_estimation import get_dwr_indicator, indicators2estimator
+from .error_estimation import get_dwr_indicator
 from .log import pyrint
 from .utility import AttrDict
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager, project
 from firedrake.petsc import PETSc
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 import numpy as np
 from typing import Tuple
 import ufl
@@ -18,33 +18,31 @@ __all__ = ["GoalOrientedMeshSeq"]
 
 class GoalOrientedMeshSeq(AdjointMeshSeq):
     """
-    An extension of :class:`~.AdjointMeshSeq` to account for
-    goal-oriented problems.
+    An extension of :class:`~.AdjointMeshSeq` to account for goal-oriented problems.
     """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.estimator_values = []
 
-    @PETSc.Log.EventDecorator("goalie.GoalOrientedMeshSeq.get_enriched_mesh_seq")
+    @PETSc.Log.EventDecorator()
     def get_enriched_mesh_seq(
         self, enrichment_method: str = "p", num_enrichments: int = 1
     ) -> AdjointMeshSeq:
         """
         Construct a sequence of globally enriched spaces.
 
-        Currently, global enrichment may be
-        achieved using one of:
+        Currently, global enrichment may be achieved using one of:
         * h-refinement (``enrichment_method = 'h'``);
         * p-refinement (``enrichment_method = 'p'``).
 
-        The number of refinements may be controlled by
-        the keyword argument ``num_enrichments``.
+        The number of refinements may be controlled by the keyword argument
+        ``num_enrichments``.
         """
         if enrichment_method not in ("h", "p"):
-            raise ValueError(f"Enrichment method {enrichment_method} not supported")
+            raise ValueError(f"Enrichment method '{enrichment_method}' not supported.")
         if num_enrichments <= 0:
-            raise ValueError("A positive number of enrichments is required")
+            raise ValueError("A positive number of enrichments is required.")
 
         # Apply h-refinement
         if enrichment_method == "h":
@@ -79,34 +77,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         return mesh_seq_e
 
-    @PETSc.Log.EventDecorator("goalie.GoalOrientedMeshSeq.global_enrichment")
-    def global_enrichment(
-        self, enrichment_method: str = "p", num_enrichments: int = 1, **kwargs
-    ) -> dict:
-        """
-        Solve the forward and adjoint problems
-        associated with
-        :meth:`~.GoalOrientedMeshSeq.solver` in a
-        sequence of globally enriched spaces.
+    @staticmethod
+    def _get_transfer_function(enrichment_method):
+        if enrichment_method == "h":
+            return TransferManager().prolong
+        else:
+            return lambda source, target: target.interpolate(source)
 
-        Currently, global enrichment may be
-        achieved using one of:
-        * h-refinement (``enrichment_method = 'h'``);
-        * p-refinement (``enrichment_method = 'p'``).
-
-        The number of refinements may be controlled by
-        the keyword argument ``num_enrichments``.
-
-        :kwarg kwargs: keyword arguments to pass to the
-            :meth:`~.AdjointMeshSeq.solve_adjoint` method
-        """
-        mesh_seq = self.get_enriched_mesh_seq(
-            enrichment_method=enrichment_method,
-            num_enrichments=num_enrichments,
-        )
-        return mesh_seq.solve_adjoint(**kwargs)
-
-    @PETSc.Log.EventDecorator("goalie.GoalOrientedMeshSeq.indicate_errors")
+    @PETSc.Log.EventDecorator()
     def indicate_errors(
         self,
         enrichment_kwargs: dict = {},
@@ -114,28 +92,21 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         indicator_fn: Callable = get_dwr_indicator,
     ) -> Tuple[dict, AttrDict]:
         """
-        Compute goal-oriented error indicators for each
-        subinterval based on solving the adjoint problem
-        in a globally enriched space.
+        Compute goal-oriented error indicators for each subinterval based on solving the
+        adjoint problem in a globally enriched space.
 
-        :kwarg enrichment_kwargs: keyword arguments to pass
-            to the global enrichment method
-        :kwarg adj_kwargs: keyword arguments to pass to the
-            adjoint solver
-        :kwarg indicator_fn: function for error indication,
-            which takes the form, adjoint error and enriched
-            space(s) as arguments
+        :kwarg enrichment_kwargs: keyword arguments to pass to the global enrichment
+            method
+        :kwarg adj_kwargs: keyword arguments to pass to the adjoint solver
+        :kwarg indicator_fn: function for error indication, which takes the form,
+            adjoint error and enriched space(s) as arguments
         """
-        enrichment_method = enrichment_kwargs.get("enrichment_method", "p")
-        if enrichment_method == "h":
-            tm = TransferManager()
-            transfer = tm.prolong
-        else:
-
-            def transfer(source, target):
-                target.interpolate(source)
-
+        enrichment_kwargs.setdefault("enrichment_method", "p")
+        enrichment_kwargs.setdefault("num_enrichments", 1)
         mesh_seq_e = self.get_enriched_mesh_seq(**enrichment_kwargs)
+        transfer = self._get_transfer_function(enrichment_kwargs["enrichment_method"])
+
+        # Solve the forward and adjoint problems on the MeshSeq and its enriched version
         sols = self.solve_adjoint(**adj_kwargs)
         sols_e = mesh_seq_e.solve_adjoint(**adj_kwargs)
 
@@ -184,8 +155,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             forms = mesh_seq_e.form(i, mapping)
             if not isinstance(forms, dict):
                 raise TypeError(
-                    "The function defined by get_form should return a dictionary, not a"
-                    f" {type(forms)}."
+                    "The function defined by get_form should return a dictionary"
+                    f", not type '{type(forms)}'."
                 )
 
             # Loop over each strongly coupled field
@@ -214,6 +185,47 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
 
         return sols, indicators
+
+    @PETSc.Log.EventDecorator()
+    def indicators2estimator(
+        self, indicators: Iterable, absolute_value: bool = False
+    ) -> float:
+        r"""
+        Deduce the error estimator value associated with error indicator fields defined over
+        a :class:`~.MeshSeq`.
+
+        :arg indicators: the list of list of error indicator
+            :class:`firedrake.function.Function`\s
+        :kwarg absolute_value: toggle whether to take the modulus on each element
+        """
+        if not isinstance(indicators, dict):
+            raise TypeError(
+                f"Expected 'indicators' to be a dict, not '{type(indicators)}'."
+            )
+        if not isinstance(absolute_value, bool):
+            raise TypeError(
+                f"Expected 'absolute_value' to be a bool, not '{type(absolute_value)}'."
+            )
+        estimator = 0
+        for field, by_field in indicators.items():
+            if field not in self.time_partition.fields:
+                raise ValueError(
+                    f"Key '{field}' does not exist in the TimePartition provided."
+                )
+            if isinstance(by_field, Function) or not isinstance(by_field, Iterable):
+                raise TypeError(
+                    f"Expected values of 'indicators' to be iterables, not '{type(by_field)}'."
+                )
+            for by_mesh, dt in zip(by_field, self.time_partition.timesteps):
+                if isinstance(by_mesh, Function) or not isinstance(by_mesh, Iterable):
+                    raise TypeError(
+                        f"Expected entries of 'indicators' to be iterables, not '{type(by_mesh)}'."
+                    )
+                for indicator in by_mesh:
+                    if absolute_value:
+                        indicator.interpolate(abs(indicator))
+                    estimator += dt * indicator.vector().gather().sum()
+        return estimator
 
     def check_estimator_convergence(self):
         """
@@ -294,8 +306,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 break
 
             # Check for error estimator convergence
-            ee = indicators2estimator(indicators, self.time_partition)
-            self.estimator_values.append(ee)
+            self.estimator_values.append(self.indicators2estimator(indicators))
             ee_converged = self.check_estimator_convergence()
             if self.params.convergence_criteria == "any" and ee_converged:
                 self.converged[:] = True

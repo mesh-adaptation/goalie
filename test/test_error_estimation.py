@@ -1,9 +1,9 @@
 from firedrake import *
 from goalie.error_estimation import (
     form2indicator,
-    indicators2estimator,
     get_dwr_indicator,
 )
+from goalie.go_mesh_seq import GoalOrientedMeshSeq
 from goalie.time_partition import TimeInstant, TimePartition
 from parameterized import parameterized
 import unittest
@@ -59,10 +59,17 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
     Unit tests for :func:`indicators2estimator`.
     """
 
+    def mesh_seq(self, time_partition=None):
+        num_timesteps = 1 if time_partition is None else time_partition.num_timesteps
+        return GoalOrientedMeshSeq(
+            time_partition or TimeInstant("field"),
+            self.mesh,
+            qoi_type="steady" if num_timesteps == 1 else "end_time",
+        )
+
     def test_indicators_type_error1(self):
-        time_instant = TimeInstant("field")
         with self.assertRaises(TypeError) as cm:
-            indicators2estimator(self.one, time_instant)
+            self.mesh_seq().indicators2estimator(self.one)
         msg = (
             "Expected 'indicators' to be a dict, not"
             " '<class 'firedrake.function.Function'>'."
@@ -70,9 +77,8 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         self.assertEqual(str(cm.exception), msg)
 
     def test_indicators_type_error2(self):
-        time_instant = TimeInstant("field")
         with self.assertRaises(TypeError) as cm:
-            indicators2estimator({"field": self.one}, time_instant)
+            self.mesh_seq().indicators2estimator({"field": self.one})
         msg = (
             "Expected values of 'indicators' to be iterables, not"
             " '<class 'firedrake.function.Function'>'."
@@ -80,16 +86,14 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         self.assertEqual(str(cm.exception), msg)
 
     def test_indicators_type_error3(self):
-        time_instant = TimeInstant("field")
         with self.assertRaises(TypeError) as cm:
-            indicators2estimator({"field": 1}, time_instant)
+            self.mesh_seq().indicators2estimator({"field": 1})
         msg = "Expected values of 'indicators' to be iterables, not '<class 'int'>'."
         self.assertEqual(str(cm.exception), msg)
 
     def test_indicators_type_error4(self):
-        time_instant = TimeInstant("field")
         with self.assertRaises(TypeError) as cm:
-            indicators2estimator({"field": [self.one]}, time_instant)
+            self.mesh_seq().indicators2estimator({"field": [self.one]})
         msg = (
             "Expected entries of 'indicators' to be iterables, not"
             " '<class 'firedrake.function.Function'>'."
@@ -97,79 +101,66 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         self.assertEqual(str(cm.exception), msg)
 
     def test_indicators_type_error5(self):
-        time_instant = TimeInstant("field")
         with self.assertRaises(TypeError) as cm:
-            indicators2estimator({"field": [1]}, time_instant)
+            self.mesh_seq().indicators2estimator({"field": [1]})
         msg = "Expected entries of 'indicators' to be iterables, not '<class 'int'>'."
         self.assertEqual(str(cm.exception), msg)
 
-    def test_time_partition_type_error(self):
-        with self.assertRaises(TypeError) as cm:
-            indicators2estimator({"field": [self.one]}, 1.0)
-        msg = "Expected 'time_partition' to be a TimePartition, not '<class 'float'>'."
-        self.assertEqual(str(cm.exception), msg)
-
     def test_time_partition_wrong_field_error(self):
-        time_instant = TimeInstant("field")
         with self.assertRaises(ValueError) as cm:
-            indicators2estimator({"f": [[self.one]]}, time_instant)
+            self.mesh_seq().indicators2estimator({"f": [[self.one]]})
         msg = "Key 'f' does not exist in the TimePartition provided."
         self.assertEqual(str(cm.exception), msg)
 
     def test_absolute_value_type_error(self):
-        time_instant = TimeInstant("field")
         with self.assertRaises(TypeError) as cm:
-            indicators2estimator(
-                {"field": [[self.one]]}, time_instant, absolute_value=0
+            self.mesh_seq().indicators2estimator(
+                {"field": [[self.one]]}, absolute_value=0
             )
         msg = "Expected 'absolute_value' to be a bool, not '<class 'int'>'."
         self.assertEqual(str(cm.exception), msg)
 
     def test_unit_time_instant(self):
-        time_instant = TimeInstant("field", time=1.0)
+        mesh_seq = self.mesh_seq(time_partition=TimeInstant("field", time=1.0))
         indicator = form2indicator(self.one * dx)
-        estimator = indicators2estimator({"field": [[indicator]]}, time_instant)
+        estimator = mesh_seq.indicators2estimator({"field": [[indicator]]})
         self.assertAlmostEqual(estimator, 1)  # 1 * (0.5 + 0.5)
 
     @parameterized.expand([[False], [True]])
     def test_unit_time_instant_abs(self, absolute_value):
-        time_instant = TimeInstant("field", time=1.0)
+        mesh_seq = self.mesh_seq(time_partition=TimeInstant("field", time=1.0))
         indicator = form2indicator(-self.one * dx)
-        estimator = indicators2estimator(
-            {"field": [[indicator]]}, time_instant, absolute_value=absolute_value
+        estimator = mesh_seq.indicators2estimator(
+            {"field": [[indicator]]}, absolute_value=absolute_value
         )
         self.assertAlmostEqual(
             estimator, 1 if absolute_value else -1
         )  # (-)1 * (0.5 + 0.5)
 
     def test_half_time_instant(self):
-        time_instant = TimeInstant("field", time=0.5)
+        mesh_seq = self.mesh_seq(time_partition=TimeInstant("field", time=0.5))
         indicator = form2indicator(self.one * dx)
-        estimator = indicators2estimator({"field": [[indicator]]}, time_instant)
+        estimator = mesh_seq.indicators2estimator({"field": [[indicator]]})
         self.assertAlmostEqual(estimator, 0.5)  # 0.5 * (0.5 + 0.5)
 
     def test_time_partition_same_timestep(self):
-        time_partition = TimePartition(1.0, 2, [0.5, 0.5], ["field"])
+        mesh_seq = self.mesh_seq(time_partition=TimePartition(1.0, 2, [0.5, 0.5], ["field"]))
         indicator = form2indicator(self.one * dx)
-        estimator = indicators2estimator({"field": [2 * [indicator]]}, time_partition)
+        estimator = mesh_seq.indicators2estimator({"field": [2 * [indicator]]})
         self.assertAlmostEqual(estimator, 1)  # 2 * 0.5 * (0.5 + 0.5)
 
     def test_time_partition_different_timesteps(self):
-        time_partition = TimePartition(1.0, 2, [0.5, 0.25], ["field"])
+        mesh_seq = self.mesh_seq(time_partition=TimePartition(1.0, 2, [0.5, 0.25], ["field"]))
         indicator = form2indicator(self.one * dx)
-        estimator = indicators2estimator(
-            {"field": [[indicator], 2 * [indicator]]}, time_partition
-        )
+        estimator = mesh_seq.indicators2estimator({"field": [[indicator], 2 * [indicator]]})
         self.assertAlmostEqual(
             estimator, 1
         )  # 0.5 * (0.5 + 0.5) + 0.25 * 2 * (0.5 + 0.5)
 
     def test_time_instant_multiple_fields(self):
-        time_instant = TimeInstant(["field1", "field2"], time=1.0)
+        mesh_seq = self.mesh_seq(time_partition=TimeInstant(["field1", "field2"], time=1.0))
         indicator = form2indicator(self.one * dx)
-        estimator = indicators2estimator(
-            {"field1": [[indicator]], "field2": [[indicator]]}, time_instant
-        )
+        estimator = mesh_seq.indicators2estimator({"field1": [[indicator]], "field2": [[indicator]]})
         self.assertAlmostEqual(estimator, 2)  # 2 * (1 * (0.5 + 0.5))
 
 

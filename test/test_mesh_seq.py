@@ -1,12 +1,10 @@
 """
 Testing for the mesh sequence objects.
 """
-from goalie.options import AdaptParameters
 from goalie.mesh_seq import MeshSeq
 from goalie.time_partition import TimePartition, TimeInterval
 from firedrake import *
 from pyadjoint.block_variable import BlockVariable
-import numpy as np
 import re
 import unittest
 from unittest.mock import patch
@@ -57,27 +55,6 @@ class TestGeneric(unittest.TestCase):
             mesh_seq.get_solver()
         msg = "'get_solver' needs implementing."
         self.assertEqual(str(cm.exception), msg)
-
-    def test_element_convergence_lt_miniter(self):
-        ap = AdaptParameters({"drop_out_converged": True})
-        mesh_seq = MeshSeq(self.time_interval, [UnitTriangleMesh()], parameters=ap)
-        mesh_seq.check_element_count_convergence()
-        self.assertFalse(mesh_seq.converged)
-
-    def test_element_convergence_true(self):
-        ap = AdaptParameters({"drop_out_converged": True})
-        mesh_seq = MeshSeq(self.time_interval, [UnitTriangleMesh()], parameters=ap)
-        mesh_seq.element_counts = np.ones((mesh_seq.params.miniter + 1, 1))
-        mesh_seq.check_element_count_convergence()
-        self.assertTrue(mesh_seq.converged)
-
-    def test_element_convergence_false(self):
-        ap = AdaptParameters({"drop_out_converged": True})
-        mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)], parameters=ap)
-        mesh_seq.element_counts = np.ones((mesh_seq.params.miniter + 1, 1))
-        mesh_seq.element_counts[-1] = 2
-        mesh_seq.check_element_count_convergence()
-        self.assertFalse(mesh_seq.converged)
 
     def test_counting(self):
         mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(3, 3)])
