@@ -132,7 +132,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         for i, mesh in enumerate(self):
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
-            # solutions = {}
             enriched_spaces = {f: mesh_seq_e.function_spaces[f][i] for f in self.fields}
             mapping = {}
             for f, fs_e in enriched_spaces.items():
@@ -142,14 +141,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 u_star[f] = Function(fs_e)
                 u_star_next[f] = Function(fs_e)
                 u_star_e[f] = Function(fs_e)
-                # solutions[f] = [
-                #     self.solutions[f][FWD][i],
-                #     self.solutions[f][FWD_OLD][i],
-                #     self.solutions[f][ADJ][i],
-                #     self.solutions[f][ADJ_NEXT][i],
-                #     mesh_seq_e.solutions[f][ADJ][i],
-                #     mesh_seq_e.solutions[f][ADJ_NEXT][i],
-                # ]
 
             # Get forms for each equation in enriched space
             forms = mesh_seq_e.form(i, mapping)
