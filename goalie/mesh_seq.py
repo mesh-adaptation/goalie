@@ -485,31 +485,34 @@ class MeshSeq:
                 " dependencies."
             )
 
+    def _create_solutions(self):
+        P = self.time_partition
+        labels = ("forward", "forward_old")
+        self._solutions = AttrDict(
+            {
+                field: AttrDict(
+                    {
+                        label: [
+                            [
+                                firedrake.Function(fs, name=f"{field}_{label}")
+                                for j in range(P.num_exports_per_subinterval[i] - 1)
+                            ]
+                            for i, fs in enumerate(self.function_spaces[field])
+                        ]
+                        for label in labels
+                    }
+                )
+                for field in self.fields
+            }
+        )
+
     @property
     def solutions(self):
         """
-        Arrays holding exported forward solutions and their lagged counterparts.
+        Arrays holding exported solution fields and their lagged counterparts.
         """
         if not hasattr(self, "_solutions"):
-            P = self.time_partition
-            labels = ("forward", "forward_old")
-            self._solutions = AttrDict(
-                {
-                    field: AttrDict(
-                        {
-                            label: [
-                                [
-                                    firedrake.Function(fs, name=f"{field}_{label}")
-                                    for j in range(P.num_exports_per_subinterval[i] - 1)
-                                ]
-                                for i, fs in enumerate(self.function_spaces[field])
-                            ]
-                            for label in labels
-                        }
-                    )
-                    for field in self.fields
-                }
-            )
+            self._create_solutions()
         return self._solutions
 
     @PETSc.Log.EventDecorator()

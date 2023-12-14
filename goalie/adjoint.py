@@ -173,35 +173,28 @@ class AdjointMeshSeq(MeshSeq):
                 )
         return solve_blocks
 
-    @property
-    def solutions(self):
-        """
-        Arrays holding exported forward and adjoint solutions and their lagged
-        counterparts, as well as the adjoint actions, if the problem is unsteady.
-        """
-        if not hasattr(self, "_solutions"):
-            P = self.time_partition
-            labels = ("forward", "forward_old", "adjoint")
-            if not self.steady:
-                labels += ("adjoint_next",)
-            self._solutions = AttrDict(
-                {
-                    field: AttrDict(
-                        {
-                            label: [
-                                [
-                                    firedrake.Function(fs, name=f"{field}_{label}")
-                                    for j in range(P.num_exports_per_subinterval[i] - 1)
-                                ]
-                                for i, fs in enumerate(self.function_spaces[field])
+    def _create_solutions(self):
+        P = self.time_partition
+        labels = ("forward", "forward_old", "adjoint")
+        if not self.steady:
+            labels += ("adjoint_next",)
+        self._solutions = AttrDict(
+            {
+                field: AttrDict(
+                    {
+                        label: [
+                            [
+                                firedrake.Function(fs, name=f"{field}_{label}")
+                                for j in range(P.num_exports_per_subinterval[i] - 1)
                             ]
-                            for label in labels
-                        }
-                    )
-                    for field in self.fields
-                }
-            )
-        return self._solutions
+                            for i, fs in enumerate(self.function_spaces[field])
+                        ]
+                        for label in labels
+                    }
+                )
+                for field in self.fields
+            }
+        )
 
     @PETSc.Log.EventDecorator()
     def solve_adjoint(
