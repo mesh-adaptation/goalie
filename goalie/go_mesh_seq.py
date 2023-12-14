@@ -107,8 +107,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         transfer = self._get_transfer_function(enrichment_kwargs["enrichment_method"])
 
         # Solve the forward and adjoint problems on the MeshSeq and its enriched version
-        sols = self.solve_adjoint(**adj_kwargs)
-        sols_e = mesh_seq_e.solve_adjoint(**adj_kwargs)
+        self.solve_adjoint(**adj_kwargs)
+        mesh_seq_e.solve_adjoint(**adj_kwargs)
 
         P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
         indicators = AttrDict(
@@ -132,7 +132,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         for i, mesh in enumerate(self):
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
-            solutions = {}
+            # solutions = {}
             enriched_spaces = {f: mesh_seq_e.function_spaces[f][i] for f in self.fields}
             mapping = {}
             for f, fs_e in enriched_spaces.items():
@@ -142,14 +142,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 u_star[f] = Function(fs_e)
                 u_star_next[f] = Function(fs_e)
                 u_star_e[f] = Function(fs_e)
-                solutions[f] = [
-                    sols[f][FWD][i],
-                    sols[f][FWD_OLD][i],
-                    sols[f][ADJ][i],
-                    sols[f][ADJ_NEXT][i],
-                    sols_e[f][ADJ][i],
-                    sols_e[f][ADJ_NEXT][i],
-                ]
+                # solutions[f] = [
+                #     self.solutions[f][FWD][i],
+                #     self.solutions[f][FWD_OLD][i],
+                #     self.solutions[f][ADJ][i],
+                #     self.solutions[f][ADJ_NEXT][i],
+                #     mesh_seq_e.solutions[f][ADJ][i],
+                #     mesh_seq_e.solutions[f][ADJ_NEXT][i],
+                # ]
 
             # Get forms for each equation in enriched space
             forms = mesh_seq_e.form(i, mapping)
@@ -162,17 +162,21 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             # Loop over each strongly coupled field
             for f in self.fields:
                 # Loop over each timestep
-                for j in range(len(sols[f]["forward"][i])):
+                for j in range(len(self.solutions[f]["forward"][i])):
                     # Update fields
-                    transfer(sols[f][FWD][i][j], u[f])
-                    transfer(sols[f][FWD_OLD][i][j], u_[f])
-                    transfer(sols[f][ADJ][i][j], u_star[f])
-                    transfer(sols[f][ADJ_NEXT][i][j], u_star_next[f])
+                    transfer(self.solutions[f][FWD][i][j], u[f])
+                    transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
+                    transfer(self.solutions[f][ADJ][i][j], u_star[f])
+                    transfer(self.solutions[f][ADJ_NEXT][i][j], u_star_next[f])
 
                     # Combine adjoint solutions as appropriate
                     u_star[f].assign(0.5 * (u_star[f] + u_star_next[f]))
                     u_star_e[f].assign(
-                        0.5 * (sols_e[f][ADJ][i][j] + sols_e[f][ADJ_NEXT][i][j])
+                        0.5
+                        * (
+                            mesh_seq_e.solutions[f][ADJ][i][j]
+                            + mesh_seq_e.solutions[f][ADJ_NEXT][i][j]
+                        )
                     )
                     u_star_e[f] -= u_star[f]
 
@@ -184,7 +188,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     indi.interpolate(abs(indi))
                     indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
 
-        return sols, indicators
+        return self.solutions, indicators
 
     @PETSc.Log.EventDecorator()
     def indicators2estimator(
@@ -289,7 +293,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 update_params(self.params, self.fp_iteration)
 
             # Indicate errors over all meshes
-            sols, indicators = self.indicate_errors(
+            _, indicators = self.indicate_errors(
                 enrichment_kwargs=enrichment_kwargs,
                 adj_kwargs=adj_kwargs,
                 indicator_fn=indicator_fn,
@@ -313,7 +317,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 break
 
             # Adapt meshes and log element counts
-            continue_unconditionally = adaptor(self, sols, indicators)
+            continue_unconditionally = adaptor(self, self.solutions, indicators)
             if self.params.drop_out_converged:
                 self.check_convergence[:] = np.logical_not(
                     np.logical_or(continue_unconditionally, self.converged)
@@ -342,4 +346,4 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                             f" {self.params.maxiter} iterations."
                         )
 
-        return sols, indicators
+        return self.solutions, indicators
