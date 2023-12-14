@@ -678,10 +678,11 @@ class MeshSeq:
                 update_params(self.params, self.fp_iteration)
 
             # Solve the forward problem over all meshes
-            sols = self.solve_forward(solver_kwargs=solver_kwargs)
+            self._create_solutions()
+            self.solve_forward(solver_kwargs=solver_kwargs)
 
             # Adapt meshes, logging element and vertex counts
-            continue_unconditionally = adaptor(self, sols)
+            continue_unconditionally = adaptor(self, self.solutions)
             if self.params.drop_out_converged:
                 self.check_convergence[:] = np.logical_not(
                     np.logical_or(continue_unconditionally, self.converged)
@@ -701,4 +702,4 @@ class MeshSeq:
                         f" {self.params.maxiter} iterations."
                     )
 
-        return sols
+        return self.solutions
