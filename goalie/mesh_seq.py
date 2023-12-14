@@ -485,6 +485,33 @@ class MeshSeq:
                 " dependencies."
             )
 
+    @property
+    def solutions(self):
+        """
+        Arrays holding exported forward solutions and their lagged counterparts.
+        """
+        if not hasattr(self, "_solutions"):
+            P = self.time_partition
+            labels = ("forward", "forward_old")
+            self._solutions = AttrDict(
+                {
+                    field: AttrDict(
+                        {
+                            label: [
+                                [
+                                    firedrake.Function(fs, name=f"{field}_{label}")
+                                    for j in range(P.num_exports_per_subinterval[i] - 1)
+                                ]
+                                for i, fs in enumerate(self.function_spaces[field])
+                            ]
+                            for label in labels
+                        }
+                    )
+                    for field in self.fields
+                }
+            )
+        return self._solutions
+
     @PETSc.Log.EventDecorator()
     def solve_forward(self, solver_kwargs: dict = {}) -> AttrDict:
         """
@@ -509,30 +536,8 @@ class MeshSeq:
             lagged versions.
         """
         num_subintervals = len(self)
-        function_spaces = self.function_spaces
         P = self.time_partition
         solver = self.solver
-
-        # Create arrays to hold exported forward solutions and their lagged
-        # counterparts
-        labels = ("forward", "forward_old")
-        solutions = AttrDict(
-            {
-                field: AttrDict(
-                    {
-                        label: [
-                            [
-                                firedrake.Function(fs, name=f"{field}_{label}")
-                                for j in range(P.num_exports_per_subinterval[i] - 1)
-                            ]
-                            for i, fs in enumerate(function_spaces[field])
-                        ]
-                        for label in labels
-                    }
-                )
-                for field in self.fields
-            }
-        )
 
         # Start annotating
         if pyadjoint.annotate_tape():
@@ -552,7 +557,7 @@ class MeshSeq:
             checkpoint = solver(i, checkpoint, **solver_kwargs)
 
             # Loop over prognostic variables
-            for field, fs in function_spaces.items():
+            for field, fs in self.function_spaces.items():
                 # Get solve blocks
                 solve_blocks = self.get_solve_blocks(field, i)
                 num_solve_blocks = len(solve_blocks)
@@ -576,7 +581,7 @@ class MeshSeq:
                     )
 
                 # Update solution data based on block dependencies and outputs
-                sols = solutions[field]
+                sols = self.solutions[field]
                 for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
                     # Current solution is determined from outputs
                     out = self._output(field, i, block)
@@ -600,7 +605,7 @@ class MeshSeq:
             # Clear the tape to reduce the memory footprint
             pyadjoint.get_working_tape().clear_tape()
 
-        return solutions
+        return self.solutions
 
     def check_element_count_convergence(self):
         """
