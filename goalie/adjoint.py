@@ -214,36 +214,29 @@ class AdjointMeshSeq(MeshSeq):
         """
         Solve an adjoint problem on a sequence of subintervals.
 
-        As well as the quantity of interest value, a dictionary
-        of solution fields is computed, the contents of which
-        give values at all exported timesteps, indexed first by
-        the field label and then by type. The contents of these
-        nested dictionaries are lists which are indexed first by
-        subinterval and then by export. For a given exported
-        timestep, the solution types are:
+        As well as the quantity of interest value, a dictionary of solution fields is
+        computed, the contents of which give values at all exported timesteps, indexed
+        first by the field label and then by type. The contents of these nested
+        dictionaries are lists which are indexed first by subinterval and then by
+        export. For a given exported timestep, the solution types are:
 
-        * ``'forward'``: the forward solution after taking the
-            timestep;
-        * ``'forward_old'``: the forward solution before taking
-            the timestep
-        * ``'adjoint'``: the adjoint solution after taking the
-            timestep;
-        * ``'adjoint_next'``: the adjoint solution before taking
-            the timestep (backwards).
+        * ``'forward'``: the forward solution after taking the timestep;
+        * ``'forward_old'``: the forward solution before taking the timestep
+        * ``'adjoint'``: the adjoint solution after taking the timestep;
+        * ``'adjoint_next'``: the adjoint solution before taking the timestep
+          (backwards).
 
-        :kwarg solver_kwargs: a dictionary providing parameters
-            to the solver. Any keyword arguments for the QoI
-            should be included as a subdict with label 'qoi_kwargs'
-        :kwarg adj_solver_kwargs: a dictionary providing parameters
-            to the adjoint solver.
-        :kwarg get_adj_values: additionally output adjoint
-            actions at exported timesteps
-        :kwarg test_checkpoint_qoi: solve over the final
-            subinterval when checkpointing so that the QoI
-            value can be checked across runs
+        :kwarg solver_kwargs: a dictionary providing parameters to the solver. Any
+            keyword arguments for the QoI should be included as a subdict with label
+            'qoi_kwargs'
+        :kwarg adj_solver_kwargs: a dictionary providing parameters to the adjoint
+            solver.
+        :kwarg get_adj_values: additionally output adjoint actions at exported timesteps
+        :kwarg test_checkpoint_qoi: solve over the final subinterval when checkpointing
+            so that the QoI value can be checked across runs
 
-        :return solution: an :class:`~.AttrDict` containing
-            solution fields and their lagged versions.
+        :return solution: an :class:`~.AttrDict` containing solution fields and their
+            lagged versions. This can also be accessed as :meth:`solutions`.
         """
         P = self.time_partition
         num_subintervals = len(self)
