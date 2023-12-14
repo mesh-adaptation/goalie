@@ -213,7 +213,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 )
             assert not isinstance(by_field, Function) and isinstance(by_field, Iterable)
             for by_mesh, dt in zip(by_field, self.time_partition.timesteps):
-                assert not isinstance(by_mesh, Function) and isinstance(by_mesh, Iterable)
+                assert not isinstance(by_mesh, Function) and isinstance(
+                    by_mesh, Iterable
+                )
                 for indicator in by_mesh:
                     if absolute_value:
                         indicator.interpolate(abs(indicator))
