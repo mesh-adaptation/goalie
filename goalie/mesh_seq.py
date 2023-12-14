@@ -523,17 +523,15 @@ class MeshSeq:
         first by subinterval and then by export. For a given exported timestep, the
         solution types are:
 
-        * ``'forward'``: the forward solution after taking the
-            timestep;
-        * ``'forward_old'``: the forward solution before taking
-            the timestep.
+        * ``'forward'``: the forward solution after taking the timestep;
+        * ``'forward_old'``: the forward solution before taking the timestep.
 
         :kwarg solver_kwargs: a dictionary providing parameters to the solver. Any
             keyword arguments for the QoI should be included as a subdict with label
             'qoi_kwargs'
 
         :return solution: an :class:`~.AttrDict` containing solution fields and their
-            lagged versions.
+            lagged versions. This can also be accessed as :meth:`solutions`.
         """
         num_subintervals = len(self)
         P = self.time_partition
