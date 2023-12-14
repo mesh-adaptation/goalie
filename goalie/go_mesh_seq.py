@@ -293,6 +293,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 update_params(self.params, self.fp_iteration)
 
             # Indicate errors over all meshes
+            self._create_solutions()
             _, indicators = self.indicate_errors(
                 enrichment_kwargs=enrichment_kwargs,
                 adj_kwargs=adj_kwargs,
