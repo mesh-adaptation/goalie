@@ -173,6 +173,36 @@ class AdjointMeshSeq(MeshSeq):
                 )
         return solve_blocks
 
+    @property
+    def solutions(self):
+        """
+        Arrays holding exported forward and adjoint solutions and their lagged
+        counterparts, as well as the adjoint actions, if the problem is unsteady.
+        """
+        if not hasattr(self, "_solutions"):
+            P = self.time_partition
+            labels = ("forward", "forward_old", "adjoint")
+            if not self.steady:
+                labels += ("adjoint_next",)
+            self._solutions = AttrDict(
+                {
+                    field: AttrDict(
+                        {
+                            label: [
+                                [
+                                    firedrake.Function(fs, name=f"{field}_{label}")
+                                    for j in range(P.num_exports_per_subinterval[i] - 1)
+                                ]
+                                for i, fs in enumerate(self.function_spaces[field])
+                            ]
+                            for label in labels
+                        }
+                    )
+                    for field in self.fields
+                }
+            )
+        return self._solutions
+
     @PETSc.Log.EventDecorator()
     def solve_adjoint(
         self,
@@ -215,9 +245,8 @@ class AdjointMeshSeq(MeshSeq):
         :return solution: an :class:`~.AttrDict` containing
             solution fields and their lagged versions.
         """
-        num_subintervals = len(self)
-        function_spaces = self.function_spaces
         P = self.time_partition
+        num_subintervals = len(self)
         solver = self.solver
         qoi_kwargs = solver_kwargs.get("qoi_kwargs", {})
 
@@ -233,33 +262,11 @@ class AdjointMeshSeq(MeshSeq):
         # Reset the QoI to zero
         self.J = 0
 
-        # Create arrays to hold exported forward and adjoint solutions and their lagged
-        # counterparts, as well as the adjoint actions, if requested
-        labels = ("forward", "forward_old", "adjoint")
-        if not self.steady:
-            labels += ("adjoint_next",)
-        solutions = AttrDict(
-            {
-                field: AttrDict(
-                    {
-                        label: [
-                            [
-                                firedrake.Function(fs, name=f"{field}_{label}")
-                                for j in range(P.num_exports_per_subinterval[i] - 1)
-                            ]
-                            for i, fs in enumerate(function_spaces[field])
-                        ]
-                        for label in labels
-                    }
-                )
-                for field in self.fields
-            }
-        )
         if get_adj_values:
             for field in self.fields:
-                solutions[field]["adj_value"] = []
-                for i, fs in enumerate(function_spaces[field]):
-                    solutions[field]["adj_value"].append(
+                self.solutions[field]["adj_value"] = []
+                for i, fs in enumerate(self.function_spaces[field]):
+                    self.solutions[field]["adj_value"].append(
                         [
                             firedrake.Cofunction(fs.dual(), name=f"{field}_adj_value")
                             for j in range(P.num_exports_per_subinterval[i] - 1)
@@ -310,7 +317,7 @@ class AdjointMeshSeq(MeshSeq):
                         self.warning("Zero QoI. Is it implemented as intended?")
                     pyadjoint.pause_annotation()
             else:
-                for field, fs in function_spaces.items():
+                for field, fs in self.function_spaces.items():
                     checkpoint[field].block_variable.adj_value = project(
                         seeds[field], fs[i]
                     )
@@ -329,7 +336,7 @@ class AdjointMeshSeq(MeshSeq):
                         tape.evaluate_adj(markings=True)
 
             # Loop over prognostic variables
-            for field, fs in function_spaces.items():
+            for field, fs in self.function_spaces.items():
                 # Get solve blocks
                 solve_blocks = self.get_solve_blocks(field, i)
                 num_solve_blocks = len(solve_blocks)
@@ -359,7 +366,7 @@ class AdjointMeshSeq(MeshSeq):
 
                 # Update forward and adjoint solution data based on block dependencies
                 # and outputs
-                sols = solutions[field]
+                sols = self.solutions[field]
                 for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
                     # Current forward solution is determined from outputs
                     out = self._output(field, i, block)
@@ -399,7 +406,7 @@ class AdjointMeshSeq(MeshSeq):
                             )
 
                 # Check non-zero adjoint solution/value
-                if np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
+                if np.isclose(norm(self.solutions[field].adjoint[i][0]), 0.0):
                     self.warning(
                         f"Adjoint solution for field '{field}' on {self.th(i)}"
                         " subinterval is zero."
@@ -414,7 +421,7 @@ class AdjointMeshSeq(MeshSeq):
             with pyadjoint.stop_annotating():
                 for field, control in zip(self.fields, self.controls):
                     seeds[field] = firedrake.Cofunction(
-                        function_spaces[field][i].dual()
+                        self.function_spaces[field][i].dual()
                     )
                     if control.block_variable.adj_value is not None:
                         seeds[field].assign(control.block_variable.adj_value)
@@ -436,7 +443,7 @@ class AdjointMeshSeq(MeshSeq):
                 )
 
         tape.clear_tape()
-        return solutions
+        return self.solutions
 
     @staticmethod
     def th(num: int) -> str:
