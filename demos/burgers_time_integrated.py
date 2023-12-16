@@ -109,8 +109,9 @@ def get_qoi(mesh_seq, solutions, i):
     return time_integrated_qoi
 
 
-# We use the same mesh setup as in `the previous demo
-# <./burgers2.py.html>`__ and the same time partitioning. ::
+# We use the same mesh setup as in `the previous demo <./burgers2.py.html>`__ and the
+# same time partitioning, except that we export every timestep rather than every other
+# timestep. ::
 
 n = 32
 meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
@@ -118,7 +119,7 @@ end_time = 0.5
 dt = 1 / n
 num_subintervals = len(meshes)
 time_partition = TimePartition(
-    end_time, num_subintervals, dt, ["u"], num_timesteps_per_export=2
+    end_time, num_subintervals, dt, ["u"], num_timesteps_per_export=1
 )
 
 # The only difference when defining the :class:`AdjointMeshSeq`
