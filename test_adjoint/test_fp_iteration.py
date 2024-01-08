@@ -244,7 +244,7 @@ class TestGoalOrientedMeshSeq(TestAdjointMeshSeq):
             time_partition=TimePartition(1.0, 1, 0.5, []),
             get_qoi=constant_qoi,
         )
-        mesh_seq.indicators2estimator = MagicMock(return_value=1)
+        mesh_seq.error_estimate = MagicMock(return_value=1)
         mesh_seq.fixed_point_iteration(empty_adaptor)
         self.assertTrue(np.allclose(mesh_seq.element_counts, 1))
         self.assertTrue(np.allclose(mesh_seq.converged, True))

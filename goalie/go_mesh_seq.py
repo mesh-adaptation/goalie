@@ -84,6 +84,32 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         else:
             return lambda source, target: target.interpolate(source)
 
+    def _create_indicators(self):
+        P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
+        self._indicators = AttrDict(
+            {
+                field: [
+                    [
+                        Function(fs, name=f"{field}_error_indicator")
+                        for _ in range(
+                            self.time_partition.num_exports_per_subinterval[i] - 1
+                        )
+                    ]
+                    for i, fs in enumerate(P0_spaces)
+                ]
+                for field in self.fields
+            }
+        )
+
+    @property
+    def indicators(self):
+        """
+        Arrays holding exported error indicators.
+        """
+        if not hasattr(self, "_indicators"):
+            self._create_indicators()
+        return self._indicators
+
     @PETSc.Log.EventDecorator()
     def indicate_errors(
         self,
@@ -107,32 +133,16 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         transfer = self._get_transfer_function(enrichment_kwargs["enrichment_method"])
 
         # Solve the forward and adjoint problems on the MeshSeq and its enriched version
-        sols = self.solve_adjoint(**adj_kwargs)
-        sols_e = mesh_seq_e.solve_adjoint(**adj_kwargs)
-
-        P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
-        indicators = AttrDict(
-            {
-                field: [
-                    [
-                        Function(fs, name=f"{field}_error_indicator")
-                        for _ in range(
-                            self.time_partition.num_exports_per_subinterval[i] - 1
-                        )
-                    ]
-                    for i, fs in enumerate(P0_spaces)
-                ]
-                for field in self.fields
-            }
-        )
+        self.solve_adjoint(**adj_kwargs)
+        mesh_seq_e.solve_adjoint(**adj_kwargs)
 
         FWD, ADJ = "forward", "adjoint"
         FWD_OLD = "forward" if self.steady else "forward_old"
         ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
+        P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
         for i, mesh in enumerate(self):
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
-            solutions = {}
             enriched_spaces = {f: mesh_seq_e.function_spaces[f][i] for f in self.fields}
             mapping = {}
             for f, fs_e in enriched_spaces.items():
@@ -142,14 +152,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 u_star[f] = Function(fs_e)
                 u_star_next[f] = Function(fs_e)
                 u_star_e[f] = Function(fs_e)
-                solutions[f] = [
-                    sols[f][FWD][i],
-                    sols[f][FWD_OLD][i],
-                    sols[f][ADJ][i],
-                    sols[f][ADJ_NEXT][i],
-                    sols_e[f][ADJ][i],
-                    sols_e[f][ADJ_NEXT][i],
-                ]
 
             # Get forms for each equation in enriched space
             forms = mesh_seq_e.form(i, mapping)
@@ -162,17 +164,21 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             # Loop over each strongly coupled field
             for f in self.fields:
                 # Loop over each timestep
-                for j in range(len(sols[f]["forward"][i])):
+                for j in range(len(self.solutions[f]["forward"][i])):
                     # Update fields
-                    transfer(sols[f][FWD][i][j], u[f])
-                    transfer(sols[f][FWD_OLD][i][j], u_[f])
-                    transfer(sols[f][ADJ][i][j], u_star[f])
-                    transfer(sols[f][ADJ_NEXT][i][j], u_star_next[f])
+                    transfer(self.solutions[f][FWD][i][j], u[f])
+                    transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
+                    transfer(self.solutions[f][ADJ][i][j], u_star[f])
+                    transfer(self.solutions[f][ADJ_NEXT][i][j], u_star_next[f])
 
                     # Combine adjoint solutions as appropriate
                     u_star[f].assign(0.5 * (u_star[f] + u_star_next[f]))
                     u_star_e[f].assign(
-                        0.5 * (sols_e[f][ADJ][i][j] + sols_e[f][ADJ_NEXT][i][j])
+                        0.5
+                        * (
+                            mesh_seq_e.solutions[f][ADJ][i][j]
+                            + mesh_seq_e.solutions[f][ADJ_NEXT][i][j]
+                        )
                     )
                     u_star_e[f] -= u_star[f]
 
@@ -182,45 +188,34 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     # Project back to the base space
                     indi = project(indi_e, P0_spaces[i])
                     indi.interpolate(abs(indi))
-                    indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
+                    self.indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
 
-        return sols, indicators
+        return self.solutions, self.indicators
 
     @PETSc.Log.EventDecorator()
-    def indicators2estimator(
-        self, indicators: Iterable, absolute_value: bool = False
-    ) -> float:
+    def error_estimate(self, absolute_value: bool = False) -> float:
         r"""
         Deduce the error estimator value associated with error indicator fields defined over
         a :class:`~.MeshSeq`.
 
-        :arg indicators: the list of list of error indicator
-            :class:`firedrake.function.Function`\s
         :kwarg absolute_value: toggle whether to take the modulus on each element
         """
-        if not isinstance(indicators, dict):
-            raise TypeError(
-                f"Expected 'indicators' to be a dict, not '{type(indicators)}'."
-            )
+        assert isinstance(self.indicators, dict)
         if not isinstance(absolute_value, bool):
             raise TypeError(
                 f"Expected 'absolute_value' to be a bool, not '{type(absolute_value)}'."
             )
         estimator = 0
-        for field, by_field in indicators.items():
+        for field, by_field in self.indicators.items():
             if field not in self.time_partition.fields:
                 raise ValueError(
                     f"Key '{field}' does not exist in the TimePartition provided."
                 )
-            if isinstance(by_field, Function) or not isinstance(by_field, Iterable):
-                raise TypeError(
-                    f"Expected values of 'indicators' to be iterables, not '{type(by_field)}'."
-                )
+            assert not isinstance(by_field, Function) and isinstance(by_field, Iterable)
             for by_mesh, dt in zip(by_field, self.time_partition.timesteps):
-                if isinstance(by_mesh, Function) or not isinstance(by_mesh, Iterable):
-                    raise TypeError(
-                        f"Expected entries of 'indicators' to be iterables, not '{type(by_mesh)}'."
-                    )
+                assert not isinstance(by_mesh, Function) and isinstance(
+                    by_mesh, Iterable
+                )
                 for indicator in by_mesh:
                     if absolute_value:
                         indicator.interpolate(abs(indicator))
@@ -289,7 +284,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 update_params(self.params, self.fp_iteration)
 
             # Indicate errors over all meshes
-            sols, indicators = self.indicate_errors(
+            self._create_solutions()
+            self._create_indicators()
+            self.indicate_errors(
                 enrichment_kwargs=enrichment_kwargs,
                 adj_kwargs=adj_kwargs,
                 indicator_fn=indicator_fn,
@@ -306,14 +303,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 break
 
             # Check for error estimator convergence
-            self.estimator_values.append(self.indicators2estimator(indicators))
+            self.estimator_values.append(self.error_estimate())
             ee_converged = self.check_estimator_convergence()
             if self.params.convergence_criteria == "any" and ee_converged:
                 self.converged[:] = True
                 break
 
             # Adapt meshes and log element counts
-            continue_unconditionally = adaptor(self, sols, indicators)
+            continue_unconditionally = adaptor(self, self.solutions, self.indicators)
             if self.params.drop_out_converged:
                 self.check_convergence[:] = np.logical_not(
                     np.logical_or(continue_unconditionally, self.converged)
@@ -342,4 +339,4 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                             f" {self.params.maxiter} iterations."
                         )
 
-        return sols, indicators
+        return self.solutions, self.indicators

@@ -485,6 +485,36 @@ class MeshSeq:
                 " dependencies."
             )
 
+    def _create_solutions(self):
+        P = self.time_partition
+        labels = ("forward", "forward_old")
+        self._solutions = AttrDict(
+            {
+                field: AttrDict(
+                    {
+                        label: [
+                            [
+                                firedrake.Function(fs, name=f"{field}_{label}")
+                                for j in range(P.num_exports_per_subinterval[i] - 1)
+                            ]
+                            for i, fs in enumerate(self.function_spaces[field])
+                        ]
+                        for label in labels
+                    }
+                )
+                for field in self.fields
+            }
+        )
+
+    @property
+    def solutions(self):
+        """
+        Arrays holding exported solution fields and their lagged counterparts.
+        """
+        if not hasattr(self, "_solutions"):
+            self._create_solutions()
+        return self._solutions
+
     @PETSc.Log.EventDecorator()
     def solve_forward(self, solver_kwargs: dict = {}) -> AttrDict:
         """
@@ -496,43 +526,19 @@ class MeshSeq:
         first by subinterval and then by export. For a given exported timestep, the
         solution types are:
 
-        * ``'forward'``: the forward solution after taking the
-            timestep;
-        * ``'forward_old'``: the forward solution before taking
-            the timestep.
+        * ``'forward'``: the forward solution after taking the timestep;
+        * ``'forward_old'``: the forward solution before taking the timestep.
 
         :kwarg solver_kwargs: a dictionary providing parameters to the solver. Any
             keyword arguments for the QoI should be included as a subdict with label
             'qoi_kwargs'
 
         :return solution: an :class:`~.AttrDict` containing solution fields and their
-            lagged versions.
+            lagged versions. This can also be accessed as :meth:`solutions`.
         """
         num_subintervals = len(self)
-        function_spaces = self.function_spaces
         P = self.time_partition
         solver = self.solver
-
-        # Create arrays to hold exported forward solutions and their lagged
-        # counterparts
-        labels = ("forward", "forward_old")
-        solutions = AttrDict(
-            {
-                field: AttrDict(
-                    {
-                        label: [
-                            [
-                                firedrake.Function(fs, name=f"{field}_{label}")
-                                for j in range(P.num_exports_per_subinterval[i] - 1)
-                            ]
-                            for i, fs in enumerate(function_spaces[field])
-                        ]
-                        for label in labels
-                    }
-                )
-                for field in self.fields
-            }
-        )
 
         # Start annotating
         if pyadjoint.annotate_tape():
@@ -552,7 +558,7 @@ class MeshSeq:
             checkpoint = solver(i, checkpoint, **solver_kwargs)
 
             # Loop over prognostic variables
-            for field, fs in function_spaces.items():
+            for field, fs in self.function_spaces.items():
                 # Get solve blocks
                 solve_blocks = self.get_solve_blocks(field, i)
                 num_solve_blocks = len(solve_blocks)
@@ -576,7 +582,7 @@ class MeshSeq:
                     )
 
                 # Update solution data based on block dependencies and outputs
-                sols = solutions[field]
+                sols = self.solutions[field]
                 for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
                     # Current solution is determined from outputs
                     out = self._output(field, i, block)
@@ -600,7 +606,7 @@ class MeshSeq:
             # Clear the tape to reduce the memory footprint
             pyadjoint.get_working_tape().clear_tape()
 
-        return solutions
+        return self.solutions
 
     def check_element_count_convergence(self):
         """
@@ -672,10 +678,11 @@ class MeshSeq:
                 update_params(self.params, self.fp_iteration)
 
             # Solve the forward problem over all meshes
-            sols = self.solve_forward(solver_kwargs=solver_kwargs)
+            self._create_solutions()
+            self.solve_forward(solver_kwargs=solver_kwargs)
 
             # Adapt meshes, logging element and vertex counts
-            continue_unconditionally = adaptor(self, sols)
+            continue_unconditionally = adaptor(self, self.solutions)
             if self.params.drop_out_converged:
                 self.check_convergence[:] = np.logical_not(
                     np.logical_or(continue_unconditionally, self.converged)
@@ -695,4 +702,4 @@ class MeshSeq:
                         f" {self.params.maxiter} iterations."
                     )
 
-        return sols
+        return self.solutions
