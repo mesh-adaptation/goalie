@@ -382,7 +382,9 @@ class AdjointMeshSeq(MeshSeq):
                                 )
                         elif j * stride + 1 == num_solve_blocks:
                             if i + 1 < num_subintervals:
-                                sols.adjoint_next[i][j].project(sols.adjoint_next[i + 1][0])
+                                sols.adjoint_next[i][j].project(
+                                    sols.adjoint_next[i + 1][0]
+                                )
                         else:
                             raise IndexError(
                                 "Cannot extract solve block"

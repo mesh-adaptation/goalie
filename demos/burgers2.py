@@ -99,7 +99,11 @@ dt = 1 / n
 
 num_subintervals = len(meshes)
 time_partition = TimePartition(
-    end_time, num_subintervals, dt, fields, num_timesteps_per_export=2,
+    end_time,
+    num_subintervals,
+    dt,
+    fields,
+    num_timesteps_per_export=2,
 )
 mesh_seq = AdjointMeshSeq(
     time_partition,
