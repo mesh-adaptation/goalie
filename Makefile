@@ -36,11 +36,6 @@ demo:
 	@cd demos && make
 	@echo "Done."
 
-doc: demo
-	@echo "Building docs in html format..."
-	@cd docs && make html
-	@echo "Done."
-
 tree:
 	@tree -d .
 
