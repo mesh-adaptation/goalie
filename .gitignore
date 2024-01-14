@@ -1,8 +1,4 @@
 # Directories
-bench/
-build/
-data/
-docs/source/demos/
 htmlcov*
 outputs/
 plots/
@@ -11,7 +7,6 @@ goalie.egg-info/
 
 # Specific files
 .coverage
-docs/source/goalie.rst
 
 # File extensions
 *.ipynb*
