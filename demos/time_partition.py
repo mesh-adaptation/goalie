@@ -97,7 +97,9 @@ P = TimePartition(end_time, num_subintervals, dt, fields, num_timesteps_per_expo
 # This can be remedied by also setting
 # ``num_timesteps_per_export`` as a list. ::
 
-P = TimePartition(end_time, num_subintervals, dt, fields, num_timesteps_per_export=[2, 4])
+P = TimePartition(
+    end_time, num_subintervals, dt, fields, num_timesteps_per_export=[2, 4]
+)
 
 # So far, we have assumed that the subintervals
 # are of uniform length. This need not be the case.

@@ -9,10 +9,13 @@ install:
 	@echo "Installing Goalie..."
 	@python3 -m pip install -e .
 	@echo "Done."
+	@echo "Setting up pre-commit..."
+	@pre-commit install
+	@echo "Done."
 
 lint:
 	@echo "Checking lint..."
-	@flake8 --ignore=E501,E226,E402,E741,F403,F405,W503
+	@flake8
 	@echo "PASS"
 
 test: lint
@@ -31,11 +34,6 @@ coverage:
 demo:
 	@echo "Running all demos..."
 	@cd demos && make
-	@echo "Done."
-
-doc: demo
-	@echo "Building docs in html format..."
-	@cd docs && make html
 	@echo "Done."
 
 tree:
