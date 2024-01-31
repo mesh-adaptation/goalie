@@ -3,6 +3,7 @@ Utility functions and classes for mesh adaptation.
 """
 from collections import OrderedDict
 import firedrake
+import firedrake.mesh as fmesh
 from firedrake.petsc import PETSc
 import mpi4py
 import numpy as np
@@ -29,6 +30,8 @@ def Mesh(arg, **kwargs) -> firedrake.mesh.MeshGeometry:
         mesh = firedrake.Mesh(arg, **kwargs)
     except TypeError:
         mesh = firedrake.Mesh(arg.coordinates, **kwargs)
+    if isinstance(mesh._topology, fmesh.VertexOnlyMeshTopology):
+        return mesh
     P0 = firedrake.FunctionSpace(mesh, "DG", 0)
     P1 = firedrake.FunctionSpace(mesh, "CG", 1)
     dim = mesh.topological_dimension()
