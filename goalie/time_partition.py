@@ -2,7 +2,6 @@
 Partitioning for the temporal domain.
 """
 from .log import debug
-from .utility import AttrDict
 from collections.abc import Iterable
 import numpy as np
 from typing import List, Optional, Union
@@ -157,17 +156,15 @@ class TimePartition:
         :return: subinterval bounds and timestep
             associated with that index
         """
-        return AttrDict(
-            {
-                "subinterval": self.subintervals[i],
-                "timestep": self.timesteps[i],
-                "num_timesteps_per_export": self.num_timesteps_per_export[i],
-                "num_exports": self.num_exports_per_subinterval[i],
-                "num_timesteps": self.num_timesteps_per_subinterval[i],
-                "start_time": self.subintervals[i][0],
-                "end_time": self.subintervals[i][1],
-                "length": self.subintervals[i][1] - self.subintervals[i][0],
-            }
+        return TimePartition(
+            end_time=self.subintervals[i][1],
+            num_subintervals=1,
+            timesteps=self.timesteps[i],
+            fields=self.fields,
+            num_timesteps_per_export=self.num_timesteps_per_export[i],
+            start_time=self.subintervals[i][0],
+            subintervals=self.subintervals[i],
+            field_types=self.field_types,
         )
 
     @property
