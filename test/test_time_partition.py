@@ -258,5 +258,38 @@ class TestStringFormatting(unittest.TestCase):
         self.assertEqual(repr(time_instant), expected)
 
 
+class TestIndexing(unittest.TestCase):
+    r"""
+    Unit tests for indexing :class:`~.TimePartition`\s.
+    """
+
+    def setUp(self):
+        self.end_time = 1.0
+        self.fields = ["field"]
+
+    def test_time_interval(self):
+        time_interval = TimeInterval(self.end_time, [0.5], self.fields)
+        self.assertEqual(time_interval, time_interval[0])
+
+    def test_time_instant(self):
+        time_instant = TimeInstant(self.fields, time=self.end_time)
+        self.assertEqual(time_instant, time_instant[0])
+
+    def test_time_partition(self):
+        timesteps = [0.5, 0.25]
+        time_partition = TimePartition(self.end_time, 2, timesteps, self.fields)
+        tp0, tp1 = time_partition
+        self.assertEqual(len(tp0), 1)
+        self.assertEqual(len(tp1), 1)
+        self.assertAlmostEqual(tp0.start_time, 0.0)
+        self.assertAlmostEqual(tp0.end_time, 0.5)
+        self.assertAlmostEqual(tp0.end_time, tp1.start_time)
+        self.assertAlmostEqual(tp1.end_time, 1.0)
+        self.assertAlmostEqual(tp0.timesteps[0], timesteps[0])
+        self.assertAlmostEqual(tp1.timesteps[0], timesteps[1])
+        self.assertEqual(tp0.fields, self.fields)
+        self.assertEqual(tp0.fields, tp1.fields)
+
+
 if __name__ == "__main__":
     unittest.main()
