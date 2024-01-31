@@ -153,8 +153,7 @@ class TimePartition:
     def __getitem__(self, i: int) -> dict:
         """
         :arg i: index
-        :return: subinterval bounds and timestep
-            associated with that index
+        :return: subinterval bounds and timestep associated with that index
         """
         return TimePartition(
             end_time=self.subintervals[i][1],
@@ -163,7 +162,6 @@ class TimePartition:
             fields=self.fields,
             num_timesteps_per_export=self.num_timesteps_per_export[i],
             start_time=self.subintervals[i][0],
-            subintervals=self.subintervals[i],
             field_types=self.field_types,
         )
 
