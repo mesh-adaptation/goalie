@@ -117,6 +117,10 @@ class MeshSeq:
     def count_vertices(self) -> list:
         return [mesh.num_vertices() for mesh in self]  # TODO: make parallel safe
 
+    def reset_counts(self):
+        self.element_counts = [self.count_elements()]
+        self.vertex_counts = [self.count_vertices()]
+
     def set_meshes(self, meshes):
         """
         Update the meshes associated with the :class:`MeshSeq`, as well as the
@@ -131,8 +135,7 @@ class MeshSeq:
         if dim.min() != dim.max():
             raise ValueError("Meshes must all have the same topological dimension.")
         self.dim = dim.min()
-        self.element_counts = [self.count_elements()]
-        self.vertex_counts = [self.count_vertices()]
+        self.reset_counts()
         if logger.level == DEBUG:
             for i, mesh in enumerate(meshes):
                 nc = mesh.num_cells()
