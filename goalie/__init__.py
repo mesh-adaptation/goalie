@@ -6,6 +6,7 @@ from goalie.math import *  # noqa
 from goalie.metric import *  # noqa
 from goalie.mesh_seq import *  # noqa
 from goalie.options import *  # noqa
+from goalie.point_seq import *  # noqa
 from goalie.interpolation import *  # noqa
 from goalie.error_estimation import *  # noqa
 
