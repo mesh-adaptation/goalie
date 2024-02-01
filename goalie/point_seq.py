@@ -18,5 +18,8 @@ class PointSeq(MeshSeq):
         mesh = fmesh.VertexOnlyMesh(firedrake.UnitIntervalMesh(1), [[0.5]])
         super().__init__(time_partition, mesh, **kwargs)
 
-    def set_meshes(self, meshes, copy=False):
-        super().set_meshes(meshes, copy=copy)
+    def set_meshes(self, mesh):
+        # TODO: docstring
+        self.meshes = [mesh for _ in self.subintervals]
+        self.dim = mesh.topological_dimension()
+        self.reset_counts()
