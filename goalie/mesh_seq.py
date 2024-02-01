@@ -115,7 +115,7 @@ class MeshSeq:
 
     def set_meshes(self, meshes):
         """
-        Update the meshes associated with the :class:`MeshSeq`, as well as the
+        Update the meshes associated with the :class:`~.MeshSeq`, as well as the
         associated attributes.
 
         :arg meshes: mesh or list of meshes to use in the sequence

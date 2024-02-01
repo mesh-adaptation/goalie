@@ -14,12 +14,33 @@ class PointSeq(MeshSeq):
     """
 
     def __init__(self, time_partition, **kwargs):
-        # TODO: docstring
+        r"""
+        :arg time_partition: the :class:`~.TimePartition` which partitions the temporal
+            domain
+        :kwarg get_function_spaces: a function, whose only argument is a
+            :class:`~.MeshSeq`, which constructs prognostic
+            :class:`firedrake.functionspaceimpl.FunctionSpace`\s for each subinterval
+        :kwarg get_initial_condition: a function, whose only argument is a
+            :class:`~.MeshSeq`, which specifies initial conditions on the first mesh
+        :kwarg get_form: a function, whose only argument is a :class:`~.MeshSeq`, which
+            returns a function that generates the PDE weak form
+        :kwarg get_solver: a function, whose only argument is a :class:`~.MeshSeq`,
+            which returns a function that integrates initial data over a subinterval
+        :kwarg get_bcs: a function, whose only argument is a :class:`~.MeshSeq`, which
+            returns a function that determines any Dirichlet boundary conditions
+        :kwarg parameters: :class:`~.AdaptParameters` instance
+        """
         mesh = fmesh.VertexOnlyMesh(firedrake.UnitIntervalMesh(1), [[0.5]])
         super().__init__(time_partition, mesh, **kwargs)
 
     def set_meshes(self, mesh):
-        # TODO: docstring
+        """
+        Update the mesh associated with the :class:`~.PointSeq`, as well as the
+        associated attributes.
+
+        :arg mesh: the vertex-only mesh
+        """
         self.meshes = [mesh for _ in self.subintervals]
         self.dim = mesh.topological_dimension()
+        assert self.dim == 0
         self.reset_counts()
