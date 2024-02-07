@@ -280,7 +280,11 @@ def test_create_directory():
     pwd = os.path.dirname(__file__)
     tmp = create_directory(os.path.join(pwd, "tmp"))
     assert os.path.exists(tmp)
-    pathlib.Path(tmp).rmdir()
+    try:
+        pathlib.Path(tmp).rmdir()
+    except OSError:
+        ls = ", ".join(os.listdir(tmp))
+        raise OSError(f"Can't remove {tmp} because it isn't empty. Contents: {ls}.")
 
 
 if __name__ == "__main__":
