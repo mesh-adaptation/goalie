@@ -113,6 +113,7 @@ time_partition = TimeInterval(
 # only the :meth:`get_function_spaces` and :meth:`get_initial_condition`
 # methods implemented. ::
 
+from firedrake.pyplot import tricontourf
 import matplotlib.pyplot as plt
 
 

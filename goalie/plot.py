@@ -1,7 +1,7 @@
 """
 Driver functions for plotting solution data.
 """
-from firedrake import tricontourf, triplot  # noqa
+from firedrake.pyplot import tricontourf, triplot  # noqa
 import matplotlib.pyplot as plt
 
 
