@@ -273,13 +273,15 @@ def test_create_directory():
     Test that :func:`create_directory` works as expected.
     """
     pwd = os.path.dirname(__file__)
-    tmp = create_directory(os.path.join(pwd, "tmp"))
-    assert os.path.exists(tmp)
+    fpath = os.path.join(pwd, "tmp")
+    assert not os.path.exists(fpath)
+    fpath = create_directory(fpath)
+    assert os.path.exists(fpath)
     try:
-        pathlib.Path(tmp).rmdir()
+        pathlib.Path(fpath).rmdir()
     except OSError:
-        ls = ", ".join(os.listdir(tmp))
-        raise OSError(f"Can't remove {tmp} because it isn't empty. Contents: {ls}.")
+        ls = ", ".join(os.listdir(fpath))
+        raise OSError(f"Can't remove {fpath} because it isn't empty. Contents: {ls}.")
 
 
 if __name__ == "__main__":
