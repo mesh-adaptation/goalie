@@ -652,7 +652,7 @@ class MeshSeq:
 
     @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
-        self, adaptor: Callable, solver_kwargs: dict = {}, **kwargs
+        self, adaptor: Callable, solver_kwargs: dict = {}, adaptor_kwargs: dict = {}, **kwargs
     ):
         r"""
         Apply goal-oriented mesh adaptation using a fixed point iteration loop.
@@ -666,6 +666,7 @@ class MeshSeq:
             iteration. Its arguments are the parameter class and the fixed point
             iteration
         :kwarg solver_kwargs: a dictionary providing parameters to the solver
+        :kwarg adaptor_kwargs: a dictionary providing parameters to the adaptor
         """
         update_params = kwargs.get("update_params")
         self.element_counts = [self.count_elements()]
@@ -682,7 +683,7 @@ class MeshSeq:
             self.solve_forward(solver_kwargs=solver_kwargs)
 
             # Adapt meshes, logging element and vertex counts
-            continue_unconditionally = adaptor(self, self.solutions)
+            continue_unconditionally = adaptor(self, self.solutions, **adaptor_kwargs)
             if self.params.drop_out_converged:
                 self.check_convergence[:] = np.logical_not(
                     np.logical_or(continue_unconditionally, self.converged)

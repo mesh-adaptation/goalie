@@ -250,6 +250,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self,
         adaptor: Callable,
         enrichment_kwargs: dict = {},
+        adaptor_kwargs: dict = {},
         adj_kwargs: dict = {},
         indicator_fn: Callable = get_dwr_indicator,
         **kwargs,
@@ -267,6 +268,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             iteration number
         :kwarg enrichment_kwargs: keyword arguments to pass to the global enrichment
             method
+        :kwarg adaptor_kwargs: a dictionary providing parameters to the adaptor
         :kwarg adj_kwargs: keyword arguments to pass to the adjoint solver
         :kwarg indicator_fn: function for error indication, which takes the form, adjoint
             error and enriched space(s) as arguments
@@ -310,7 +312,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 break
 
             # Adapt meshes and log element counts
-            continue_unconditionally = adaptor(self, self.solutions, self.indicators)
+            continue_unconditionally = adaptor(self, self.solutions, self.indicators, **adaptor_kwargs)
             if self.params.drop_out_converged:
                 self.check_convergence[:] = np.logical_not(
                     np.logical_or(continue_unconditionally, self.converged)
