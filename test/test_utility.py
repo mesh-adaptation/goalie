@@ -31,11 +31,9 @@ class TestPVD(unittest.TestCase):
         self.fs = FunctionSpace(mesh, "CG", 1)
         pwd = os.path.dirname(__file__)
         self.fname = os.path.join(pwd, "tmp.pvd")
-        self.cleanUp()
 
-    def cleanUp(self):
-        name = os.path.splitext(self.fname)[0]
-        fname = os.path.join(os.path.dirname(self.fname), name)
+    def tearDown(self):
+        fname = os.path.splitext(self.fname)[0]
         for ext in (".pvd", "_0.vtu", "_1.vtu"):
             if os.path.exists(fname + ext):
                 os.remove(fname + ext)
@@ -44,7 +42,6 @@ class TestPVD(unittest.TestCase):
         file = File(self.fname)
         self.assertTrue(os.path.exists(self.fname))
         self.assertTrue(file._adaptive)
-        self.cleanUp()
 
     def test_different_fnames(self):
         f = Function(self.fs, name="f")
@@ -53,7 +50,6 @@ class TestPVD(unittest.TestCase):
         file.write(f)
         file.write(g)
         self.assertEqual("f", g.name())
-        self.cleanUp()
 
     def test_different_lengths(self):
         f = Function(self.fs, name="f")
@@ -64,7 +60,6 @@ class TestPVD(unittest.TestCase):
             file.write(f, g)
         msg = "Writing different number of functions: expected 1, got 2."
         self.assertEqual(str(cm.exception), msg)
-        self.cleanUp()
 
 
 class TestMassMatrix(unittest.TestCase):
