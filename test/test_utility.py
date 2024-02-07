@@ -9,6 +9,7 @@ from utility import uniform_mesh
 import os
 import pathlib
 from parameterized import parameterized
+import shutil
 import unittest
 
 
@@ -274,9 +275,24 @@ def test_create_directory():
     """
     pwd = os.path.dirname(__file__)
     fpath = os.path.join(pwd, "tmp")
+
+    # Delete the directory if it already exists
+    #   FIXME: Why does it already exist on the CI platform?
+    if os.path.exists(fpath):
+        shutil.rmtree(fpath)
     assert not os.path.exists(fpath)
-    fpath = create_directory(fpath)
-    assert os.path.exists(fpath)
+
+    # Create the new directory
+    new_fpath = create_directory(fpath)
+    assert os.path.exists(new_fpath)
+    assert new_fpath == fpath
+
+    # Check create_directory works when it already exists
+    new_fpath = create_directory(fpath)
+    assert os.path.exists(new_fpath)
+    assert new_fpath == fpath
+
+    # Remove the directory
     try:
         pathlib.Path(fpath).rmdir()
     except OSError:
