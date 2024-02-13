@@ -1,6 +1,7 @@
 """
 Sequences of meshes corresponding to a :class:`~.TimePartition`.
 """
+
 import firedrake
 from firedrake.petsc import PETSc
 from firedrake.adjoint_utils.solving import get_solve_blocks
@@ -248,6 +249,14 @@ class MeshSeq:
             self._function_spaces_consistent
         ), "Meshes and function spaces are inconsistent"
         return self._fs
+
+    @property
+    def update_function_spaces(self):
+        """
+        Update the function space dictionary associated with the :class:`MeshSeq`
+        """
+        if self._fs is None:
+            self.function_spaces
 
     @property
     def initial_condition(self) -> AttrDict:
@@ -652,7 +661,11 @@ class MeshSeq:
 
     @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
-        self, adaptor: Callable, solver_kwargs: dict = {}, adaptor_kwargs: dict = {}, **kwargs
+        self,
+        adaptor: Callable,
+        solver_kwargs: dict = {},
+        adaptor_kwargs: dict = {},
+        **kwargs,
     ):
         r"""
         Apply goal-oriented mesh adaptation using a fixed point iteration loop.
