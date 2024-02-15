@@ -3,9 +3,10 @@ Sequences of meshes corresponding to a :class:`~.TimePartition`.
 """
 
 import firedrake
-from firedrake.petsc import PETSc
-from firedrake.adjoint_utils.solving import get_solve_blocks
 from firedrake.adjoint import pyadjoint
+from firedrake.adjoint_utils.solving import get_solve_blocks
+from firedrake.petsc import PETSc
+from firedrake.pyplot import triplot
 from .interpolation import project
 from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
@@ -154,7 +155,7 @@ class MeshSeq:
 
         :kwarg fig: matplotlib figure
         :kwarg axes: matplotlib axes
-        :kwargs: parameters to pass to :func:`firedrake.plot.triplot`
+        :kwargs: parameters to pass to :func:`firedrake.pyplot.triplot`
             function
         :return: matplotlib figure and axes for the plots
         """
@@ -185,7 +186,7 @@ class MeshSeq:
                 axis = [axis]
             for ax in axis:
                 ax.set_title(f"MeshSeq[{k}]")
-                firedrake.triplot(self.meshes[k], axes=ax, **kwargs)
+                triplot(self.meshes[k], axes=ax, **kwargs)
                 ax.axis(False)
                 k += 1
             if len(axis) == 1:

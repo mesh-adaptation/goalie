@@ -9,6 +9,7 @@ from utility import uniform_mesh
 import os
 import pathlib
 from parameterized import parameterized
+import shutil
 import unittest
 
 
@@ -31,11 +32,9 @@ class TestPVD(unittest.TestCase):
         self.fs = FunctionSpace(mesh, "CG", 1)
         pwd = os.path.dirname(__file__)
         self.fname = os.path.join(pwd, "tmp.pvd")
-        self.cleanUp()
 
-    def cleanUp(self):
-        name = os.path.splitext(self.fname)[0]
-        fname = os.path.join(os.path.dirname(self.fname), name)
+    def tearDown(self):
+        fname = os.path.splitext(self.fname)[0]
         for ext in (".pvd", "_0.vtu", "_1.vtu"):
             if os.path.exists(fname + ext):
                 os.remove(fname + ext)
@@ -44,7 +43,6 @@ class TestPVD(unittest.TestCase):
         file = File(self.fname)
         self.assertTrue(os.path.exists(self.fname))
         self.assertTrue(file._adaptive)
-        self.cleanUp()
 
     def test_different_fnames(self):
         f = Function(self.fs, name="f")
@@ -53,7 +51,6 @@ class TestPVD(unittest.TestCase):
         file.write(f)
         file.write(g)
         self.assertEqual("f", g.name())
-        self.cleanUp()
 
     def test_different_lengths(self):
         f = Function(self.fs, name="f")
@@ -64,7 +61,6 @@ class TestPVD(unittest.TestCase):
             file.write(f, g)
         msg = "Writing different number of functions: expected 1, got 2."
         self.assertEqual(str(cm.exception), msg)
-        self.cleanUp()
 
 
 class TestMassMatrix(unittest.TestCase):
@@ -278,9 +274,30 @@ def test_create_directory():
     Test that :func:`create_directory` works as expected.
     """
     pwd = os.path.dirname(__file__)
-    tmp = create_directory(os.path.join(pwd, "tmp"))
-    assert os.path.exists(tmp)
-    pathlib.Path(tmp).rmdir()
+    fpath = os.path.join(pwd, "tmp")
+
+    # Delete the directory if it already exists
+    #   FIXME: Why does it already exist on the CI platform?
+    if os.path.exists(fpath):
+        shutil.rmtree(fpath)
+    assert not os.path.exists(fpath)
+
+    # Create the new directory
+    new_fpath = create_directory(fpath)
+    assert os.path.exists(new_fpath)
+    assert new_fpath == fpath
+
+    # Check create_directory works when it already exists
+    new_fpath = create_directory(fpath)
+    assert os.path.exists(new_fpath)
+    assert new_fpath == fpath
+
+    # Remove the directory
+    try:
+        pathlib.Path(fpath).rmdir()
+    except OSError:
+        ls = ", ".join(os.listdir(fpath))
+        raise OSError(f"Can't remove {fpath} because it isn't empty. Contents: {ls}.")
 
 
 if __name__ == "__main__":
