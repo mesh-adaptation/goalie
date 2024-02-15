@@ -2,9 +2,10 @@
 Sequences of meshes corresponding to a :class:`~.TimePartition`.
 """
 import firedrake
-from firedrake.petsc import PETSc
-from firedrake.adjoint_utils.solving import get_solve_blocks
 from firedrake.adjoint import pyadjoint
+from firedrake.adjoint_utils.solving import get_solve_blocks
+from firedrake.petsc import PETSc
+from firedrake.pyplot import triplot
 from .interpolation import project
 from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
@@ -148,7 +149,7 @@ class MeshSeq:
 
         :kwarg fig: matplotlib figure
         :kwarg axes: matplotlib axes
-        :kwargs: parameters to pass to :func:`firedrake.plot.triplot`
+        :kwargs: parameters to pass to :func:`firedrake.pyplot.triplot`
             function
         :return: matplotlib figure and axes for the plots
         """
@@ -179,7 +180,7 @@ class MeshSeq:
                 axis = [axis]
             for ax in axis:
                 ax.set_title(f"MeshSeq[{k}]")
-                firedrake.triplot(self.meshes[k], axes=ax, **kwargs)
+                triplot(self.meshes[k], axes=ax, **kwargs)
                 ax.axis(False)
                 k += 1
             if len(axis) == 1:
@@ -647,7 +648,7 @@ class MeshSeq:
 
     @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
-        self, adaptor: Callable, solver_kwargs: dict = {}, **kwargs
+        self, adaptor: Callable, solver_kwargs: dict = {}, adaptor_kwargs: dict = {}, **kwargs
     ):
         r"""
         Apply goal-oriented mesh adaptation using a fixed point iteration loop.
@@ -661,6 +662,7 @@ class MeshSeq:
             iteration. Its arguments are the parameter class and the fixed point
             iteration
         :kwarg solver_kwargs: a dictionary providing parameters to the solver
+        :kwarg adaptor_kwargs: a dictionary providing parameters to the adaptor
         """
         update_params = kwargs.get("update_params")
         self.element_counts = [self.count_elements()]
@@ -677,7 +679,7 @@ class MeshSeq:
             self.solve_forward(solver_kwargs=solver_kwargs)
 
             # Adapt meshes, logging element and vertex counts
-            continue_unconditionally = adaptor(self, self.solutions)
+            continue_unconditionally = adaptor(self, self.solutions, **adaptor_kwargs)
             if self.params.drop_out_converged:
                 self.check_convergence[:] = np.logical_not(
                     np.logical_or(continue_unconditionally, self.converged)
