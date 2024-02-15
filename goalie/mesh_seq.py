@@ -235,8 +235,10 @@ class MeshSeq:
             )
         return consistent
 
-    @property
-    def function_spaces(self) -> list:
+    def update_function_spaces(self) -> list:
+        """
+        Update the function space dictionary associated with the :class:`MeshSeq`.
+        """
         if self._fs is None or not self._function_spaces_consistent:
             self._fs = [self.get_function_spaces(mesh) for mesh in self.meshes]
             self._fs = AttrDict(
@@ -251,12 +253,8 @@ class MeshSeq:
         return self._fs
 
     @property
-    def update_function_spaces(self):
-        """
-        Update the function space dictionary associated with the :class:`MeshSeq`
-        """
-        if self._fs is None:
-            self.function_spaces
+    def function_spaces(self):
+        return self.update_function_spaces()
 
     @property
     def initial_condition(self) -> AttrDict:
