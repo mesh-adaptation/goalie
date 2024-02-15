@@ -64,9 +64,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             qoi_type=self.qoi_type,
             parameters=self.params,
         )
-
-        # Update function spaces for enriched mesh
-        mesh_seq_e.update_function_spaces
+        mesh_seq_e.update_function_spaces()
 
         # Apply p-refinement
         if enrichment_method == "p":
