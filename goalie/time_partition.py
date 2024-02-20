@@ -150,18 +150,26 @@ class TimePartition:
     def __len__(self) -> int:
         return self.num_subintervals
 
-    def __getitem__(self, i: int) -> dict:
+    def __getitem__(self, sl: Union[int, slice]) -> dict:
         """
-        :arg i: index
+        :arg sl: index or slice
         :return: subinterval bounds and timestep associated with that index
         """
+        if not isinstance(sl, slice):
+            sl = slice(sl, sl + 1, 1)
+        step = sl.step or 1
+        if step != 1:
+            raise NotImplementedError(
+                "Can only currently handle slices with step size 1."
+            )
+        num_subintervals = len(range(sl.start, sl.stop, step))
         return TimePartition(
-            end_time=self.subintervals[i][1],
-            num_subintervals=1,
-            timesteps=self.timesteps[i],
+            end_time=self.subintervals[sl.stop - 1][1],
+            num_subintervals=num_subintervals,
+            timesteps=self.timesteps[sl],
             fields=self.fields,
-            num_timesteps_per_export=self.num_timesteps_per_export[i],
-            start_time=self.subintervals[i][0],
+            num_timesteps_per_export=self.num_timesteps_per_export[sl],
+            start_time=self.subintervals[sl.start][0],
             field_types=self.field_types,
         )
 
