@@ -267,6 +267,14 @@ class TestIndexing(unittest.TestCase):
         self.end_time = 1.0
         self.fields = ["field"]
 
+    def test_invalid_step(self):
+        timesteps = [0.5, 0.25]
+        time_partition = TimePartition(self.end_time, 2, timesteps, self.fields)
+        with self.assertRaises(NotImplementedError) as cm:
+            time_partition[::2]
+        msg = "Can only currently handle slices with step size 1."
+        self.assertEqual(str(cm.exception), msg)
+
     def test_time_interval(self):
         time_interval = TimeInterval(self.end_time, [0.5], self.fields)
         self.assertEqual(time_interval, time_interval[0])
