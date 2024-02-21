@@ -1,6 +1,7 @@
 """
 Drivers for solving adjoint problems on sequences of meshes.
 """
+
 import firedrake
 from firedrake.petsc import PETSc
 from firedrake.adjoint import pyadjoint
@@ -382,8 +383,8 @@ class AdjointMeshSeq(MeshSeq):
                                 )
                         elif j * stride + 1 == num_solve_blocks:
                             if i + 1 < num_subintervals:
-                                sols.adjoint_next[i][j].project(
-                                    sols.adjoint_next[i + 1][0]
+                                project(
+                                    sols.adjoint_next[i + 1][0], sols.adjoint_next[i][j]
                                 )
                         else:
                             raise IndexError(

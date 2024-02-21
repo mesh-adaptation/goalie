@@ -1,6 +1,7 @@
 """
 Drivers for goal-oriented error estimation on sequences of meshes.
 """
+
 from .adjoint import AdjointMeshSeq
 from .error_estimation import get_dwr_indicator
 from .log import pyrint
@@ -61,7 +62,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             get_qoi=self._get_qoi,
             get_bcs=self._get_bcs,
             qoi_type=self.qoi_type,
+            parameters=self.params,
         )
+        mesh_seq_e.update_function_spaces()
 
         # Apply p-refinement
         if enrichment_method == "p":
@@ -312,7 +315,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 break
 
             # Adapt meshes and log element counts
-            continue_unconditionally = adaptor(self, self.solutions, self.indicators, **adaptor_kwargs)
+            continue_unconditionally = adaptor(
+                self, self.solutions, self.indicators, **adaptor_kwargs
+            )
             if self.params.drop_out_converged:
                 self.check_convergence[:] = np.logical_not(
                     np.logical_or(continue_unconditionally, self.converged)
