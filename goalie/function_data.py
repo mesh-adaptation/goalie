@@ -7,11 +7,7 @@ from .utility import AttrDict
 import abc
 
 __all__ = [
-    "SteadyForwardSolutionData",
-    "UnsteadyForwardSolutionData",
     "ForwardSolutionData",
-    "SteadyAdjointSolutionData",
-    "UnsteadyAdjointSolutionData",
     "AdjointSolutionData",
     "IndicatorData",
 ]
@@ -22,7 +18,7 @@ class FunctionData(abc.ABC):
     Abstract base class for classes holding field data.
     """
 
-    labels = None
+    labels = {}
 
     def __init__(self, time_partition, function_spaces):
         r"""
@@ -34,10 +30,9 @@ class FunctionData(abc.ABC):
         self.time_partition = time_partition
         self.function_spaces = function_spaces
         self._data = None
-        self._create_data()
 
     def _create_data(self):
-        assert self.labels is not None
+        assert self.labels
         P = self.time_partition
         self._data = AttrDict(
             {
@@ -50,10 +45,10 @@ class FunctionData(abc.ABC):
                             ]
                             for i, fs in enumerate(self.function_spaces[field])
                         ]
-                        for label in self.labels
+                        for label in self.labels[field_type]
                     }
                 )
-                for field in P.fields
+                for field, field_type in zip(P.fields, P.field_types)
             }
         )
 
@@ -80,48 +75,27 @@ class SolutionData(FunctionData, abc.ABC):
         return self.data
 
 
-class SteadyForwardSolutionData(SolutionData):
-    """
-    Class representing solution data for steady-state forward problems.
-    """
-
-    labels = ("forward",)
-
-
-class UnsteadyForwardSolutionData(SolutionData):
-    """
-    Class representing solution data for time-dependent forward problems.
-    """
-
-    labels = ("forward", "forward_old")
-
-
-class ForwardSolutionData(UnsteadyForwardSolutionData):
+class ForwardSolutionData(SolutionData):
     """
     Class representing solution data for general forward problems.
     """
 
-
-class SteadyAdjointSolutionData(SolutionData):
-    """
-    Class representing solution data for steady-state adjoint problems.
-    """
-
-    labels = ("forward", "forward_old", "adjoint")
+    def __init__(self, *args, **kwargs):
+        self.labels = {"steady": ("forward",), "unsteady": ("forward", "forward_old")}
+        super().__init__(*args, **kwargs)
 
 
-class UnsteadyAdjointSolutionData(SolutionData):
-    """
-    Class representing solution data for time-dependent adjoint problems.
-    """
-
-    labels = ("forward", "forward_old", "adjoint", "adjoint_next")
-
-
-class AdjointSolutionData(UnsteadyAdjointSolutionData):
+class AdjointSolutionData(SolutionData):
     """
     Class representing solution data for general adjoint problems.
     """
+
+    def __init__(self, *args, **kwargs):
+        self.labels = {
+            "steady": ("forward", "adjoint"),
+            "unsteady": ("forward", "forward_old", "adjoint", "adjoint_next"),
+        }
+        super().__init__(*args, **kwargs)
 
 
 class IndicatorData(FunctionData):
@@ -132,26 +106,28 @@ class IndicatorData(FunctionData):
     than a doubly-nested dictionary.
     """
 
-    labels = ("error_indicator",)
-
     def __init__(self, time_partition, meshes):
         """
         :arg time_partition: the :class:`~.TimePartition` used to discretise the problem
             in time
         :arg meshes: the list of meshes used to discretise the problem in space
         """
+        self.labels = {
+            field_type: ("error_indicator",) for field_type in ("steady", "unsteady")
+        }
         P0_spaces = [ffs.FunctionSpace(mesh, "DG", 0) for mesh in meshes]
         super().__init__(
             time_partition, {key: P0_spaces for key in time_partition.fields}
         )
 
     def _create_data(self):
-        assert len(self.labels) == 1
+        assert all(len(labels) == 1 for labels in self.labels.values())
         super()._create_data()
+        P = self.time_partition
         self._data = AttrDict(
             {
-                field: self.data[field][self.labels[0]]
-                for field in self.time_partition.fields
+                field: self.data[field][self.labels[field_type][0]]
+                for field, field_type in zip(P.fields, P.field_types)
             }
         )
 

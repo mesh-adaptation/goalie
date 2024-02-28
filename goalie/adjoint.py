@@ -5,7 +5,7 @@ Drivers for solving adjoint problems on sequences of meshes.
 import firedrake
 from firedrake.petsc import PETSc
 from firedrake.adjoint import pyadjoint
-from .function_data import SteadyAdjointSolutionData, UnsteadyAdjointSolutionData
+from .function_data import AdjointSolutionData
 from .interpolation import project
 from .mesh_seq import MeshSeq
 from .options import GoalOrientedParameters
@@ -176,8 +176,7 @@ class AdjointMeshSeq(MeshSeq):
         return solve_blocks
 
     def _create_solutions(self):
-        cls = SteadyAdjointSolutionData if self.steady else UnsteadyAdjointSolutionData
-        self._solutions = cls(self.time_partition, self.function_spaces)
+        self._solutions = AdjointSolutionData(self.time_partition, self.function_spaces)
 
     @PETSc.Log.EventDecorator()
     def solve_adjoint(
