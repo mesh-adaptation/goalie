@@ -186,6 +186,21 @@ class TestGlobalEnrichment(TrivialGoalOrientedBaseClass):
         msg = "A positive number of enrichments is required."
         self.assertEqual(str(cm.exception), msg)
 
+    def test_h_enrichment_error(self):
+        end_time = 1.0
+        num_subintervals = 2
+        dt = end_time / num_subintervals
+        mesh_seq = GoalOrientedMeshSeq(
+            TimePartition(end_time, num_subintervals, dt, "field"),
+            [UnitTriangleMesh()] * num_subintervals,
+            get_qoi=self.constant_qoi,
+            qoi_type="end_time",
+        )
+        with self.assertRaises(ValueError) as cm:
+            mesh_seq.get_enriched_mesh_seq(enrichment_method="h")
+        msg = "h-enrichment is not supported for shallow-copied meshes."
+        self.assertEqual(str(cm.exception), msg)
+
     @parameterized.expand([[1], [2]])
     def test_h_enrichment_mesh(self, num_enrichments):
         """
