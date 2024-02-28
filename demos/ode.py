@@ -85,7 +85,7 @@ def get_initial_condition(point_seq):
 # the timestep length. This expression may be rearranged as
 #
 # .. math::
-#    u_{i+1} - u_i + - \Delta t u_i = 0.
+#    u_{i+1} - u_i - \Delta t u_i = 0.
 #
 # Even though there are no spatial derivatives in our problem, we still have to
 # represent the problem in a finite element formulation in order to solve it using
