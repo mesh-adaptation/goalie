@@ -5,6 +5,7 @@ Drivers for solving adjoint problems on sequences of meshes.
 import firedrake
 from firedrake.petsc import PETSc
 from firedrake.adjoint import pyadjoint
+from .function_data import AdjointSolutionData
 from .interpolation import project
 from .mesh_seq import MeshSeq
 from .options import GoalOrientedParameters
@@ -175,27 +176,7 @@ class AdjointMeshSeq(MeshSeq):
         return solve_blocks
 
     def _create_solutions(self):
-        P = self.time_partition
-        labels = ("forward", "forward_old", "adjoint")
-        if not self.steady:
-            labels += ("adjoint_next",)
-        self._solutions = AttrDict(
-            {
-                field: AttrDict(
-                    {
-                        label: [
-                            [
-                                firedrake.Function(fs, name=f"{field}_{label}")
-                                for j in range(P.num_exports_per_subinterval[i] - 1)
-                            ]
-                            for i, fs in enumerate(self.function_spaces[field])
-                        ]
-                        for label in labels
-                    }
-                )
-                for field in self.fields
-            }
-        )
+        self._solutions = AdjointSolutionData(self.time_partition, self.function_spaces)
 
     @PETSc.Log.EventDecorator()
     def solve_adjoint(
@@ -212,13 +193,14 @@ class AdjointMeshSeq(MeshSeq):
         computed, the contents of which give values at all exported timesteps, indexed
         first by the field label and then by type. The contents of these nested
         dictionaries are lists which are indexed first by subinterval and then by
-        export. For a given exported timestep, the solution types are:
+        export. For a given exported timestep, the field types are:
 
         * ``'forward'``: the forward solution after taking the timestep;
-        * ``'forward_old'``: the forward solution before taking the timestep
+        * ``'forward_old'``: the forward solution before taking the timestep (provided
+          the problem is not steady-state)
         * ``'adjoint'``: the adjoint solution after taking the timestep;
         * ``'adjoint_next'``: the adjoint solution before taking the timestep
-          (backwards).
+          backwards (provided the problem is not steady-state).
 
         :kwarg solver_kwargs: a dictionary providing parameters to the solver. Any
             keyword arguments for the QoI should be included as a subdict with label
@@ -366,7 +348,7 @@ class AdjointMeshSeq(MeshSeq):
 
                     # Lagged forward solution comes from dependencies
                     dep = self._dependency(field, i, block)
-                    if dep is not None:
+                    if not self.steady and dep is not None:
                         sols.forward_old[i][j].assign(dep.saved_output)
 
                     # Adjoint action also comes from dependencies

@@ -7,6 +7,7 @@ from firedrake.adjoint import pyadjoint
 from firedrake.adjoint_utils.solving import get_solve_blocks
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
+from .function_data import ForwardSolutionData
 from .interpolation import project
 from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
@@ -489,25 +490,7 @@ class MeshSeq:
             )
 
     def _create_solutions(self):
-        P = self.time_partition
-        labels = ("forward", "forward_old")
-        self._solutions = AttrDict(
-            {
-                field: AttrDict(
-                    {
-                        label: [
-                            [
-                                firedrake.Function(fs, name=f"{field}_{label}")
-                                for j in range(P.num_exports_per_subinterval[i] - 1)
-                            ]
-                            for i, fs in enumerate(self.function_spaces[field])
-                        ]
-                        for label in labels
-                    }
-                )
-                for field in self.fields
-            }
-        )
+        self._solutions = ForwardSolutionData(self.time_partition, self.function_spaces)
 
     @property
     def solutions(self):
@@ -527,10 +510,11 @@ class MeshSeq:
         at all exported timesteps, indexed first by the field label and then by type.
         The contents of these nested dictionaries are nested lists which are indexed
         first by subinterval and then by export. For a given exported timestep, the
-        solution types are:
+        field types are:
 
         * ``'forward'``: the forward solution after taking the timestep;
-        * ``'forward_old'``: the forward solution before taking the timestep.
+        * ``'forward_old'``: the forward solution before taking the timestep (provided
+          the problem is not steady-state).
 
         :kwarg solver_kwargs: a dictionary providing parameters to the solver. Any
             keyword arguments for the QoI should be included as a subdict with label
@@ -594,7 +578,7 @@ class MeshSeq:
 
                     # Lagged solution comes from dependencies
                     dep = self._dependency(field, i, block)
-                    if dep is not None:
+                    if not self.steady and dep is not None:
                         sols.forward_old[i][j].assign(dep.saved_output)
 
             # Transfer the checkpoint between subintervals

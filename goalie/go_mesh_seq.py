@@ -4,6 +4,7 @@ Drivers for goal-oriented error estimation on sequences of meshes.
 
 from .adjoint import AdjointMeshSeq
 from .error_estimation import get_dwr_indicator
+from .function_data import IndicatorData
 from .log import pyrint
 from .utility import AttrDict
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager, project
@@ -88,21 +89,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             return lambda source, target: target.interpolate(source)
 
     def _create_indicators(self):
-        P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
-        self._indicators = AttrDict(
-            {
-                field: [
-                    [
-                        Function(fs, name=f"{field}_error_indicator")
-                        for _ in range(
-                            self.time_partition.num_exports_per_subinterval[i] - 1
-                        )
-                    ]
-                    for i, fs in enumerate(P0_spaces)
-                ]
-                for field in self.fields
-            }
-        )
+        self._indicators = IndicatorData(self.time_partition, self.meshes)
 
     @property
     def indicators(self):
@@ -203,7 +190,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         :kwarg absolute_value: toggle whether to take the modulus on each element
         """
-        assert isinstance(self.indicators, dict)
+        assert isinstance(self.indicators, IndicatorData)
         if not isinstance(absolute_value, bool):
             raise TypeError(
                 f"Expected 'absolute_value' to be a bool, not '{type(absolute_value)}'."
