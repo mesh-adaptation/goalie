@@ -8,6 +8,7 @@ from firedrake.adjoint import pyadjoint
 from .interpolation import project
 from .mesh_seq import MeshSeq
 from .options import GoalOrientedParameters
+from .solutions import SteadyAdjointSolutionData, UnsteadyAdjointSolutionData
 from .time_partition import TimePartition
 from .utility import AttrDict, norm
 from .log import pyrint
@@ -175,27 +176,8 @@ class AdjointMeshSeq(MeshSeq):
         return solve_blocks
 
     def _create_solutions(self):
-        P = self.time_partition
-        labels = ("forward", "forward_old", "adjoint")
-        if not self.steady:
-            labels += ("adjoint_next",)
-        self._solutions = AttrDict(
-            {
-                field: AttrDict(
-                    {
-                        label: [
-                            [
-                                firedrake.Function(fs, name=f"{field}_{label}")
-                                for j in range(P.num_exports_per_subinterval[i] - 1)
-                            ]
-                            for i, fs in enumerate(self.function_spaces[field])
-                        ]
-                        for label in labels
-                    }
-                )
-                for field in self.fields
-            }
-        )
+        cls = SteadyAdjointSolutionData if self.steady else UnsteadyAdjointSolutionData
+        self._solutions = cls(self.time_partition, self.function_spaces)
 
     @PETSc.Log.EventDecorator()
     def solve_adjoint(
