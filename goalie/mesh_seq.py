@@ -25,36 +25,28 @@ __all__ = ["MeshSeq"]
 
 class MeshSeq:
     """
-    A sequence of meshes for solving a PDE associated
-    with a particular :class:`~.TimePartition` of the
-    temporal domain.
+    A sequence of meshes for solving a PDE associated with a particular
+    :class:`~.TimePartition` of the temporal domain.
     """
 
-    @PETSc.Log.EventDecorator("goalie.MeshSeq.__init__")
+    @PETSc.Log.EventDecorator()
     def __init__(self, time_partition: TimePartition, initial_meshes: list, **kwargs):
         r"""
-        :arg time_partition: the :class:`~.TimePartition` which
-            partitions the temporal domain
-        :arg initial_meshes: list of meshes corresponding to
-            the subintervals of the :class:`~.TimePartition`,
-            or a single mesh to use for all subintervals
-        :kwarg get_function_spaces: a function, whose only
-            argument is a :class:`~.MeshSeq`, which constructs
-            prognostic
-            :class:`firedrake.functionspaceimpl.FunctionSpace`\s
-            for each subinterval
-        :kwarg get_initial_condition: a function, whose only
-            argument is a :class:`~.MeshSeq`, which specifies
-            initial conditions on the first mesh
-        :kwarg get_form: a function, whose only argument is a
-            :class:`~.MeshSeq`, which returns a function that
-            generates the PDE weak form
-        :kwarg get_solver: a function, whose only argument is
-            a :class:`~.MeshSeq`, which returns a function
-            that integrates initial data over a subinterval
-        :kwarg get_bcs: a function, whose only argument is a
-            :class:`~.MeshSeq`, which returns a function that
-            determines any Dirichlet boundary conditions
+        :arg time_partition: the :class:`~.TimePartition` which partitions the temporal
+            domain
+        :arg initial_meshes: list of meshes corresponding to the subintervals of the
+            :class:`~.TimePartition`, or a single mesh to use for all subintervals
+        :kwarg get_function_spaces: a function, whose only argument is a
+            :class:`~.MeshSeq`, which constructs prognostic
+            :class:`firedrake.functionspaceimpl.FunctionSpace`\s for each subinterval
+        :kwarg get_initial_condition: a function, whose only argument is a
+            :class:`~.MeshSeq`, which specifies initial conditions on the first mesh
+        :kwarg get_form: a function, whose only argument is a :class:`~.MeshSeq`, which
+            returns a function that generates the PDE weak form
+        :kwarg get_solver: a function, whose only argument is a :class:`~.MeshSeq`,
+            which returns a function that integrates initial data over a subinterval
+        :kwarg get_bcs: a function, whose only argument is a :class:`~.MeshSeq`, which
+            returns a function that determines any Dirichlet boundary conditions
         :kwarg parameters: :class:`~.AdaptParameters` instance
         """
         self.time_partition = time_partition
@@ -119,9 +111,13 @@ class MeshSeq:
     def count_vertices(self) -> list:
         return [mesh.num_vertices() for mesh in self]  # TODO: make parallel safe
 
+    def reset_counts(self):
+        self.element_counts = [self.count_elements()]
+        self.vertex_counts = [self.count_vertices()]
+
     def set_meshes(self, meshes):
         """
-        Update the meshes associated with the :class:`MeshSeq`, as well as the
+        Update the meshes associated with the :class:`~.MeshSeq`, as well as the
         associated attributes.
 
         :arg meshes: mesh or list of meshes to use in the sequence
@@ -133,8 +129,7 @@ class MeshSeq:
         if dim.min() != dim.max():
             raise ValueError("Meshes must all have the same topological dimension.")
         self.dim = dim.min()
-        self.element_counts = [self.count_elements()]
-        self.vertex_counts = [self.count_vertices()]
+        self.reset_counts()
         if logger.level == DEBUG:
             for i, mesh in enumerate(meshes):
                 nc = mesh.num_cells()
