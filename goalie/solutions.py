@@ -151,3 +151,6 @@ class IndicatorData:
 
     def __getitem__(self, key):
         return self.indicators[key]
+
+    def items(self):
+        return self.indicators.items()
