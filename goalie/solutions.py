@@ -5,7 +5,12 @@ import firedrake.function as ffunc
 from .utility import AttrDict
 import abc
 
-__all__ = ["ForwardSolutionData"]
+__all__ = [
+    "ForwardSolutionData",
+    "SteadyAdjointSolutionData",
+    "UnsteadyAdjointSolutionData",
+    "AdjointSolutionData",
+]
 
 
 class SolutionData(abc.ABC):
@@ -64,3 +69,25 @@ class ForwardSolutionData(SolutionData):
     """
 
     labels = ("forward", "forward_old")
+
+
+class SteadyAdjointSolutionData(SolutionData):
+    """
+    Class representing solution data for steady-state adjoint problems.
+    """
+
+    labels = ("forward", "forward_old", "adjoint")
+
+
+class UnsteadyAdjointSolutionData(SolutionData):
+    """
+    Class representing solution data for time-dependent adjoint problems.
+    """
+
+    labels = ("forward", "forward_old", "adjoint", "adjoint_next")
+
+
+class AdjointSolutionData(UnsteadyAdjointSolutionData):
+    """
+    Class representing solution data for general adjoint problems.
+    """
