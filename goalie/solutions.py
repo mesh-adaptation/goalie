@@ -17,9 +17,9 @@ __all__ = [
 ]
 
 
-class SolutionData(abc.ABC):
+class FunctionData(abc.ABC):
     """
-    Abstract base class that defines the API for solution data classes.
+    Abstract base class for classes holding field data.
     """
 
     labels = None
@@ -33,13 +33,13 @@ class SolutionData(abc.ABC):
         """
         self.time_partition = time_partition
         self.function_spaces = function_spaces
-        self._solutions = None
-        self._create_solutions()
+        self._data = None
+        self._create_data()
 
-    def _create_solutions(self):
+    def _create_data(self):
         assert self.labels is not None
         P = self.time_partition
-        self._solutions = AttrDict(
+        self._data = AttrDict(
             {
                 field: AttrDict(
                     {
@@ -58,13 +58,26 @@ class SolutionData(abc.ABC):
         )
 
     @property
-    def solutions(self):
-        if self._solutions is None:
-            self._create_solutions()
-        return self._solutions
+    def data(self):
+        if self._data is None:
+            self._create_data()
+        return self._data
 
     def __getitem__(self, key):
-        return self.solutions[key]
+        return self.data[key]
+
+    def items(self):
+        return self.data.items()
+
+
+class SolutionData(FunctionData, abc.ABC):
+    """
+    Abstract base class that defines the API for solution data classes.
+    """
+
+    @property
+    def solutions(self):
+        return self.data
 
 
 class SteadyForwardSolutionData(SolutionData):
@@ -111,10 +124,15 @@ class AdjointSolutionData(UnsteadyAdjointSolutionData):
     """
 
 
-class IndicatorData:
+class IndicatorData(FunctionData):
     """
     Class representing error indicator data.
+
+    Note that this class has a single dictionary with the field name as the key, rather
+    than a doubly-nested dictionary.
     """
+
+    labels = "error_indicator"
 
     def __init__(self, time_partition, meshes):
         """
@@ -122,35 +140,21 @@ class IndicatorData:
             in time
         :arg meshes: the list of meshes used to discretise the problem in space
         """
-        self.time_partition = time_partition
-        self.meshes = meshes
-        self._indicators = None
-        self._create_indicators()
+        P0_spaces = [ffs.FunctionSpace(mesh, "DG", 0) for mesh in meshes]
+        super().__init__(
+            time_partition, {key: P0_spaces for key in time_partition.fields}
+        )
 
-    def _create_indicators(self):
-        P0_spaces = [ffs.FunctionSpace(mesh, "DG", 0) for mesh in self.meshes]
-        P = self.time_partition
-        self._indicators = AttrDict(
+    def _create_data(self):
+        assert len(self.labels) == 1
+        super()._create_data()
+        self._data = AttrDict(
             {
-                field: [
-                    [
-                        ffunc.Function(fs, name=f"{field}_error_indicator")
-                        for j in range(P.num_exports_per_subinterval[i] - 1)
-                    ]
-                    for i, fs in enumerate(P0_spaces)
-                ]
-                for field in P.fields
+                field: self.data[field][self.labels[0]]
+                for field in self.time_partition.fields
             }
         )
 
     @property
     def indicators(self):
-        if self._indicators is None:
-            self._create_indicators()
-        return self._indicators
-
-    def __getitem__(self, key):
-        return self.indicators[key]
-
-    def items(self):
-        return self.indicators.items()
+        return self.data
