@@ -48,6 +48,15 @@ class SolutionData(abc.ABC):
             }
         )
 
+    @property
+    def solutions(self):
+        if self._solutions is None:
+            self._create_solutions()
+        return self._solutions
+
+    def __getitem__(self, key):
+        return self.solutions[key]
+
 
 class ForwardSolutionData(SolutionData):
     """
