@@ -132,7 +132,7 @@ class IndicatorData(FunctionData):
     than a doubly-nested dictionary.
     """
 
-    labels = "error_indicator"
+    labels = ("error_indicator",)
 
     def __init__(self, time_partition, meshes):
         """

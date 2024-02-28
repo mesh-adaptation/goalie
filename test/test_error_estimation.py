@@ -3,8 +3,8 @@ from goalie.error_estimation import (
     form2indicator,
     get_dwr_indicator,
 )
+from goalie.function_data import IndicatorData
 from goalie.go_mesh_seq import GoalOrientedMeshSeq
-from goalie.solutions import IndicatorData
 from goalie.time_partition import TimeInstant, TimePartition
 from parameterized import parameterized
 import unittest
