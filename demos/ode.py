@@ -167,11 +167,18 @@ point_seq = PointSeq(
 )
 
 # We can solve the ODE using the :meth:`~.MeshSeq.solve_forward` method and extract the
-# solution trajectory as follows. Note that the trajectory is prepended with the initial
-# value. ::
+# solution trajectory as follows. The method returns a nested dictionary of solutions,
+# with the first key specifying the field name and the second key specifying the type of
+# solution field. For the purposes of this demo, we have field ``"u"``, which is a
+# forward solution. The resulting solution trajectory is a list. ::
 solutions = point_seq.solve_forward()["u"]["forward"]
-forward_euler_trajectory = [1] + [
-    sol.dat.data[0] for by_sub in solutions for sol in by_sub
+
+# Note that the solution trajectory does not include the initial value, so we prepend it.
+# We also convert the solution :class:`~.Function`\s to :class:`~.float`\s, for plotting
+# purposes. ::
+forward_euler_trajectory = [1]
+forward_euler_trajectory += [
+    float(sol) for subinterval in solutions for sol in subinterval
 ]
 
 # Plot the trajectory and compare it against the analytical solution. ::
@@ -231,8 +238,9 @@ point_seq = PointSeq(
 )
 solutions = point_seq.solve_forward()["u"]["forward"]
 
-backward_euler_trajectory = [1] + [
-    sol.dat.data[0] for by_sub in solutions for sol in by_sub
+backward_euler_trajectory = [1]
+backward_euler_trajectory += [
+    float(sol) for subinterval in solutions for sol in subinterval
 ]
 
 fig, axes = plt.subplots()
@@ -284,8 +292,9 @@ point_seq = PointSeq(
 )
 
 solutions = point_seq.solve_forward()["u"]["forward"]
-crank_nicolson_trajectory = [1] + [
-    sol.dat.data[0] for by_sub in solutions for sol in by_sub
+crank_nicolson_trajectory = [1]
+crank_nicolson_trajectory += [
+    float(sol) for subinterval in solutions for sol in subinterval
 ]
 
 fig, axes = plt.subplots()
