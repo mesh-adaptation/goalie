@@ -6,6 +6,8 @@ from .utility import AttrDict
 import abc
 
 __all__ = [
+    "SteadyForwardSolutionData",
+    "UnsteadyForwardSolutionData",
     "ForwardSolutionData",
     "SteadyAdjointSolutionData",
     "UnsteadyAdjointSolutionData",
@@ -63,12 +65,26 @@ class SolutionData(abc.ABC):
         return self.solutions[key]
 
 
-class ForwardSolutionData(SolutionData):
+class SteadyForwardSolutionData(SolutionData):
     """
-    Class representing solution data for forward problems.
+    Class representing solution data for steady-state forward problems.
+    """
+
+    labels = ("forward",)
+
+
+class UnsteadyForwardSolutionData(SolutionData):
+    """
+    Class representing solution data for time-dependent forward problems.
     """
 
     labels = ("forward", "forward_old")
+
+
+class ForwardSolutionData(UnsteadyForwardSolutionData):
+    """
+    Class representing solution data for general forward problems.
+    """
 
 
 class SteadyAdjointSolutionData(SolutionData):
