@@ -11,6 +11,7 @@ from .interpolation import project
 from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
 from animate.quality import QualityMeasure
+from .solutions import ForwardSolutionData
 from .time_partition import TimePartition
 from .utility import AttrDict, Mesh
 from collections import OrderedDict
@@ -489,25 +490,7 @@ class MeshSeq:
             )
 
     def _create_solutions(self):
-        P = self.time_partition
-        labels = ("forward", "forward_old")
-        self._solutions = AttrDict(
-            {
-                field: AttrDict(
-                    {
-                        label: [
-                            [
-                                firedrake.Function(fs, name=f"{field}_{label}")
-                                for j in range(P.num_exports_per_subinterval[i] - 1)
-                            ]
-                            for i, fs in enumerate(self.function_spaces[field])
-                        ]
-                        for label in labels
-                    }
-                )
-                for field in self.fields
-            }
-        )
+        self._solutions = ForwardSolutionData(self.time_partition, self.function_spaces)
 
     @property
     def solutions(self):
