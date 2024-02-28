@@ -9,7 +9,7 @@
 # .. math::
 #    \frac{\mathrm{d}u}{\mathrm{d}t} = u,\quad u(0) = 1,
 #
-# which we solve for :math:`u(t)` over the time period :math:`t\in[0,1]`. It is
+# which we solve for :math:`u(t)` over the time period :math:`t\in(0,1]`. It is
 # straightforward to verify that this ODE has analytical solution
 #
 # .. math::
