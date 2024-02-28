@@ -47,6 +47,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         # Apply h-refinement
         if enrichment_method == "h":
+            if any(mesh == self.meshes[0] for mesh in self.meshes[1:]):
+                raise ValueError(
+                    "h-enrichment is not supported for shallow-copied meshes."
+                )
             meshes = [MeshHierarchy(mesh, num_enrichments)[-1] for mesh in self.meshes]
         else:
             meshes = self.meshes
