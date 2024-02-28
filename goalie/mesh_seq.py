@@ -381,7 +381,7 @@ class MeshSeq:
                 )
 
         # Check that the number of timesteps does not exceed the number of solve blocks
-        num_timesteps = self.time_partition[subinterval].num_timesteps
+        num_timesteps = self.time_partition.num_timesteps_per_subinterval[subinterval]
         if num_timesteps > N:
             raise ValueError(
                 f"Number of timesteps exceeds number of solve blocks for field '{field}'"
@@ -653,7 +653,11 @@ class MeshSeq:
 
     @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
-        self, adaptor: Callable, solver_kwargs: dict = {}, adaptor_kwargs: dict = {}, **kwargs
+        self,
+        adaptor: Callable,
+        solver_kwargs: dict = {},
+        adaptor_kwargs: dict = {},
+        **kwargs,
     ):
         r"""
         Apply goal-oriented mesh adaptation using a fixed point iteration loop.
