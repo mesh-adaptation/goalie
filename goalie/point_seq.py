@@ -23,7 +23,7 @@ class PointSeq(MeshSeq):
         :kwarg get_initial_condition: a function, whose only argument is a
             :class:`~.MeshSeq`, which specifies initial conditions on the first mesh
         :kwarg get_form: a function, whose only argument is a :class:`~.MeshSeq`, which
-            returns a function that generates the PDE weak form
+            returns a function that generates the ODE weak form
         :kwarg get_solver: a function, whose only argument is a :class:`~.MeshSeq`,
             which returns a function that integrates initial data over a subinterval
         :kwarg get_bcs: a function, whose only argument is a :class:`~.MeshSeq`, which
