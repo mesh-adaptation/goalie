@@ -2,6 +2,7 @@ r"""
 Nested dictionaries of solution data :class:`~.Function`\s.
 """
 import firedrake.function as ffunc
+import firedrake.functionspace as ffs
 from .utility import AttrDict
 import abc
 
@@ -12,6 +13,7 @@ __all__ = [
     "SteadyAdjointSolutionData",
     "UnsteadyAdjointSolutionData",
     "AdjointSolutionData",
+    "IndicatorData",
 ]
 
 
@@ -107,3 +109,45 @@ class AdjointSolutionData(UnsteadyAdjointSolutionData):
     """
     Class representing solution data for general adjoint problems.
     """
+
+
+class IndicatorData:
+    """
+    Class representing error indicator data.
+    """
+
+    def __init__(self, time_partition, meshes):
+        """
+        :arg time_partition: the :class:`~.TimePartition` used to discretise the problem
+            in time
+        :arg meshes: the list of meshes used to discretise the problem in space
+        """
+        self.time_partition = time_partition
+        self.meshes = meshes
+        self._indicators = None
+        self._create_indicators()
+
+    def _create_indicators(self):
+        P0_spaces = [ffs.FunctionSpace(mesh, "DG", 0) for mesh in self.meshes]
+        P = self.time_partition
+        self._indicators = AttrDict(
+            {
+                field: [
+                    [
+                        ffunc.Function(fs, name=f"{field}_error_indicator")
+                        for j in range(P.num_exports_per_subinterval[i] - 1)
+                    ]
+                    for i, fs in enumerate(P0_spaces)
+                ]
+                for field in P.fields
+            }
+        )
+
+    @property
+    def indicators(self):
+        if self._indicators is None:
+            self._create_indicators()
+        return self._indicators
+
+    def __getitem__(self, key):
+        return self.indicators[key]
