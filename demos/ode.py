@@ -94,7 +94,7 @@ def get_initial_condition(point_seq):
 # function and integrate:
 #
 # .. math::
-#    \int (u_{i+1} - u_i  - \Delta t u_i) v \mathrm{d}R = 0, \forall v\in R.
+#    \int_0^1 (u_{i+1} - u_i  - \Delta t u_i) v \mathrm{d}t = 0, \forall v\in R.
 #
 # It's worth noting that integration over an :math:`R`-space amounts to summation and
 # because we have a scalar :math:`R`-space it is a summation of a single value. Again,
@@ -200,7 +200,7 @@ plt.savefig("ode-forward_euler.jpg")
 # Similarly to the above, this gives rise to
 #
 # .. math::
-#    \int (u_{i+1} - u_{i} - \Delta t u_{i+1}) v \mathrm{d}R, \forall v\in R.
+#    \int_0^1 (u_{i+1} - u_{i} - \Delta t u_{i+1}) v \mathrm{d}t, \forall v\in R.
 #
 # ::
 
