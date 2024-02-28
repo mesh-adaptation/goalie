@@ -46,7 +46,8 @@ from goalie import *
 
 
 # Next, create a simple :class:`~.TimeInterval` object to hold information related to
-# the time discretisation. ::
+# the time discretisation. This is a simplified version of :class:`~.TimePartition`,
+# which only has one subinterval. ::
 
 end_time = 1
 time_partition = TimeInterval(end_time, dt, "u")
@@ -175,7 +176,8 @@ solutions = point_seq.solve_forward()["u"]["forward"]
 
 # Note that the solution trajectory does not include the initial value, so we prepend it.
 # We also convert the solution :class:`~.Function`\s to :class:`~.float`\s, for plotting
-# purposes. ::
+# purposes. Whilst there is only one subinterval in this example, we show how to loop
+# over subintervals, as this is instructive for the general case. ::
 forward_euler_trajectory = [1]
 forward_euler_trajectory += [
     float(sol) for subinterval in solutions for sol in subinterval
