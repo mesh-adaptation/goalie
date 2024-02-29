@@ -149,3 +149,11 @@ class IndicatorData(FunctionData):
                 for field in self.time_partition.fields
             }
         )
+
+    @property
+    def data_by_label(self):
+        """
+        For indicator data there is only one field label (``"error_indicator"``), so
+        this method just delegates to :meth:`~.data_by_field`.
+        """
+        return self.data_by_field
