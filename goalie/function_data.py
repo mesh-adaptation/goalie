@@ -18,7 +18,7 @@ class FunctionData(abc.ABC):
     Abstract base class for classes holding field data.
     """
 
-    labels = {}
+    _label_dict = {}
 
     def __init__(self, time_partition, function_spaces):
         r"""
@@ -32,7 +32,7 @@ class FunctionData(abc.ABC):
         self._data = None
 
     def _create_data(self):
-        assert self.labels
+        assert self._label_dict
         tp = self.time_partition
         self._data = AttrDict(
             {
@@ -45,7 +45,7 @@ class FunctionData(abc.ABC):
                             ]
                             for i, fs in enumerate(self.function_spaces[field])
                         ]
-                        for label in self.labels[field_type]
+                        for label in self._label_dict[field_type]
                     }
                 )
                 for field, field_type in zip(tp.fields, tp.field_types)
@@ -79,7 +79,7 @@ class FunctionData(abc.ABC):
         layout: indexed first by subinterval and then by export.
         """
         tp = self.time_partition
-        labels = self.labels["steady"] + self.labels["unsteady"]
+        labels = self._label_dict["steady"] + self._label_dict["unsteady"]
         return AttrDict(
             {
                 label: AttrDict(
@@ -99,7 +99,7 @@ class FunctionData(abc.ABC):
         data, indexed by export.
         """
         tp = self.time_partition
-        labels = self.labels["steady"] + self.labels["unsteady"]
+        labels = self._label_dict["steady"] + self._label_dict["unsteady"]
         return [
             AttrDict(
                 {
@@ -122,7 +122,10 @@ class ForwardSolutionData(FunctionData):
     """
 
     def __init__(self, *args, **kwargs):
-        self.labels = {"steady": ("forward",), "unsteady": ("forward", "forward_old")}
+        self._label_dict = {
+            "steady": ("forward",),
+            "unsteady": ("forward", "forward_old"),
+        }
         super().__init__(*args, **kwargs)
 
 
@@ -132,7 +135,7 @@ class AdjointSolutionData(FunctionData):
     """
 
     def __init__(self, *args, **kwargs):
-        self.labels = {
+        self._label_dict = {
             "steady": ("forward", "adjoint"),
             "unsteady": ("forward", "forward_old", "adjoint", "adjoint_next"),
         }
@@ -153,7 +156,7 @@ class IndicatorData(FunctionData):
             in time
         :arg meshes: the list of meshes used to discretise the problem in space
         """
-        self.labels = {
+        self._label_dict = {
             field_type: ("error_indicator",) for field_type in ("steady", "unsteady")
         }
         super().__init__(
