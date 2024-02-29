@@ -79,12 +79,13 @@ class FunctionData(abc.ABC):
         layout: indexed first by subinterval and then by export.
         """
         tp = self.time_partition
+        labels = self.labels["steady"] + self.labels["unsteady"]
         return AttrDict(
             {
-                self.labels[field_type]: AttrDict(
-                    {field: self.data_by_field[field][self.labels[field_type]]}
+                label: AttrDict(
+                    {field: self.data_by_field[field][label] for field in tp.fields}
                 )
-                for field, field_type in zip(tp.fields, tp.field_types)
+                for label in labels
             }
         )
 
@@ -98,17 +99,17 @@ class FunctionData(abc.ABC):
         data, indexed by export.
         """
         tp = self.time_partition
+        labels = self.labels["steady"] + self.labels["unsteady"]
         return [
             AttrDict(
                 {
                     field: AttrDict(
                         {
-                            self.labels[field_type]: self.data_by_field[field][
-                                self.labels[field_type]
-                            ][subinterval]
+                            label: self.data_by_field[field][label][subinterval]
+                            for label in labels
                         }
                     )
-                    for field, field_type in zip(tp.fields, tp.field_types)
+                    for field in tp.fields
                 }
             )
             for subinterval in tp.num_subintervals
