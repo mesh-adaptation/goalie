@@ -70,6 +70,24 @@ class FunctionData(abc.ABC):
     def items(self):
         return self.data_by_field.items()
 
+    @property
+    def data_by_label(self):
+        """
+        Extract field data array in an alternative layout: as a doubly-nested dictionary
+        whose first key is the field label and second key is the field name. Entries
+        of the doubly-nested dictionary are doubly-nested lists, which retain the default
+        layout: indexed first by subinterval and then by export.
+        """
+        tp = self.time_partition
+        return AttrDict(
+            {
+                self.labels[field_type]: AttrDict(
+                    {field: self.data_by_field[field][self.labels[field_type]]}
+                )
+                for field, field_type in zip(tp.fields, tp.field_types)
+            }
+        )
+
 
 class SolutionData(FunctionData, abc.ABC):
     """
@@ -85,6 +103,16 @@ class SolutionData(FunctionData, abc.ABC):
         subinterval and then by export.
         """
         return self.data_by_field
+
+    @property
+    def solutions_by_label(self):
+        """
+        Extract solution data array in an alternative layout: as a doubly-nested dictionary
+        whose first key is the field label and second key is the field name. Entries
+        of the doubly-nested dictionary are doubly-nested lists, which retain the default
+        layout: indexed first by subinterval and then by export.
+        """
+        return self.data_by_label
 
 
 class ForwardSolutionData(SolutionData):
@@ -151,3 +179,12 @@ class IndicatorData(FunctionData):
 
     def items(self):
         return self.indicators_by_field.items()
+
+    @property
+    def indicators_by_label(self):
+        """
+        Extract indicator data array in the default layout: as a dictionary keyed with
+        the field name. Entries of the dictionary are doubly-nested lists, indexed first
+        by subinterval and then by export.
+        """
+        return self.indicators_by_field
