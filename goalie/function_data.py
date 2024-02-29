@@ -77,7 +77,13 @@ class SolutionData(FunctionData, abc.ABC):
     """
 
     @property
-    def solutions(self):
+    def solutions_by_field(self):
+        """
+        Extract solution data array in the default layout: as a doubly-nested dictionary
+        whose first key is the field name and second key is the field label. Entries
+        of the doubly-nested dictionary are doubly-nested lists, indexed first by
+        subinterval and then by export.
+        """
         return self.data_by_field
 
 
@@ -126,17 +132,22 @@ class IndicatorData(FunctionData):
             time_partition, {key: P0_spaces for key in time_partition.fields}
         )
 
-    def _create_data(self):
-        assert all(len(labels) == 1 for labels in self.labels.values())
-        super()._create_data()
-        P = self.time_partition
-        self._data = AttrDict(
+    @property
+    def indicators_by_field(self):
+        """
+        Extract indicator data array in the default layout: as a dictionary keyed with
+        the field name. Entries of the dictionary are doubly-nested lists, indexed first
+        by subinterval and then by export.
+        """
+        return AttrDict(
             {
-                field: self.data_by_field[field][self.labels[field_type][0]]
-                for field, field_type in zip(P.fields, P.field_types)
+                field: self.data_by_field[field]["error_indicator"]
+                for field in self.time_partition.fields
             }
         )
 
-    @property
-    def indicators(self):
-        return self.data_by_field
+    def __getitem__(self, key):
+        return self.indicators_by_field[key]
+
+    def items(self):
+        return self.indicators_by_field.items()
