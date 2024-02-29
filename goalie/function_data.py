@@ -89,13 +89,7 @@ class FunctionData(abc.ABC):
         )
 
 
-class SolutionData(FunctionData, abc.ABC):
-    """
-    Abstract base class that defines the API for solution data classes.
-    """
-
-
-class ForwardSolutionData(SolutionData):
+class ForwardSolutionData(FunctionData):
     """
     Class representing solution data for general forward problems.
     """
@@ -105,7 +99,7 @@ class ForwardSolutionData(SolutionData):
         super().__init__(*args, **kwargs)
 
 
-class AdjointSolutionData(SolutionData):
+class AdjointSolutionData(FunctionData):
     """
     Class representing solution data for general adjoint problems.
     """
