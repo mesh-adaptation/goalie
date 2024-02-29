@@ -88,6 +88,32 @@ class FunctionData(abc.ABC):
             }
         )
 
+    @property
+    def data_by_subinterval(self):
+        """
+        Extract field data array in an alternative format: as a list indexed by
+        subinterval. Entries of the list are doubly-nested dictionaries, which retain
+        the default layout: with the first key being field label and the second key being
+        the field name. Entries of the doubly-nested dictionaries are lists of field
+        data, indexed by export.
+        """
+        tp = self.time_partition
+        return [
+            AttrDict(
+                {
+                    field: AttrDict(
+                        {
+                            self.labels[field_type]: self.data_by_field[field][
+                                self.labels[field_type]
+                            ][subinterval]
+                        }
+                    )
+                    for field, field_type in zip(tp.fields, tp.field_types)
+                }
+            )
+            for subinterval in tp.num_subintervals
+        ]
+
 
 class ForwardSolutionData(FunctionData):
     """
@@ -160,3 +186,16 @@ class IndicatorData(FunctionData):
         this method just delegates to :meth:`~.data_by_field`.
         """
         return self.data_by_field
+
+    @property
+    def data_by_subinterval(self):
+        """
+        Extract indicator data array in an alternative format: as a list indexed by
+        subinterval. Entries of the list are dictionaries, keyed by field label.
+        Entries of the dictionaries are lists of field data, indexed by export.
+        """
+        tp = self.time_partition
+        return [
+            AttrDict({self.data_by_field[field][subinterval] for field in tp.fields})
+            for subinterval in tp.num_subintervals
+        ]
