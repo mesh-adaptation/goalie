@@ -129,9 +129,12 @@ class IndicatorData(FunctionData):
         self.labels = {
             field_type: ("error_indicator",) for field_type in ("steady", "unsteady")
         }
-        P0_spaces = [ffs.FunctionSpace(mesh, "DG", 0) for mesh in meshes]
         super().__init__(
-            time_partition, {key: P0_spaces for key in time_partition.fields}
+            time_partition,
+            {
+                key: [ffs.FunctionSpace(mesh, "DG", 0) for mesh in meshes]
+                for key in time_partition.fields
+            },
         )
 
     @property
