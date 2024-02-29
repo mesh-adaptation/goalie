@@ -111,7 +111,7 @@ class FunctionData(abc.ABC):
                     for field in tp.fields
                 }
             )
-            for subinterval in tp.num_subintervals
+            for subinterval in range(tp.num_subintervals)
         ]
 
 
@@ -199,6 +199,8 @@ class IndicatorData(FunctionData):
         """
         tp = self.time_partition
         return [
-            AttrDict({self.data_by_field[field][subinterval] for field in tp.fields})
-            for subinterval in tp.num_subintervals
+            AttrDict(
+                {field: self.data_by_field[field][subinterval] for field in tp.fields}
+            )
+            for subinterval in range(tp.num_subintervals)
         ]
