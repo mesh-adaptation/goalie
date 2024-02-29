@@ -24,19 +24,20 @@ class BaseTestCases:
             timesteps = [0.5, 0.25]
             self.field = "field"
             self.num_exports = [1, 2]
-            mesh = UnitTriangleMesh()
+            self.mesh = UnitTriangleMesh()
             self.time_partition = TimePartition(
                 end_time, self.num_subintervals, timesteps, self.field
             )
             self.function_spaces = {
                 self.field: [
-                    FunctionSpace(mesh, "DG", 0) for _ in range(self.num_subintervals)
+                    FunctionSpace(self.mesh, "DG", 0)
+                    for _ in range(self.num_subintervals)
                 ]
             }
-            self._create_solution_data()
+            self._create_function_data()
 
         @abc.abstractmethod
-        def _create_solution_data(self):
+        def _create_function_data(self):
             pass
 
         def test_data_by_field(self):
@@ -96,7 +97,7 @@ class TestForwardSolutionData(BaseTestCases.TestFunctionData):
         super().setUp()
         self.labels = ("forward", "forward_old")
 
-    def _create_solution_data(self):
+    def _create_function_data(self):
         self.solution_data = ForwardSolutionData(
             self.time_partition, self.function_spaces
         )
@@ -111,10 +112,56 @@ class TestAdjointSolutionData(BaseTestCases.TestFunctionData):
         super().setUp()
         self.labels = ("forward", "forward_old", "adjoint", "adjoint_next")
 
-    def _create_solution_data(self):
+    def _create_function_data(self):
         self.solution_data = AdjointSolutionData(
             self.time_partition, self.function_spaces
         )
+
+
+class TestIndicatorData(BaseTestCases.TestFunctionData):
+    """
+    Unit tests for :class:`~.Indicatordata`.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.labels = ("error_indicator",)
+
+    def _create_function_data(self):
+        self.solution_data = IndicatorData(
+            self.time_partition, [self.mesh for _ in range(self.num_subintervals)]
+        )
+
+    def _test_data_by_field_or_label(self, field_or_data):
+        if field_or_data == "field":
+            data = self.solution_data.data_by_field
+        else:
+            data = self.solution_data.data_by_label
+        self.assertTrue(isinstance(data, AttrDict))
+        self.assertTrue(self.field in data)
+        self.assertEqual(len(data[self.field]), self.num_subintervals)
+        for i, num_exports in enumerate(self.num_exports):
+            self.assertTrue(isinstance(data[self.field][i], list))
+            self.assertEqual(len(data[self.field][i]), num_exports)
+            for f in data[self.field][i]:
+                self.assertTrue(isinstance(f, Function))
+
+    def test_data_by_field(self):
+        self._test_data_by_field_or_label("field")
+
+    def test_data_by_label(self):
+        self._test_data_by_field_or_label("label")
+
+    def test_data_by_subinterval(self):
+        data = self.solution_data.data_by_subinterval
+        self.assertTrue(isinstance(data, list))
+        self.assertEqual(len(data), self.num_subintervals)
+        for i, sub_data in enumerate(data):
+            self.assertTrue(isinstance(sub_data, AttrDict))
+            self.assertTrue(self.field in sub_data)
+            self.assertTrue(isinstance(sub_data[self.field], list))
+            for f in sub_data[self.field]:
+                self.assertTrue(isinstance(f, Function))
 
 
 if __name__ == "__main__":
