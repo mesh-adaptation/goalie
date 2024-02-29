@@ -33,7 +33,7 @@ class FunctionData(abc.ABC):
 
     def _create_data(self):
         assert self.labels
-        P = self.time_partition
+        tp = self.time_partition
         self._data = AttrDict(
             {
                 field: AttrDict(
@@ -41,14 +41,14 @@ class FunctionData(abc.ABC):
                         label: [
                             [
                                 ffunc.Function(fs, name=f"{field}_{label}")
-                                for j in range(P.num_exports_per_subinterval[i] - 1)
+                                for j in range(tp.num_exports_per_subinterval[i] - 1)
                             ]
                             for i, fs in enumerate(self.function_spaces[field])
                         ]
                         for label in self.labels[field_type]
                     }
                 )
-                for field, field_type in zip(P.fields, P.field_types)
+                for field, field_type in zip(tp.fields, tp.field_types)
             }
         )
 
