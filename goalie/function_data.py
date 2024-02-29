@@ -53,16 +53,22 @@ class FunctionData(abc.ABC):
         )
 
     @property
-    def data(self):
+    def data_by_field(self):
+        """
+        Extract field data array in the default layout: as a doubly-nested dictionary
+        whose first key is the field name and second key is the field label. Entries
+        of the doubly-nested dictionary are doubly-nested lists, indexed first by
+        subinterval and then by export.
+        """
         if self._data is None:
             self._create_data()
         return self._data
 
     def __getitem__(self, key):
-        return self.data[key]
+        return self.data_by_field[key]
 
     def items(self):
-        return self.data.items()
+        return self.data_by_field.items()
 
 
 class SolutionData(FunctionData, abc.ABC):
@@ -72,7 +78,7 @@ class SolutionData(FunctionData, abc.ABC):
 
     @property
     def solutions(self):
-        return self.data
+        return self.data_by_field
 
 
 class ForwardSolutionData(SolutionData):
@@ -126,11 +132,11 @@ class IndicatorData(FunctionData):
         P = self.time_partition
         self._data = AttrDict(
             {
-                field: self.data[field][self.labels[field_type][0]]
+                field: self.data_by_field[field][self.labels[field_type][0]]
                 for field, field_type in zip(P.fields, P.field_types)
             }
         )
 
     @property
     def indicators(self):
-        return self.data
+        return self.data_by_field
