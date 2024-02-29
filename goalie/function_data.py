@@ -94,26 +94,6 @@ class SolutionData(FunctionData, abc.ABC):
     Abstract base class that defines the API for solution data classes.
     """
 
-    @property
-    def solutions_by_field(self):
-        """
-        Extract solution data array in the default layout: as a doubly-nested dictionary
-        whose first key is the field name and second key is the field label. Entries
-        of the doubly-nested dictionary are doubly-nested lists, indexed first by
-        subinterval and then by export.
-        """
-        return self.data_by_field
-
-    @property
-    def solutions_by_label(self):
-        """
-        Extract solution data array in an alternative layout: as a doubly-nested dictionary
-        whose first key is the field label and second key is the field name. Entries
-        of the doubly-nested dictionary are doubly-nested lists, which retain the default
-        layout: indexed first by subinterval and then by export.
-        """
-        return self.data_by_label
-
 
 class ForwardSolutionData(SolutionData):
     """
@@ -161,30 +141,17 @@ class IndicatorData(FunctionData):
         )
 
     @property
-    def indicators_by_field(self):
+    def data_by_field(self):
         """
         Extract indicator data array in the default layout: as a dictionary keyed with
         the field name. Entries of the dictionary are doubly-nested lists, indexed first
         by subinterval and then by export.
         """
+        if self._data is None:
+            self._create_data()
         return AttrDict(
             {
-                field: self.data_by_field[field]["error_indicator"]
+                field: self._data[field]["error_indicator"]
                 for field in self.time_partition.fields
             }
         )
-
-    def __getitem__(self, key):
-        return self.indicators_by_field[key]
-
-    def items(self):
-        return self.indicators_by_field.items()
-
-    @property
-    def indicators_by_label(self):
-        """
-        Extract indicator data array in the default layout: as a dictionary keyed with
-        the field name. Entries of the dictionary are doubly-nested lists, indexed first
-        by subinterval and then by export.
-        """
-        return self.indicators_by_field
