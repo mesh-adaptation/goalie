@@ -2,12 +2,10 @@
 Driver functions for metric-based mesh adaptation.
 """
 from .log import debug
-from .time_partition import TimePartition
 from animate.metric import RiemannianMetric
 import firedrake
 from firedrake.petsc import PETSc
 import numpy as np
-from typing import List, Optional, Union
 import ufl
 
 
@@ -22,18 +20,20 @@ def enforce_variable_constraints(
     a_max=1.0e5,
     boundary_tag=None,
 ):
-    """
+    r"""
     Post-process a list of metrics to enforce minimum and maximum element sizes, as well
     as maximum anisotropy.
 
     :arg metrics: the metrics
-    :kwarg h_min: minimum tolerated element size, which could be a
-        :class:`firedrake.function.Function` or a number.
-    :kwarg h_max: maximum tolerated element size, which could be a
-        :class:`firedrake.function.Function` or a number.
-    :kwarg a_max: maximum tolerated element anisotropy, which could be a
-        :class:`firedrake.function.Function` or a number.
+    :type metrics: :class:`list` of :class:`~.RiemannianMetric`\s
+    :kwarg h_min: minimum tolerated element size
+    :type h_min: :class:`firedrake.function.Function`, :class:`float`, or :class:`int`
+    :kwarg h_max: maximum tolerated element size
+    :type h_max: :class:`firedrake.function.Function`, :class:`float`, or :class:`int`
+    :kwarg a_max: maximum tolerated element anisotropy
+    :type a_max: :class:`firedrake.function.Function`, :class:`float`, or :class:`int`
     :kwarg boundary_tag: optional tag to enforce sizes on.
+    :type boundary_tag: :class:`str` or :class:`int`
     """
     from collections.abc import Iterable
 
@@ -53,29 +53,39 @@ def enforce_variable_constraints(
 
 @PETSc.Log.EventDecorator()
 def space_time_normalise(
-    metrics: List[RiemannianMetric],
-    time_partition: TimePartition,
-    metric_parameters: Union[dict, list],
-    global_factor: Optional[float] = None,
-    boundary: bool = False,
-    restrict_sizes: bool = True,
-    restrict_anisotropy: bool = True,
-) -> List[RiemannianMetric]:
+    metrics,
+    time_partition,
+    metric_parameters,
+    global_factor=None,
+    boundary=False,
+    restrict_sizes=True,
+    restrict_anisotropy=True,
+):
     r"""
     Apply :math:`L^p` normalisation in both space and time.
 
     Based on Equation (1) in :cite:`Barral:2016`.
 
-    :arg metrics: list of :class:`RiemannianMetric`\s corresponding
-        to the metric associated with each subinterval
-    :arg time_partition: :class:`TimePartition` for the problem at hand
+    :arg metrics: the metrics associated with each subinterval
+    :type metrics: :class:`list` of :class:`~.RiemannianMetric`\s
+    :arg time_partition: temporal discretisation for the problem at hand
+    :type time_partition: :class:`TimePartition`
     :arg metric_parameters: dictionary containing the target *space-time* metric
         complexity under `dm_plex_metric_target_complexity` and the normalisation order
         under `dm_plex_metric_p`, or a list thereof
+    :type metric_parameters: :class:`list` of :class:`dict`\s or a single :class:`dict`
+        to use for all subintervals
     :kwarg global_factor: pre-computed global normalisation factor
-    :kwarg boundary: is the normalisation to be done over the boundary?
-    :kwarg restrict_sizes: should minimum and maximum metric magnitudes be enforced?
-    :kwarg restrict_anisotropy: should maximum anisotropy be enforced?
+    :type global_factor: :class:`float`
+    :kwarg boundary: if ``True``, the normalisation to be performed over the boundary
+    :type boundary: :class:`bool`
+    :kwarg restrict_sizes: if ``True``, minimum and maximum metric magnitudes are
+        enforced
+    :type restrict_sizes: :class:`bool`
+    :kwarg restrict_anisotropy: if ``True``, maximum anisotropy is enforced
+    :type restrict_anisotropy: :class:`bool`
+    :returns: the space-time normalised metrics
+    :rtype: :class:`list` of :class:`~.RiemannianMetric`\s
     """
     if isinstance(metric_parameters, dict):
         metric_parameters = [metric_parameters for _ in range(len(time_partition))]
@@ -158,26 +168,30 @@ def space_time_normalise(
     return metrics
 
 
-def ramp_complexity(
-    base: float, target: float, i: int, num_iterations: int = 3
-) -> float:
+def ramp_complexity(base, target, iteration, num_iterations=3):
     """
     Ramp up the target complexity over the first few iterations.
 
     :arg base: the base complexity to start from
+    :type base: :class:`float`
     :arg target: the desired complexity
-    :arg i: the current iteration
+    :type target: :class:`float`
+    :arg iteration: the current iteration
+    :type iteration: :class:`int`
     :kwarg num_iterations: how many iterations to ramp over?
+    :type num_iterations: :class:`int`
+    :returns: the ramped target complexity
+    :rtype: :class:`float`
     """
     if base <= 0.0:
         raise ValueError(f"Base complexity must be positive, not {base}.")
     if target <= 0.0:
         raise ValueError(f"Target complexity must be positive, not {target}.")
-    if i < 0:
-        raise ValueError(f"Current iteration must be non-negative, not {i}.")
+    if iteration < 0:
+        raise ValueError(f"Current iteration must be non-negative, not {iteration}.")
     if num_iterations < 0:
         raise ValueError(
             f"Number of iterations must be non-negative, not {num_iterations}."
         )
-    alpha = 1 if num_iterations == 0 else min(i / num_iterations, 1)
+    alpha = 1 if num_iterations == 0 else min(iteration / num_iterations, 1)
     return alpha * target + (1 - alpha) * base
