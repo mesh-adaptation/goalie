@@ -19,11 +19,15 @@ def project(source, target_space, **kwargs):
 
     Extra keyword arguments are passed to :func:`firedrake.projection.project`.
 
-    :arg source: the :class:`firedrake.function.Function` or
-        :class:`firedrake.cofunction.Cofunction` to be projected
-    :arg target_space: the :class:`firedrake.functionspaceimpl.FunctionSpace` which we
-        seek to project into, or the :class:`firedrake.function.Function` or
-        :class:`firedrake.cofunction.Cofunction` to use as the target
+    :arg source: the function to be projected
+    :type source: :class:`firedrake.function.Function` or
+        :class:`firedrake.cofunction.Cofunction`
+    :arg target_space: the function space which we seek to project into, or the function
+        or cofunction to use as the target
+    :type target_space: :class:`firedrake.functionspaceimpl.FunctionSpace`,
+        :class:`firedrake.function.Function`, or :class:`firedrake.cofunction.Cofunction`
+    :returns: the projection
+    :rtype: :class:`firedrake.function.Function`
     """
     if not isinstance(source, (firedrake.Function, firedrake.Cofunction)):
         raise NotImplementedError(
@@ -45,20 +49,22 @@ def project(source, target_space, **kwargs):
         return _project(source, target, **kwargs)
 
 
-@PETSc.Log.EventDecorator("goalie.interpolation.project")
+@PETSc.Log.EventDecorator()
 def _project(source, target, **kwargs):
     """
-    Apply a mesh-to-mesh conservative projection to some source
-    :class:`firedrake.function.Function`, mapping to a target
-    :class:`firedrake.function.Function`.
+    Apply mesh-to-mesh conservative projection.
 
-    This function extends to the case of mixed spaces.
+    This function extends :func:`firedrake.projection.project`` to account for mixed
+    spaces.
 
-    Extra keyword arguments are passed to Firedrake's
-    :func:`firedrake.projection.project`` function.
+    :arg source: the Function to be projected
+    :type source: :class:`firedrake.function.Function`
+    :arg target: the Function which we seek to project onto
+    :type target: :class:`firedrake.function.Function`.
+    :returns: the target projection
+    :rtype: :class:`firedrake.function.Function`
 
-    :arg source: the `Function` to be projected
-    :arg target: the `Function` which we seek to project onto
+    Extra keyword arguments are passed to :func:`firedrake.projection.project``.
     """
     Vs = source.function_space()
     Vt = target.function_space()
@@ -85,23 +91,23 @@ def _project(source, target, **kwargs):
     return target
 
 
-@PETSc.Log.EventDecorator("goalie.interpolation.project_adjoint")
+@PETSc.Log.EventDecorator()
 def _project_adjoint(target_b, source_b, **kwargs):
     """
-    Apply the adjoint of a mesh-to-mesh conservative projection to some seed
-    :class:`firedrake.cofunction.Cofunction`, mapping to an output
-    :class:`firedrake.cofunction.Cofunction`.
+    Apply an adjoint mesh-to-mesh conservative projection.
 
     The notation used here is in terms of the adjoint of standard projection.
     However, this function may also be interpreted as a projector in its own right,
     mapping ``target_b`` to ``source_b``.
 
-    Extra keyword arguments are passed to :func:`firedrake.projection.project`.
+    :arg target_b: seed cofunction from the target space of the forward projection
+    :type target_b: :class:`firedrake.cofunction.Cofunction`
+    :arg source_b: output cofunction from the source space of the forward projection
+    :type source_b: :class:`firedrake.cofunction.Cofunction`.
+    :returns: the adjoint projection
+    :rtype: :class:`firedrake.cofunction.Cofunction`
 
-    :arg target_b: seed :class:`firedrake.cofunction.Cofunction` from the target space
-        of the forward projection
-    :arg source_b: the :class:`firedrake.cofunction.Cofunction` from the source space
-        of the forward projection
+    Extra keyword arguments are passed to :func:`firedrake.projection.project`.
     """
     from firedrake.supermeshing import assemble_mixed_mass_matrix
 
