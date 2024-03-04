@@ -7,26 +7,28 @@ import firedrake
 import firedrake.mesh as fmesh
 from firedrake.petsc import PETSc
 from firedrake.__future__ import interpolate
-import mpi4py
 import numpy as np
 import os
-import petsc4py
 import ufl
 
 
-@PETSc.Log.EventDecorator("goalie.Mesh")
-def Mesh(arg, **kwargs) -> firedrake.mesh.MeshGeometry:
+@PETSc.Log.EventDecorator()
+def Mesh(arg, **kwargs):
     """
-    Overload :func:`firedrake.mesh.Mesh` to
-    endow the output mesh with useful quantities.
+    Overload :func:`firedrake.mesh.Mesh` to endow the output mesh with useful quantities.
 
     The following quantities are computed by default:
         * cell size;
         * facet area.
 
-    The argument and keyword arguments are passed to
-    Firedrake's ``Mesh`` constructor, modified so
-    that the argument could also be a mesh.
+    The argument and keyword arguments are passed to Firedrake's
+    :func:`firedrake.mesh.Mesh` constructor, modified so that the argument could also be
+    a mesh.
+
+    Arguments and keyword arguments are the same as for :func:`firedrake.mesh.Mesh`.
+
+    :returns: the constructed mesh
+    :rtype: :class:`firedrake.mesh.MeshGeometry`
     """
     try:
         mesh = firedrake.Mesh(arg, **kwargs)
@@ -59,8 +61,10 @@ def Mesh(arg, **kwargs) -> firedrake.mesh.MeshGeometry:
 class VTKFile(firedrake.output.VTKFile):
     """
     Overload :class:`firedrake.output.VTKFile` so that it uses ``adaptive`` mode by
-    default. Whilst this means that the mesh topology is recomputed at every export, it
-    removes any need for the user to reset it manually.
+    default.
+
+    Whilst this means that the mesh topology is recomputed at every export, it removes
+    any need for the user to reset it manually.
     """
 
     def __init__(self, *args, **kwargs):
@@ -69,10 +73,11 @@ class VTKFile(firedrake.output.VTKFile):
 
     def _write_vtu(self, *functions):
         """
-        Overload the Firedrake functionality
-        under the blind assumption that the
-        same list of functions are outputted
-        each time (albeit on different meshes).
+        Overload the Firedrake functionality under the blind assumption that the same
+        list of functions are outputted each time (albeit on different meshes).
+
+        The arguments and return values are the same as for
+        :meth:`firedrake.output.File._write_vtu`.
         """
         if self._fnames is not None:
             if len(self._fnames) != len(functions):
@@ -86,13 +91,17 @@ class VTKFile(firedrake.output.VTKFile):
         return super()._write_vtu(*functions)
 
 
-@PETSc.Log.EventDecorator("goalie.assemble_mass_matrix")
-def assemble_mass_matrix(
-    space: firedrake.FunctionSpace, norm_type: str = "L2"
-) -> petsc4py.PETSc.Mat:
+@PETSc.Log.EventDecorator()
+def assemble_mass_matrix(space, norm_type="L2"):
     """
-    Assemble the ``norm_type`` mass matrix
-    associated with some finite element ``space``.
+    Assemble a mass matrix associated with some finite element space and norm.
+
+    :arg space: function space to build the mass matrix with
+    :type space: :class:`firedrake.functionspaceimpl.FunctionSpace`
+    :kwarg norm_type: the type norm to build the mass matrix with
+    :type norm_type: :class:`str`
+    :returns: the corresponding mass matrix
+    :rtype: petsc4py.PETSc.Mat
     """
     trial = firedrake.TrialFunction(space)
     test = firedrake.TestFunction(space)
@@ -108,52 +117,73 @@ def assemble_mass_matrix(
     return firedrake.assemble(lhs).petscmat
 
 
-def cofunction2function(c):
+def cofunction2function(cofunc):
     """
-    Map a :class:`Cofunction` to a :class:`Function`.
+    :arg cofunc: a cofunction
+    :type cofunc: :class:`firedrake.cofunction.Cofunction`
+    :returns: a function with the same underyling data
+    :rtype: :class:`firedrake.function.Function`
     """
-    f = firedrake.Function(c.function_space().dual())
-    if isinstance(f.dat.data_with_halos, tuple):
-        for i, arr in enumerate(f.dat.data_with_halos):
-            arr[:] = c.dat.data_with_halos[i]
+    func = firedrake.Function(cofunc.function_space().dual())
+    if isinstance(func.dat.data_with_halos, tuple):
+        for i, arr in enumerate(func.dat.data_with_halos):
+            arr[:] = cofunc.dat.data_with_halos[i]
     else:
-        f.dat.data_with_halos[:] = c.dat.data_with_halos
-    return f
+        func.dat.data_with_halos[:] = cofunc.dat.data_with_halos
+    return func
 
 
-def function2cofunction(f):
+def function2cofunction(func):
     """
-    Map a :class:`Function` to a :class:`Cofunction`.
+    :arg func: a function
+    :type func: :class:`firedrake.function.Function`
+    :returns: a cofunction with the same underlying data
+    :rtype: :class:`firedrake.cofunction.Cofunction`
     """
-    c = firedrake.Cofunction(f.function_space().dual())
-    if isinstance(c.dat.data_with_halos, tuple):
-        for i, arr in enumerate(c.dat.data_with_halos):
-            arr[:] = f.dat.data_with_halos[i]
+    cofunc = firedrake.Cofunction(func.function_space().dual())
+    if isinstance(cofunc.dat.data_with_halos, tuple):
+        for i, arr in enumerate(cofunc.dat.data_with_halos):
+            arr[:] = func.dat.data_with_halos[i]
     else:
-        c.dat.data_with_halos[:] = f.dat.data_with_halos
-    return c
+        cofunc.dat.data_with_halos[:] = func.dat.data_with_halos
+    return cofunc
 
 
 @PETSc.Log.EventDecorator()
-def norm(v, norm_type="L2", **kwargs):
+def norm(v, norm_type="L2", condition=None, boundary=False):
     r"""
     Overload :func:`firedrake.norms.norm` to allow for :math:`\ell^p` norms.
+
+    Currently supported options:
+    * ``'l1'``
+    * ``'l2'``
+    * ``'linf'``
+    * ``'L2'``
+    * ``'Linf'``
+    * ``'H1'``
+    * ``'Hdiv'``
+    * ``'Hcurl'``
+    * or any ``'Lp'`` with :math:`p >= 1`.
 
     Note that this version is case sensitive, i.e. ``'l2'`` and ``'L2'`` will give
     different results in general.
 
-    :arg v: the :class:`firedrake.function.Function` or
-        :class:`firedrake.cofunction.Cofunction` to take the norm of
-    :kwarg norm_type: choose from ``'l1'``, ``'l2'``, ``'linf'``, ``'L2'``, ``'Linf'``,
-        ``'H1'``, ``'Hdiv'``, ``'Hcurl'``, or any ``'Lp'`` with :math:`p >= 1`.
+    :arg v: the function to take the norm of
+    :type v: :class:`firedrake.function.Function` or
+        :class:`firedrake.cofunction.Cofunction`
+    :kwarg norm_type: the type of norm to use
+    :type norm_type: :class:`str`
     :kwarg condition: a UFL condition for specifying a subdomain to compute the norm
         over
-    :kwarg boundary: should the norm be computed over the domain boundary?
+    :kwarg boundary: if ``True``, the norm is computed over the domain boundary
+    :type boundary: :class:`bool`
+    :returns: the norm value
+    :rtype: :class:`float`
     """
     if isinstance(v, firedrake.Cofunction):
         v = cofunction2function(v)
-    boundary = kwargs.get("boundary", False)
-    condition = kwargs.get("condition", firedrake.Constant(1.0))
+    if condition is None:
+        condition = firedrake.Constant(1.0)
     norm_codes = {"l1": 0, "l2": 2, "linf": 3}
     p = 2
     if norm_type in norm_codes or norm_type == "Linf":
@@ -192,18 +222,38 @@ def norm(v, norm_type="L2", **kwargs):
 
 
 @PETSc.Log.EventDecorator()
-def errornorm(u, uh, norm_type="L2", **kwargs):
+def errornorm(u, uh, norm_type="L2", boundary=False, **kwargs):
     r"""
     Overload :func:`firedrake.norms.errornorm` to allow for :math:`\ell^p` norms.
+
+    Currently supported options:
+    * ``'l1'``
+    * ``'l2'``
+    * ``'linf'``
+    * ``'L2'``
+    * ``'Linf'``
+    * ``'H1'``
+    * ``'Hdiv'``
+    * ``'Hcurl'``
+    * or any ``'Lp'`` with :math:`p >= 1`.
 
     Note that this version is case sensitive, i.e. ``'l2'`` and ``'L2'`` will give
     different results in general.
 
     :arg u: the 'true' value
+    :type u: :class:`firedrake.function.Function` or
+        :class:`firedrake.cofunction.Cofunction`
     :arg uh: the approximation of the 'truth'
-    :kwarg norm_type: choose from ``'l1'``, ``'l2'``, ``'linf'``, ``'L2'``, ``'Linf'``,
-        ``'H1'``, ``'Hdiv'``, ``'Hcurl'``, or any ``'Lp'`` with :math:`p >= 1`.
-    :kwarg boundary: should the norm be computed over the domain boundary?
+    :type uh: :class:`firedrake.function.Function` or
+        :class:`firedrake.cofunction.Cofunction`
+    :kwarg norm_type: the type of norm to use
+    :type norm_type: :class:`str`
+    :kwarg boundary: if ``True``, the norm is computed over the domain boundary
+    :type boundary: :class:`bool`
+    :returns: the error norm value
+    :rtype: :class:`float`
+
+    Any other keyword arguments are passed to :func:`firedrake.norms.errornorm`.
     """
     if isinstance(u, firedrake.Cofunction):
         u = cofunction2function(u)
@@ -235,7 +285,7 @@ def errornorm(u, uh, norm_type="L2", **kwargs):
     elif hasattr(uh.function_space(), "num_sub_spaces"):
         if norm_type == "L2":
             vv = [uu - uuh for uu, uuh in zip(u.subfunctions, uh.subfunctions)]
-            dX = ufl.ds if kwargs.get("boundary", False) else ufl.dx
+            dX = ufl.ds if boundary else ufl.dx
             return ufl.sqrt(firedrake.assemble(sum([ufl.inner(v, v) for v in vv]) * dX))
         else:
             raise NotImplementedError(
@@ -251,8 +301,7 @@ def errornorm(u, uh, norm_type="L2", **kwargs):
 
 class AttrDict(dict):
     """
-    Dictionary that provides both ``self[key]``
-    and ``self.key`` access to members.
+    Dictionary that provides both ``self[key]`` and ``self.key`` access to members.
 
     **Disclaimer**: Copied from `stackoverflow
     <http://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute-in-python>`__.
@@ -291,8 +340,7 @@ def create_directory(path, comm=firedrake.COMM_WORLD):
     """
     Create a directory on disk.
 
-    Code copied from `Thetis
-    <https://thetisproject.org>`__.
+    **Disclaimer**: Code copied from `Thetis <https://thetisproject.org>`__.
 
     :arg path: path to the directory
     :type path: :class:`str`
