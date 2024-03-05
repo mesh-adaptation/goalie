@@ -336,7 +336,9 @@ class AdjointMeshSeq(MeshSeq):
                 # Update forward and adjoint solution data based on block dependencies
                 # and outputs
                 sols = self.solutions[field]
-                for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
+                for j, block in zip(
+                    range(num_exports - 1), reversed(solve_blocks[::-stride])
+                ):
                     # Current forward solution is determined from outputs
                     out = self._output(field, i, block)
                     if out is not None:
@@ -358,21 +360,21 @@ class AdjointMeshSeq(MeshSeq):
                     # The adjoint solution at the 'next' timestep is determined from the
                     # adj_sol attribute of the next solve block
                     if not steady:
-                        if j * stride + 1 < num_solve_blocks:
-                            if solve_blocks[j * stride + 1].adj_sol is not None:
+                        if (j + 1) * stride < num_solve_blocks:
+                            if solve_blocks[(j + 1) * stride].adj_sol is not None:
                                 sols.adjoint_next[i][j].assign(
-                                    solve_blocks[j * stride + 1].adj_sol
+                                    solve_blocks[(j + 1) * stride].adj_sol
                                 )
-                        elif j * stride + 1 == num_solve_blocks:
-                            if i + 1 < num_subintervals:
-                                project(
-                                    sols.adjoint_next[i + 1][0], sols.adjoint_next[i][j]
-                                )
-                        else:
+                        elif (j + 1) * stride > num_solve_blocks:
                             raise IndexError(
                                 "Cannot extract solve block"
-                                f" {j*stride+1} > {num_solve_blocks}."
+                                f" {(j + 1) * stride} > {num_solve_blocks}."
                             )
+
+                # The initial timestep of the current subinterval is the 'next' timestep
+                # after the final timestep of the previous subinterval
+                if i > 0 and solve_blocks[0].adj_sol is not None:
+                    project(solve_blocks[0].adj_sol, sols.adjoint_next[i - 1][-1])
 
                 # Check non-zero adjoint solution/value
                 if np.isclose(norm(self.solutions[field].adjoint[i][0]), 0.0):

@@ -571,7 +571,7 @@ class MeshSeq:
                 # Update solution data based on block dependencies and outputs
                 sols = self.solutions[field]
                 for j, block in zip(
-                    range(num_exports - 1), np.flip(solve_blocks[::-stride])
+                    range(num_exports - 1), reversed(solve_blocks[::-stride])
                 ):
                     # Current solution is determined from outputs
                     out = self._output(field, i, block)
