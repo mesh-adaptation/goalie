@@ -46,7 +46,15 @@ def enforce_variable_constraints(
     if not isinstance(a_max, Iterable):
         a_max = [a_max] * len(metrics)
     for metric, hmin, hmax, amax in zip(metrics, h_min, h_max, a_max):
-        metric.enforce_variable_constraints(hmin, hmax, amax, boundary_tag=boundary_tag)
+        metric.set_parameters(
+            {
+                "dm_plex_metric_h_min": hmin,
+                "dm_plex_metric_h_max": hmax,
+                "dm_plex_metric_a_max": amax,
+                "dm_plex_metric_boundary_tag": boundary_tag,
+            }
+        )
+        metric.enforce_spd()
     return metrics
 
 
