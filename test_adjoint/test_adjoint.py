@@ -1,6 +1,7 @@
 """
 Test adjoint drivers.
 """
+
 from firedrake import *
 from goalie_adjoint import *
 import pyadjoint
@@ -137,14 +138,18 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     # FIXME: Using mixed Functions as Controls not correct
     J_expected = float(J)
 
-    # Get expected adjoint solutions and values
+    # Get expected adjoint solutions and values at the timestep corresponding
+    # to the first exported solution in the MeshSeq solution data
+    first_export_idx = test_case.dt_per_export - 1
     adj_sols_expected = {}
     adj_values_expected = {}
     for field, fs in mesh_seq._fs.items():
         solve_blocks = mesh_seq.get_solve_blocks(field, 0)
-        adj_sols_expected[field] = solve_blocks[0].adj_sol.copy(deepcopy=True)
+        adj_sols_expected[field] = solve_blocks[first_export_idx].adj_sol.copy(
+            deepcopy=True
+        )
         if not steady:
-            dep = mesh_seq._dependency(field, 0, solve_blocks[0])
+            dep = mesh_seq._dependency(field, 0, solve_blocks[first_export_idx])
             adj_values_expected[field] = Cofunction(fs[0].dual())
             adj_values_expected[field].assign(dep.adj_value)
 
@@ -180,20 +185,24 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         if not np.isclose(J_expected, mesh_seq.J):
             raise ValueError(f"QoIs do not match ({J_expected} vs. {mesh_seq.J})")
 
-        # Check adjoint solutions at initial time match
+        # Check adjoint solutions at first export time match
+        first_export_time = test_case.dt * test_case.dt_per_export
         for field in time_partition.fields:
             adj_sol_expected = adj_sols_expected[field]
             expected_norm = norm(adj_sol_expected)
             if np.isclose(expected_norm, 0.0):
-                raise ValueError("'Expected' norm at t=0 is unexpectedly zero.")
+                raise ValueError(
+                    f"'Expected' norm at t={first_export_time} is unexpectedly zero."
+                )
             adj_sol_computed = solutions[field].adjoint[0][0]
             err = errornorm(adj_sol_expected, adj_sol_computed) / expected_norm
             if not np.isclose(err, 0.0):
                 raise ValueError(
-                    f"Adjoint solutions do not match at t=0 (error {err:.4e}.)"
+                    f"Adjoint solutions do not match at t={first_export_time} "
+                    f"(error {err:.4e}.)"
                 )
 
-        # Check adjoint actions at initial time match
+        # Check adjoint actions at first export time match
         if not steady:
             for field in time_partition.fields:
                 adj_value_expected = adj_values_expected[field]
@@ -203,7 +212,8 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
                 )
                 if not np.isclose(err, 0.0):
                     raise ValueError(
-                        f"Adjoint values do not match at t=0 (error {err:.4e}.)"
+                        f"Adjoint values do not match at t={first_export_time} "
+                        f"(error {err:.4e}.)"
                     )
 
     tape = pyadjoint.get_working_tape()
