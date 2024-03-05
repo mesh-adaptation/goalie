@@ -198,8 +198,8 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
             err = errornorm(adj_sol_expected, adj_sol_computed) / expected_norm
             if not np.isclose(err, 0.0):
                 raise ValueError(
-                    f"Adjoint solutions do not match at t={first_export_time} "
-                    f"(error {err:.4e}.)"
+                    f"Adjoint solutions do not match at t={first_export_time}"
+                    f" (error {err:.4e}.)"
                 )
 
         # Check adjoint actions at first export time match
@@ -212,8 +212,8 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
                 )
                 if not np.isclose(err, 0.0):
                     raise ValueError(
-                        f"Adjoint values do not match at t={first_export_time} "
-                        f"(error {err:.4e}.)"
+                        f"Adjoint values do not match at t={first_export_time}"
+                        f" (error {err:.4e}.)"
                     )
 
     tape = pyadjoint.get_working_tape()

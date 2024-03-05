@@ -336,9 +336,7 @@ class AdjointMeshSeq(MeshSeq):
                 # Update forward and adjoint solution data based on block dependencies
                 # and outputs
                 sols = self.solutions[field]
-                for j, block in zip(
-                    range(num_exports - 1), reversed(solve_blocks[::-stride])
-                ):
+                for j, block in enumerate(reversed(solve_blocks[::-stride])):
                     # Current forward solution is determined from outputs
                     out = self._output(field, i, block)
                     if out is not None:
