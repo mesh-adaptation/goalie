@@ -8,7 +8,6 @@ from firedrake.adjoint_utils.solving import get_solve_blocks
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
 from .function_data import ForwardSolutionData
-from .interpolation import project
 from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
 from animate.quality import QualityMeasure
@@ -324,7 +323,9 @@ class MeshSeq:
                 checkpoints.append(
                     AttrDict(
                         {
-                            field: project(sols[field], fs[i + 1])
+                            field: firedrake.Function(fs[i + 1]).interpolate(
+                                sols[field]
+                            )
                             for field, fs in self._fs.items()
                         }
                     )
@@ -585,7 +586,9 @@ class MeshSeq:
             if i < num_subintervals - 1:
                 checkpoint = AttrDict(
                     {
-                        field: project(checkpoint[field], fs[i + 1])
+                        field: firedrake.Function(fs[i + 1]).interpolate(
+                            checkpoint[field]
+                        )
                         for field, fs in self._fs.items()
                     }
                 )
