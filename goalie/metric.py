@@ -5,6 +5,7 @@ from .log import debug
 from animate.metric import RiemannianMetric
 import firedrake
 from firedrake.petsc import PETSc
+from collections.abc import Iterable
 import numpy as np
 import ufl
 
@@ -35,8 +36,6 @@ def enforce_variable_constraints(
     :kwarg boundary_tag: optional tag to enforce sizes on.
     :type boundary_tag: :class:`str` or :class:`int`
     """
-    from collections.abc import Iterable
-
     if isinstance(metrics, RiemannianMetric):
         metrics = [metrics]
     assert isinstance(metrics, Iterable)

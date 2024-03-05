@@ -12,19 +12,51 @@ import pytest
 import unittest
 
 
-class TestMetricNormalisation(unittest.TestCase):
+class BaseClasses:
+    """
+    Base classes for unit testing.
+    """
+
+    class MetricTestCase(unittest.TestCase):
+        """
+        Base class for metric unit tests.
+        """
+
+        def setUp(self):
+            self.P1_ten = TensorFunctionSpace(uniform_mesh(2, 1), "CG", 1)
+
+        @property
+        def simple_metric(self):
+            return RiemannianMetric(self.P1_ten)
+
+
+class TestEnforceVariableConstraints(BaseClasses.MetricTestCase):
+    """
+    Unit tests for enforcing variable constraints.
+    """
+
+    def test_defaults(self):
+        enforce_variable_constraints(self.simple_metric)
+
+    def test_noniterable(self):
+        hmin, hmax, amax = 1.0e-05, 1.0, 1.0e05
+        iterable = enforce_variable_constraints(
+            [self.simple_metric], h_min=[hmin], h_max=[hmax], a_max=[amax]
+        )
+        noniterable = enforce_variable_constraints(
+            self.simple_metric, h_min=hmin, h_max=hmax, a_max=amax
+        )
+        self.assertAlmostEqual(errornorm(iterable[0], noniterable[0]), 0)
+
+
+class TestMetricNormalisation(BaseClasses.MetricTestCase):
     """
     Unit tests for metric normalisation.
     """
 
     def setUp(self):
+        super().setUp()
         self.time_partition = TimeInterval(1.0, 1.0, "u")
-
-    @property
-    def simple_metric(self):
-        mesh = uniform_mesh(2, 1)
-        P1_ten = TensorFunctionSpace(mesh, "CG", 1)
-        return RiemannianMetric(P1_ten)
 
     def test_time_partition_length_error(self):
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], "u")
