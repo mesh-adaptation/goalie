@@ -54,7 +54,7 @@ def get_initial_condition_split(mesh_seq):
         "slot_cyl": slot_cyl_initial_condition,
     }
     return {
-        f: interpolate(init[f](x, y), fs[0])
+        f: assemble(interpolate(init[f](x, y), fs[0]))
         for f, fs in mesh_seq.function_spaces.items()
     }
 

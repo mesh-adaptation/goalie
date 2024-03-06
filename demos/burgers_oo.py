@@ -82,7 +82,7 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
     def get_initial_condition(self):
         fs = self.function_spaces["u"][0]
         x, y = SpatialCoordinate(self[0])
-        return {"u": interpolate(as_vector([sin(pi * x), 0]), fs)}
+        return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
 
     @annotate_qoi
     def get_qoi(self, solutions, i):
