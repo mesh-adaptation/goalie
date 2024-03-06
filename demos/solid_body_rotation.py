@@ -91,7 +91,7 @@ def get_initial_condition(mesh_seq, field="c"):
     bell = bell_initial_condition(x, y)
     cone = cone_initial_condition(x, y)
     slot_cyl = slot_cyl_initial_condition(x, y)
-    return {field: interpolate(bell + cone + slot_cyl, fs)}
+    return {field: assemble(interpolate(bell + cone + slot_cyl, fs))}
 
 
 # Now let's set up the time interval of interest. The `"GOALIE_REGRESSION_TEST"` flag
