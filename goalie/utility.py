@@ -1,10 +1,12 @@
 """
 Utility functions and classes for mesh adaptation.
 """
+
 from collections import OrderedDict
 import firedrake
 import firedrake.mesh as fmesh
 from firedrake.petsc import PETSc
+from firedrake.__future__ import interpolate
 import mpi4py
 import numpy as np
 import os
@@ -49,7 +51,7 @@ def Mesh(arg, **kwargs) -> firedrake.mesh.MeshGeometry:
 
     # Cell size
     if dim == 2 and mesh.coordinates.ufl_element().cell == ufl.triangle:
-        mesh.delta_x = firedrake.interpolate(ufl.CellDiameter(mesh), P0)
+        mesh.delta_x = firedrake.assemble(interpolate(ufl.CellDiameter(mesh), P0))
 
     return mesh
 
