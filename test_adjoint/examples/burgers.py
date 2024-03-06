@@ -9,7 +9,9 @@ nonlinear.
 Code here is based on that found at
     https://firedrakeproject.org/demos/burgers.py.html
 """
+
 from firedrake import *
+from firedrake.__future__ import interpolate
 
 
 # Problem setup
@@ -95,7 +97,7 @@ def get_initial_condition(self):
     """
     init_fs = self.function_spaces["uv_2d"][0]
     x, y = SpatialCoordinate(self.meshes[0])
-    return {"uv_2d": interpolate(as_vector([sin(pi * x), 0]), init_fs)}
+    return {"uv_2d": assemble(interpolate(as_vector([sin(pi * x), 0]), init_fs))}
 
 
 def get_qoi(self, sol, i):

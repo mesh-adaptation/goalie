@@ -1,6 +1,7 @@
 """
 Test interpolation schemes.
 """
+
 from firedrake import *
 from goalie import *
 from goalie.utility import function2cofunction
@@ -76,7 +77,7 @@ class TestProject(unittest.TestCase):
 
     def test_project_same_space(self):
         Vs = FunctionSpace(self.source_mesh, "CG", 1)
-        source = interpolate(self.sinusoid(), Vs)
+        source = assemble(interpolate(self.sinusoid(), Vs))
         target = Function(Vs)
         project(source, target)
         expected = source
@@ -84,7 +85,7 @@ class TestProject(unittest.TestCase):
 
     def test_project_same_space_adjoint(self):
         Vs = FunctionSpace(self.source_mesh, "CG", 1)
-        source = interpolate(self.sinusoid(), Vs)
+        source = assemble(interpolate(self.sinusoid(), Vs))
         source = function2cofunction(source)
         target = Cofunction(Vs.dual())
         project(source, target)
@@ -95,9 +96,6 @@ class TestProject(unittest.TestCase):
         P1 = FunctionSpace(self.source_mesh, "CG", 1)
         Vs = P1 * P1
         source = Function(Vs)
-        s1, s2 = source.subfunctions
-        s1.interpolate(self.sinusoid())
-        s2.interpolate(-self.sinusoid())
         target = Function(Vs)
         project(source, target)
         expected = source
@@ -107,9 +105,6 @@ class TestProject(unittest.TestCase):
         P1 = FunctionSpace(self.source_mesh, "CG", 1)
         Vs = P1 * P1
         source = Function(Vs)
-        s1, s2 = source.subfunctions
-        s1.interpolate(self.sinusoid())
-        s2.interpolate(-self.sinusoid())
         source = function2cofunction(source)
         target = Cofunction(Vs.dual())
         project(source, target)
@@ -119,7 +114,7 @@ class TestProject(unittest.TestCase):
     def test_project_same_mesh(self):
         Vs = FunctionSpace(self.source_mesh, "CG", 1)
         Vt = FunctionSpace(self.source_mesh, "DG", 0)
-        source = interpolate(self.sinusoid(), Vs)
+        source = assemble(interpolate(self.sinusoid(), Vs))
         target = Function(Vt)
         project(source, target)
         expected = Function(Vt).project(source)
@@ -128,7 +123,7 @@ class TestProject(unittest.TestCase):
     def test_project_same_mesh_adjoint(self):
         Vs = FunctionSpace(self.source_mesh, "CG", 1)
         Vt = FunctionSpace(self.source_mesh, "DG", 0)
-        source = interpolate(self.sinusoid(), Vs)
+        source = assemble(interpolate(self.sinusoid(), Vs))
         target = Cofunction(Vt.dual())
         project(function2cofunction(source), target)
         expected = function2cofunction(Function(Vt).project(source))
