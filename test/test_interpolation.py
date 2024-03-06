@@ -96,6 +96,9 @@ class TestProject(unittest.TestCase):
         P1 = FunctionSpace(self.source_mesh, "CG", 1)
         Vs = P1 * P1
         source = Function(Vs)
+        s1, s2 = source.subfunctions
+        s1.interpolate(self.sinusoid())
+        s2.interpolate(-self.sinusoid())
         target = Function(Vs)
         project(source, target)
         expected = source
@@ -105,6 +108,9 @@ class TestProject(unittest.TestCase):
         P1 = FunctionSpace(self.source_mesh, "CG", 1)
         Vs = P1 * P1
         source = Function(Vs)
+        s1, s2 = source.subfunctions
+        s1.interpolate(self.sinusoid())
+        s2.interpolate(-self.sinusoid())
         source = function2cofunction(source)
         target = Cofunction(Vs.dual())
         project(source, target)
