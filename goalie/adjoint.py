@@ -6,7 +6,7 @@ import firedrake
 from firedrake.petsc import PETSc
 from firedrake.adjoint import pyadjoint
 from .function_data import AdjointSolutionData
-from .interpolation import project
+from .interpolation import interpolate
 from .mesh_seq import MeshSeq
 from .options import GoalOrientedParameters
 from .time_partition import TimePartition
@@ -287,7 +287,7 @@ class AdjointMeshSeq(MeshSeq):
                     pyadjoint.pause_annotation()
             else:
                 for field, fs in self.function_spaces.items():
-                    checkpoint[field].block_variable.adj_value = project(
+                    checkpoint[field].block_variable.adj_value = interpolate(
                         seeds[field], fs[i]
                     )
 
@@ -372,7 +372,7 @@ class AdjointMeshSeq(MeshSeq):
                 # The initial timestep of the current subinterval is the 'next' timestep
                 # after the final timestep of the previous subinterval
                 if i > 0 and solve_blocks[0].adj_sol is not None:
-                    project(solve_blocks[0].adj_sol, sols.adjoint_next[i - 1][-1])
+                    interpolate(solve_blocks[0].adj_sol, sols.adjoint_next[i - 1][-1])
 
                 # Check non-zero adjoint solution/value
                 if np.isclose(norm(self.solutions[field].adjoint[i][0]), 0.0):

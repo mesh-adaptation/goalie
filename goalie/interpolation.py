@@ -1,6 +1,7 @@
 """
 Driver functions for mesh-to-mesh data transfer.
 """
+
 from .utility import assemble_mass_matrix, cofunction2function, function2cofunction
 import firedrake
 from firedrake.functionspaceimpl import WithGeometry
@@ -9,6 +10,80 @@ from petsc4py import PETSc as petsc4py
 
 
 __all__ = ["project"]
+
+
+def interpolate(source, target_space, **kwargs):
+    r"""
+    Overload :func:`firedrake.projection.interpolate` to account for the case of two mixed
+    function spaces defined on different meshes and for the adjoint interpolation operator
+    when applied to :class:`firedrake.cofunction.Cofunction`\s.
+
+    Extra keyword arguments are passed to :func:`firedrake.__future__.interpolate`.
+
+    :arg source: the :class:`firedrake.function.Function` or
+        :class:`firedrake.cofunction.Cofunction` to be interpolated
+    :arg target_space: the :class:`firedrake.functionspaceimpl.FunctionSpace` which we
+        seek to interpolate into, or the :class:`firedrake.function.Function` or
+        :class:`firedrake.cofunction.Cofunction` to use as the target
+    """
+    if not isinstance(source, (firedrake.Function, firedrake.Cofunction)):
+        raise NotImplementedError(
+            "Can only currently interpolate Functions and Cofunctions."
+        )
+    if isinstance(target_space, WithGeometry):
+        target = firedrake.Function(target_space)
+    elif isinstance(target_space, (firedrake.Cofunction, firedrake.Function)):
+        target = target_space
+    else:
+        raise TypeError(
+            "Second argument must be a FunctionSpace, Function, or Cofunction."
+        )
+    if isinstance(source, firedrake.Cofunction):
+        return _transfer_adjoint(source, target, **kwargs)
+    elif source.function_space() == target.function_space():
+        return target.assign(source)
+    else:
+        return _interpolate(source, target, **kwargs)
+
+
+@PETSc.Log.EventDecorator("goalie.interpolation.interpolate")
+def _interpolate(source, target, **kwargs):
+    """
+    Apply a mesh-to-mesh conservative interpolation to some source
+    :class:`firedrake.function.Function`, mapping to a target
+    :class:`firedrake.function.Function`.
+
+    This function extends to the case of mixed spaces.
+
+    Extra keyword arguments are passed to Firedrake's
+    :func:`firedrake.__future__.interpolate`` function.
+
+    :arg source: the `Function` to be interpolated
+    :arg target: the `Function` which we seek to interpolate onto
+    """
+    Vs = source.function_space()
+    Vt = target.function_space()
+    if hasattr(Vs, "num_sub_spaces"):
+        if not hasattr(Vt, "num_sub_spaces"):
+            raise ValueError(
+                "Source space has multiple components but target space does not."
+            )
+        if Vs.num_sub_spaces() != Vt.num_sub_spaces():
+            raise ValueError(
+                "Inconsistent numbers of components in source and target spaces:"
+                f" {Vs.num_sub_spaces()} vs. {Vt.num_sub_spaces()}."
+            )
+    elif hasattr(Vt, "num_sub_spaces"):
+        raise ValueError(
+            "Target space has multiple components but source space does not."
+        )
+    assert isinstance(target, firedrake.Function)
+    if hasattr(Vt, "num_sub_spaces"):
+        for s, t in zip(source.subfunctions, target.subfunctions):
+            t.interpolate(s, **kwargs)
+    else:
+        target.interpolate(source, **kwargs)
+    return target
 
 
 def project(source, target_space, **kwargs):
@@ -38,7 +113,7 @@ def project(source, target_space, **kwargs):
             "Second argument must be a FunctionSpace, Function, or Cofunction."
         )
     if isinstance(source, firedrake.Cofunction):
-        return _project_adjoint(source, target, **kwargs)
+        return _transfer_adjoint(source, target, **kwargs)
     elif source.function_space() == target.function_space():
         return target.assign(source)
     else:
@@ -86,7 +161,7 @@ def _project(source, target, **kwargs):
 
 
 @PETSc.Log.EventDecorator("goalie.interpolation.project_adjoint")
-def _project_adjoint(target_b, source_b, **kwargs):
+def _transfer_adjoint(target_b, source_b, **kwargs):
     """
     Apply the adjoint of a mesh-to-mesh conservative projection to some seed
     :class:`firedrake.cofunction.Cofunction`, mapping to an output
