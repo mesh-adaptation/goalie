@@ -158,7 +158,7 @@ def get_form(mesh_seq):
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition[index].timestep)
+        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
         theta = Function(R).assign(0.5)
 
         psi = TrialFunction(V)

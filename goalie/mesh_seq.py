@@ -384,7 +384,7 @@ class MeshSeq:
                 )
 
         # Check that the number of timesteps does not exceed the number of solve blocks
-        num_timesteps = self.time_partition[subinterval].num_timesteps
+        num_timesteps = self.time_partition.num_timesteps_per_subinterval[subinterval]
         if num_timesteps > N:
             raise ValueError(
                 f"Number of timesteps exceeds number of solve blocks for field '{field}'"

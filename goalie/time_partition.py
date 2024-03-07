@@ -2,7 +2,6 @@
 Partitioning for the temporal domain.
 """
 from .log import debug
-from .utility import AttrDict
 from collections.abc import Iterable
 import numpy as np
 from typing import List, Optional, Union
@@ -151,23 +150,27 @@ class TimePartition:
     def __len__(self) -> int:
         return self.num_subintervals
 
-    def __getitem__(self, i: int) -> dict:
+    def __getitem__(self, sl: Union[int, slice]) -> dict:
         """
-        :arg i: index
-        :return: subinterval bounds and timestep
-            associated with that index
+        :arg sl: index or slice
+        :return: subinterval bounds and timestep associated with that index
         """
-        return AttrDict(
-            {
-                "subinterval": self.subintervals[i],
-                "timestep": self.timesteps[i],
-                "num_timesteps_per_export": self.num_timesteps_per_export[i],
-                "num_exports": self.num_exports_per_subinterval[i],
-                "num_timesteps": self.num_timesteps_per_subinterval[i],
-                "start_time": self.subintervals[i][0],
-                "end_time": self.subintervals[i][1],
-                "length": self.subintervals[i][1] - self.subintervals[i][0],
-            }
+        if not isinstance(sl, slice):
+            sl = slice(sl, sl + 1, 1)
+        step = sl.step or 1
+        if step != 1:
+            raise NotImplementedError(
+                "Can only currently handle slices with step size 1."
+            )
+        num_subintervals = len(range(sl.start, sl.stop, step))
+        return TimePartition(
+            end_time=self.subintervals[sl.stop - 1][1],
+            num_subintervals=num_subintervals,
+            timesteps=self.timesteps[sl],
+            fields=self.fields,
+            num_timesteps_per_export=self.num_timesteps_per_export[sl],
+            start_time=self.subintervals[sl.start][0],
+            field_types=self.field_types,
         )
 
     @property
