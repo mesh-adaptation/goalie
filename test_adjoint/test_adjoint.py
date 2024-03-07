@@ -259,14 +259,14 @@ def plot_solutions(problem, qoi_type, debug=True):
     output_dir = os.path.join(os.path.dirname(__file__), "outputs", problem)
     outfiles = AttrDict(
         {
-            "forward": File(os.path.join(output_dir, "forward.pvd")),
-            "forward_old": File(os.path.join(output_dir, "forward_old.pvd")),
-            "adjoint": File(os.path.join(output_dir, "adjoint.pvd")),
+            "forward": VTKFile(os.path.join(output_dir, "forward.pvd")),
+            "forward_old": VTKFile(os.path.join(output_dir, "forward_old.pvd")),
+            "adjoint": VTKFile(os.path.join(output_dir, "adjoint.pvd")),
         }
     )
     if not steady:
-        outfiles.adjoint_next = File(os.path.join(output_dir, "adjoint_next.pvd"))
-        outfiles.adj_value = File(os.path.join(output_dir, "adj_value.pvd"))
+        outfiles.adjoint_next = VTKFile(os.path.join(output_dir, "adjoint_next.pvd"))
+        outfiles.adj_value = VTKFile(os.path.join(output_dir, "adj_value.pvd"))
     for label in outfiles:
         for k in range(time_partition.num_exports_per_subinterval[0] - 1):
             to_plot = []

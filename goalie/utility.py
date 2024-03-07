@@ -56,13 +56,11 @@ def Mesh(arg, **kwargs) -> firedrake.mesh.MeshGeometry:
     return mesh
 
 
-class File(firedrake.output.File):
+class VTKFile(firedrake.output.VTKFile):
     """
-    Overload :class:`firedrake.output.File` so that
-    it uses ``adaptive`` mode by default. Whilst
-    this means that the mesh topology is
-    recomputed at every export, it removes any
-    need for the user to reset it manually.
+    Overload :class:`firedrake.output.VTKFile` so that it uses ``adaptive`` mode by
+    default. Whilst this means that the mesh topology is recomputed at every export, it
+    removes any need for the user to reset it manually.
     """
 
     def __init__(self, *args, **kwargs):
