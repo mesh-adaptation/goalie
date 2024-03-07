@@ -48,12 +48,16 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         # Apply h-refinement
         if enrichment_method == "h":
+            if any(mesh == self.meshes[0] for mesh in self.meshes[1:]):
+                raise ValueError(
+                    "h-enrichment is not supported for shallow-copied meshes."
+                )
             meshes = [MeshHierarchy(mesh, num_enrichments)[-1] for mesh in self.meshes]
         else:
             meshes = self.meshes
 
         # Construct object to hold enriched spaces
-        mesh_seq_e = self.__class__(
+        enriched_mesh_seq = self.__class__(
             self.time_partition,
             meshes,
             get_function_spaces=self._get_function_spaces,
@@ -65,21 +69,21 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             qoi_type=self.qoi_type,
             parameters=self.params,
         )
-        mesh_seq_e.update_function_spaces()
+        enriched_mesh_seq.update_function_spaces()
 
         # Apply p-refinement
         if enrichment_method == "p":
-            for label, fs in mesh_seq_e.function_spaces.items():
+            for label, fs in enriched_mesh_seq.function_spaces.items():
                 for n, _space in enumerate(fs):
                     element = _space.ufl_element()
                     element = element.reconstruct(
                         degree=element.degree() + num_enrichments
                     )
-                    mesh_seq_e._fs[label][n] = FunctionSpace(
-                        mesh_seq_e.meshes[n], element
+                    enriched_mesh_seq._fs[label][n] = FunctionSpace(
+                        enriched_mesh_seq.meshes[n], element
                     )
 
-        return mesh_seq_e
+        return enriched_mesh_seq
 
     @staticmethod
     def _get_transfer_function(enrichment_method):
@@ -119,12 +123,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         """
         enrichment_kwargs.setdefault("enrichment_method", "p")
         enrichment_kwargs.setdefault("num_enrichments", 1)
-        mesh_seq_e = self.get_enriched_mesh_seq(**enrichment_kwargs)
+        enriched_mesh_seq = self.get_enriched_mesh_seq(**enrichment_kwargs)
         transfer = self._get_transfer_function(enrichment_kwargs["enrichment_method"])
 
         # Solve the forward and adjoint problems on the MeshSeq and its enriched version
         self.solve_adjoint(**adj_kwargs)
-        mesh_seq_e.solve_adjoint(**adj_kwargs)
+        enriched_mesh_seq.solve_adjoint(**adj_kwargs)
 
         FWD, ADJ = "forward", "adjoint"
         FWD_OLD = "forward" if self.steady else "forward_old"
@@ -133,7 +137,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         for i, mesh in enumerate(self):
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
-            enriched_spaces = {f: mesh_seq_e.function_spaces[f][i] for f in self.fields}
+            enriched_spaces = {
+                f: enriched_mesh_seq.function_spaces[f][i] for f in self.fields
+            }
             mapping = {}
             for f, fs_e in enriched_spaces.items():
                 u[f] = Function(fs_e)
@@ -144,7 +150,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 u_star_e[f] = Function(fs_e)
 
             # Get forms for each equation in enriched space
-            forms = mesh_seq_e.form(i, mapping)
+            forms = enriched_mesh_seq.form(i, mapping)
             if not isinstance(forms, dict):
                 raise TypeError(
                     "The function defined by get_form should return a dictionary"
@@ -166,8 +172,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     u_star_e[f].assign(
                         0.5
                         * (
-                            mesh_seq_e.solutions[f][ADJ][i][j]
-                            + mesh_seq_e.solutions[f][ADJ_NEXT][i][j]
+                            enriched_mesh_seq.solutions[f][ADJ][i][j]
+                            + enriched_mesh_seq.solutions[f][ADJ_NEXT][i][j]
                         )
                     )
                     u_star_e[f] -= u_star[f]
