@@ -23,9 +23,9 @@ scalar_norm_types = pointwise_norm_types + integral_scalar_norm_types
 # ---------------------------
 
 
-class TestPVD(unittest.TestCase):
+class TestVTK(unittest.TestCase):
     """
-    Test the subclass of Firedrake's :class:`File`.
+    Test the subclass of Firedrake's :class:`VTKFile`.
     """
 
     def setUp(self):
@@ -41,14 +41,14 @@ class TestPVD(unittest.TestCase):
                 os.remove(fname + ext)
 
     def test_adaptive(self):
-        file = File(self.fname)
+        file = VTKFile(self.fname)
         self.assertTrue(os.path.exists(self.fname))
         self.assertTrue(file._adaptive)
 
     def test_different_fnames(self):
         f = Function(self.fs, name="f")
         g = Function(self.fs, name="g")
-        file = File(self.fname)
+        file = VTKFile(self.fname)
         file.write(f)
         file.write(g)
         self.assertEqual("f", g.name())
@@ -56,7 +56,7 @@ class TestPVD(unittest.TestCase):
     def test_different_lengths(self):
         f = Function(self.fs, name="f")
         g = Function(self.fs, name="g")
-        file = File(self.fname)
+        file = VTKFile(self.fname)
         file.write(f)
         with self.assertRaises(ValueError) as cm:
             file.write(f, g)
