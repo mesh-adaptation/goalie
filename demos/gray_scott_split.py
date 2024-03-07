@@ -171,8 +171,8 @@ solutions = mesh_seq.solve_adjoint()
 if not test:
     ic = mesh_seq.get_initial_condition()
     for field, sols in solutions.items():
-        fwd_outfile = File(f"gray_scott_split/{field}_forward.pvd")
-        adj_outfile = File(f"gray_scott_split/{field}_adjoint.pvd")
+        fwd_outfile = VTKFile(f"gray_scott_split/{field}_forward.pvd")
+        adj_outfile = VTKFile(f"gray_scott_split/{field}_adjoint.pvd")
         fwd_outfile.write(ic[field])
         for i, mesh in enumerate(mesh_seq):
             for sol in sols["forward"][i]:
