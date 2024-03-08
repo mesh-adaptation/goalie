@@ -6,14 +6,13 @@ from firedrake import Function, FunctionSpace
 from firedrake.functionspaceimpl import WithGeometry
 from firedrake.petsc import PETSc
 import ufl
-from typing import Dict, Optional, Union
 
 
 __all__ = ["get_dwr_indicator"]
 
 
 @PETSc.Log.EventDecorator()
-def form2indicator(F: ufl.form.Form) -> Function:
+def form2indicator(F):
     r"""
     Given a 0-form, multiply the integrand of each of its integrals by a
     :math:`\mathbb P0` test function and reassemble to give an element-wise error
@@ -23,7 +22,9 @@ def form2indicator(F: ufl.form.Form) -> Function:
     or :class:`firedrake.ufl_expr.TrialFunction`\s.
 
     :arg F: the 0-form
+    :type F: :class:`ufl.form.Form`
     :return: the corresponding error indicator field
+    :rtype: `firedrake.function.Function`
     """
     if not isinstance(F, ufl.form.Form):
         raise TypeError(f"Expected 'F' to be a Form, not '{type(F)}'.")
@@ -59,9 +60,7 @@ def form2indicator(F: ufl.form.Form) -> Function:
 
 
 @PETSc.Log.EventDecorator()
-def get_dwr_indicator(
-    F, adjoint_error: Function, test_space: Optional[Union[WithGeometry, Dict]] = None
-) -> Function:
+def get_dwr_indicator(F, adjoint_error, test_space=None):
     r"""
     Given a 1-form and an approximation of the error in the adjoint solution, compute a
     dual weighted residual (DWR) error indicator.
@@ -73,11 +72,17 @@ def get_dwr_indicator(
     :class:`firedrake.ufl_expr.TrialFunction`\s.
 
     :arg F: the form
-    :arg adjoint_error: the approximation to the adjoint error, either as a single
-        :class:`firedrake.function.Function`, or in a dictionary
-    :kwarg test_space: the
-        :class:`firedrake.functionspaceimpl.WithGeometry` that the test function lives
-        in, or an appropriate dictionary
+    :type F: :class:`ufl.form.Form`
+    :arg adjoint_error: a dictionary whose keys are field names and whose values are the
+        approximations to the corresponding components of the adjoint error, or a single
+        such component
+    :type adjoint_error: :class:`dict` or :class:`firedrake.function.Function`
+    :kwarg test_space: a dictionary whose keys are field names and whose values are the
+        test spaces for the corresponding fields, or a single such test space (or
+        ``None`` to determine the test space(s) automatically)
+    :type test_space: :class:`firedrake.functionspaceimpl.WithGeometry`
+    :returns: the DWR indicator
+    :rtype: :class:`firedrake.function.Function`
     """
     mapping = {}
     if not isinstance(F, ufl.form.Form):

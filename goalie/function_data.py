@@ -78,6 +78,12 @@ class SolutionData(FunctionData, abc.ABC):
 class ForwardSolutionData(SolutionData):
     """
     Class representing solution data for general forward problems.
+
+    For a given exported timestep, the field types are:
+
+    * ``'forward'``: the forward solution after taking the timestep;
+    * ``'forward_old'``: the forward solution before taking the timestep (provided
+      the problem is not steady-state).
     """
 
     def __init__(self, *args, **kwargs):
@@ -88,6 +94,15 @@ class ForwardSolutionData(SolutionData):
 class AdjointSolutionData(SolutionData):
     """
     Class representing solution data for general adjoint problems.
+
+    For a given exported timestep, the field types are:
+
+    * ``'forward'``: the forward solution after taking the timestep;
+    * ``'forward_old'``: the forward solution before taking the timestep (provided
+      the problem is not steady-state)
+    * ``'adjoint'``: the adjoint solution after taking the timestep;
+    * ``'adjoint_next'``: the adjoint solution before taking the timestep
+      backwards (provided the problem is not steady-state).
     """
 
     def __init__(self, *args, **kwargs):
