@@ -282,17 +282,14 @@ class AdjointMeshSeq(MeshSeq):
 
             All keyword arguments are passed to the solver.
             """
-            self._controls = list(initial_condition_map.values())
-            return solver(
-                subinterval,
-                AttrDict(
-                    {
-                        field: pyadjoint.Control(ic.copy(deepcopy=True))
-                        for field, ic in initial_condition_map.items()
-                    }
-                ),
-                **kwargs,
+            copy_map = AttrDict(
+                {
+                    field: initial_condition.copy(deepcopy=True)
+                    for field, initial_condition in initial_condition_map.items()
+                }
             )
+            self._controls = list(map(pyadjoint.Control, copy_map.values()))
+            return solver(subinterval, copy_map, **kwargs)
 
         # Loop over subintervals in reverse
         seeds = {}
