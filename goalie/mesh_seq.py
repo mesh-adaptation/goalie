@@ -184,7 +184,7 @@ class MeshSeq:
                 )
             debug(100 * "-")
 
-    def plot(self, fig, axes, **kwargs):
+    def plot(self, fig=None, axes=None, **kwargs):
         """
         Plot the meshes comprising a 2D :class:`~.MeshSeq`.
 
