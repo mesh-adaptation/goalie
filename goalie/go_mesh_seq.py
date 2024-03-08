@@ -302,7 +302,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :rtype1: :class:`~.AdjointSolutionData
         :rtype2: :class:`~.IndicatorData
         """
-        # TODO: adaptor no longer needs solution and indicator data to be passed explicitly
+        # TODO #124: adaptor no longer needs solution and indicator data to be passed
+        #            explicitly
         self.element_counts = [self.count_elements()]
         self.vertex_counts = [self.count_vertices()]
         self.qoi_values = []
@@ -324,9 +325,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             )
 
             # Check for QoI convergence
-            # TODO: Put this check inside the adjoint solve as
-            #       an optional return condition so that we
-            #       can avoid unnecessary extra solves
+            # TODO #23: Put this check inside the adjoint solve as an optional return
+            #           condition so that we can avoid unnecessary extra solves
             self.qoi_values.append(self.J)
             qoi_converged = self.check_qoi_convergence()
             if self.params.convergence_criteria == "any" and qoi_converged:

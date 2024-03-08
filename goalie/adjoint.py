@@ -237,8 +237,8 @@ class AdjointMeshSeq(MeshSeq):
         :returns: the solution data of the forward and adjoint solves
         :rtype: :class:`~.AdjointSolutionData`
         """
-        # TODO: Separate out qoi_kwargs
-        # TODO: Support get_adj_values in AdjointSolutionData
+        # TODO #125: Support get_adj_values in AdjointSolutionData
+        # TODO #126: Separate out qoi_kwargs
         P = self.time_partition
         num_subintervals = len(self)
         solver = self.solver
