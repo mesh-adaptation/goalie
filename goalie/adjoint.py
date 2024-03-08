@@ -15,10 +15,10 @@ from functools import wraps
 import numpy as np
 
 
-__all__ = ["AdjointMeshSeq"]
+__all__ = ["AdjointMeshSeq", "annotate_qoi"]
 
 
-def _annotate_qoi(get_qoi):
+def annotate_qoi(get_qoi):
     """
     Decorator that ensures QoIs are annotated properly.
 
@@ -118,7 +118,7 @@ class AdjointMeshSeq(MeshSeq):
     def initial_condition(self):
         return super().initial_condition
 
-    @_annotate_qoi
+    @annotate_qoi
     def get_qoi(self, solution_map, subinterval):
         r"""
         Get the function for evaluating the QoI, which has either zero or one arguments,
