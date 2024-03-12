@@ -15,6 +15,8 @@ from goalie_adjoint import *
 from animate.metric import RiemannianMetric
 from animate.adapt import adapt
 
+set_log_level(DEBUG)
+
 period = 6.0
 
 
@@ -83,8 +85,9 @@ def get_solver(mesh_seq):
         nlvs = NonlinearVariationalSolver(nlvp, ad_block_tag="c")
 
         # Time integrate from t_start to t_end
-        t = t_start
-        while t < t_end - 0.5 * dt:
+        t = t_start + dt
+        while t < t_end + 0.5 * dt:
+            print(t)
             # update the background velocity field at the current timestep
             u.interpolate(velocity_expression(x, y, t))
 
@@ -236,11 +239,15 @@ def adaptor(mesh_seq, solutions, indicators):
 # For the purposes of this demo, we divide the time interval into 25 subintervals and only
 # run two iterations of the fixed point iteration, which is not enough to reach convergence. ::
 
+# Reduce the cost of the demo during testing
+test = os.environ.get("GOALIE_REGRESSION_TEST") is not None
+n = 50 if not test else 5
+dt = 0.01 if not test else 0.02
+maxiter = 2 if not test else 1  # maximum number of fixed point iterations
+
 num_subintervals = 25
-n = 50
 meshes = [UnitSquareMesh(n, n) for _ in range(num_subintervals)]
 end_time = period / 2
-dt = 0.01
 time_partition = TimePartition(
     end_time,
     len(meshes),
@@ -249,7 +256,7 @@ time_partition = TimePartition(
     num_timesteps_per_export=6,
 )
 
-parameters = GoalOrientedMetricParameters({"maxiter": 2})
+parameters = GoalOrientedMetricParameters({"maxiter": maxiter})
 msq = GoalOrientedMeshSeq(
     time_partition,
     meshes,
@@ -290,7 +297,11 @@ fig.savefig("bubble_shear-goal_final_meshes.jpg", dpi=300, bbox_inches="tight")
 # bubble :math:`c_0` and is less diffused. Despite employing only two fixed
 # point iterations, the goal-oriented mesh adaptation process was still able to
 # significantly improve the accuracy of the solution while reducing the number of
-# degrees of freedom by half. We encourage further experimentation with the number of
-# subintervals, adaptor functions and fixed point iterations necessary to reach convergence.
+# degrees of freedom by half.
+#
+# We encourage users to experiment with different numbers of subintervals, adaptor
+# functions and metric parameters to explore the convergence of the fixed point iteration.
+# Note that you will likely also need to decrease the timestep size to maintain stability
+# as the mesh is refined.
 #
 # This tutorial can be dowloaded as a `Python script <bubble_shear-goal.py>`__.

@@ -61,7 +61,8 @@ def get_function_spaces(mesh):
 # We proceed similarly with prescribing initial and boundary conditions. At :math:`t=0`,
 # we initialise the tracer concentration :math:`c_0 = c(x, y, 0)` to be :math:`1` inside a circular
 # region of radius :math:`r_0=0.15` centred at :math:`(x_0, y_0)=(0.5, 0.65)`,
-# and :math:`0` elsewhere in the domain. ::
+# and :math:`0` elsewhere in the domain. Note that this is a discontinuous function which
+# will not be represented well on a coarse uniform mesh. ::
 
 
 def get_bcs(mesh_seq):
@@ -157,8 +158,8 @@ def get_solver(mesh_seq):
         nlvs = NonlinearVariationalSolver(nlvp, ad_block_tag="c")
 
         # Time integrate from t_start to t_end
-        t = t_start
-        while t < t_end - 0.5 * dt:
+        t = t_start + dt
+        while t < t_end + 0.5 * dt:
             # update the background velocity field at the current timestep
             u.interpolate(velocity_expression(x, y, t))
 
@@ -177,9 +178,12 @@ def get_solver(mesh_seq):
 
 # Now that we have defined the solver and specified how to build and update the
 # background velocity, we are ready to solve the problem. We run the simulation
-# until :math:`t=3` on a sequence of two coarse meshes. ::
+# until :math:`t=T/2` on a sequence of two coarse meshes. ::
 
-n = 50
+# Reduce the cost of the demo during testing.
+test = os.environ.get("GOALIE_REGRESSION_TEST") is not None
+n = 50 if not test else 5
+
 meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
 end_time = period / 2
 dt = 0.01
