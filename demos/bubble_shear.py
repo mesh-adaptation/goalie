@@ -179,7 +179,7 @@ def get_solver(mesh_seq):
 # background velocity, we are ready to solve the problem. We run the simulation
 # until :math:`t=3` on a sequence of two coarse meshes. ::
 
-n = 64
+n = 50
 meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
 end_time = period / 2
 dt = 0.01
