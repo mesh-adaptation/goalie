@@ -13,6 +13,7 @@ from collections.abc import Callable, Iterable
 import numpy as np
 from typing import Tuple
 import ufl
+from inspect import signature
 
 
 __all__ = ["GoalOrientedMeshSeq"]
@@ -130,6 +131,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self.solve_adjoint(**adj_kwargs)
         enriched_mesh_seq.solve_adjoint(**adj_kwargs)
 
+        tp = self.time_partition
+        # check whether get_form contains a kwarg indicating time-dependent constants
+        timedep_const = "err_ind_time" in signature(enriched_mesh_seq.form).parameters
+
         FWD, ADJ = "forward", "adjoint"
         FWD_OLD = "forward" if self.steady else "forward_old"
         ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
@@ -150,18 +155,26 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 u_star_e[f] = Function(fs_e)
 
             # Get forms for each equation in enriched space
-            forms = enriched_mesh_seq.form(i, mapping)
-            if not isinstance(forms, dict):
-                raise TypeError(
-                    "The function defined by get_form should return a dictionary"
-                    f", not type '{type(forms)}'."
-                )
+            if not timedep_const:
+                forms = enriched_mesh_seq.form(i, mapping)
+                if not isinstance(forms, dict):
+                    raise TypeError(
+                        "The function defined by get_form should return a dictionary"
+                        f", not type '{type(forms)}'."
+                    )
 
             # Loop over each strongly coupled field
             for f in self.fields:
                 # Loop over each timestep
                 for j in range(len(self.solutions[f]["forward"][i])):
                     # Update fields
+                    if timedep_const:
+                        # recompile the form with updated time-dependent constants
+                        time = (
+                            tp.subintervals[i][0]
+                            + (j + 1) * tp.timesteps[i] * tp.num_timesteps_per_export[i]
+                        )
+                        forms = enriched_mesh_seq.form(i, mapping, err_ind_time=time)
                     transfer(self.solutions[f][FWD][i][j], u[f])
                     transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
                     transfer(self.solutions[f][ADJ][i][j], u_star[f])
