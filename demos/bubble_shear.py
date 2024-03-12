@@ -92,7 +92,7 @@ def get_initial_condition(mesh_seq):
 # define the velocity field.
 # As in the point discharge with diffusion demo, we include additional `streamline
 # upwind Petrov Galerkin (SUPG)` stabilisation by modifying the test function :math:`\psi`.
-# To advance in time, we use Crank-Nicolson discretisation. ::
+# To advance in time, we use Crank-Nicolson timestepping. ::
 
 
 def get_form(mesh_seq):
@@ -103,7 +103,7 @@ def get_form(mesh_seq):
 
         R = FunctionSpace(mesh_seq[index], "R", 0)
         dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
-        theta = Function(R).assign(0.5)  # Crank-Nicolson theta
+        theta = Function(R).assign(0.5)  # Crank-Nicolson implicitness
 
         # SUPG stabilisation parameter
         D = Function(R).assign(0.1)  # diffusivity coefficient
@@ -182,17 +182,18 @@ def get_solver(mesh_seq):
 
 # Reduce the cost of the demo during testing.
 test = os.environ.get("GOALIE_REGRESSION_TEST") is not None
-n = 50 if not test else 5
+n = 50 if not test else 10
+dt = 0.01 if not test else 0.025
 
-meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
+num_subintervals = 2
+meshes = [UnitSquareMesh(n, n) for _ in range(num_subintervals)]
 end_time = period / 2
-dt = 0.01
 time_partition = TimePartition(
     end_time,
     len(meshes),
     dt,
     fields,
-    num_timesteps_per_export=50,
+    num_timesteps_per_export=30,
 )
 
 msq = MeshSeq(
@@ -206,7 +207,7 @@ msq = MeshSeq(
 )
 solutions = msq.solve_forward()
 
-# Let us plot the solutions :math:`c` at exported timesteps. ::
+# Let us plot the solution :math:`c` at exported timesteps. ::
 
 plot_kwargs = {"cmap": "coolwarm", "levels": 100}
 fig, _, _ = plot_snapshots(solutions, time_partition, "c", "forward", **plot_kwargs)
