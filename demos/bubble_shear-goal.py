@@ -15,7 +15,6 @@ from goalie_adjoint import *
 from animate.metric import RiemannianMetric
 from animate.adapt import adapt
 
-set_log_level(DEBUG)
 
 period = 6.0
 
@@ -87,7 +86,6 @@ def get_solver(mesh_seq):
         # Time integrate from t_start to t_end
         t = t_start + dt
         while t < t_end + 0.5 * dt:
-            print(t)
             # update the background velocity field at the current timestep
             u.interpolate(velocity_expression(x, y, t))
 
@@ -132,7 +130,7 @@ def get_form(mesh_seq):
 
         R = FunctionSpace(mesh_seq[index], "R", 0)
         dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
-        theta = Function(R).assign(0.5)  # Crank-Nicolson theta
+        theta = Function(R).assign(0.5)  # Crank-Nicolson implicitness
 
         # SUPG stabilisation parameter
         D = Function(R).assign(0.1)  # diffusivity coefficient
@@ -236,16 +234,16 @@ def adaptor(mesh_seq, solutions, indicators):
 
 
 # Finally, we can define the :class:`GoalOrientedMeshSeq` and run the fixed point iteration.
-# For the purposes of this demo, we divide the time interval into 25 subintervals and only
+# For the purposes of this demo, we divide the time interval into 6 subintervals and only
 # run two iterations of the fixed point iteration, which is not enough to reach convergence. ::
 
 # Reduce the cost of the demo during testing
 test = os.environ.get("GOALIE_REGRESSION_TEST") is not None
 n = 50 if not test else 5
-dt = 0.01 if not test else 0.02
+dt = 0.01 if not test else 0.05
 maxiter = 2 if not test else 1  # maximum number of fixed point iterations
 
-num_subintervals = 25
+num_subintervals = 6
 meshes = [UnitSquareMesh(n, n) for _ in range(num_subintervals)]
 end_time = period / 2
 time_partition = TimePartition(
@@ -253,7 +251,7 @@ time_partition = TimePartition(
     len(meshes),
     dt,
     fields,
-    num_timesteps_per_export=6,
+    num_timesteps_per_export=5,
 )
 
 parameters = GoalOrientedMetricParameters({"maxiter": maxiter})
@@ -271,21 +269,26 @@ msq = GoalOrientedMeshSeq(
 )
 solutions, indicators = msq.fixed_point_iteration(adaptor)
 
-# Let us plot the intermediate and final solutions, as well as the final adapted meshes.
+# Let us plot the intermediate and final solutions, as well as the final adapted meshes. ::
 
 import matplotlib.pyplot as plt
 from firedrake.pyplot import tripcolor, triplot
 
-fig, axes = plt.subplots(3, 3, figsize=(8, 8), sharex=True, sharey=True)
-for i, ax in enumerate(axes.flat):
+fig, axes = plt.subplots(2, 3, figsize=(7.5, 5), sharex=True, sharey=True)
+
+for i, ax in enumerate(axes.flatten()):
     ax.set_aspect("equal")
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
-    tripcolor(solutions["c"]["forward"][int(i * 3)][-1], axes=ax, cmap="coolwarm")
-    triplot(msq[int(i * 3)], axes=ax, interior_kw={"linewidth": 0.08})
-    time = time_partition.subintervals[int(i * 3)][-1]
+    # ax.tick_params(axis='both', which='major', labelsize=6)
+
+    # plot the solution at the final subinterval timestep
+    time = time_partition.subintervals[i][-1]
+    tripcolor(solutions["c"]["forward"][i][-1], axes=ax, cmap="coolwarm")
+    triplot(msq[i], axes=ax, interior_kw={"linewidth": 0.08})
     ax.annotate(f"t={time:.2f}", (0.05, 0.05), color="white")
-fig.tight_layout(pad=0.4)
+
+fig.tight_layout(pad=0.3)
 fig.savefig("bubble_shear-goal_final_meshes.jpg", dpi=300, bbox_inches="tight")
 
 # .. figure:: bubble_shear-goal_final_meshes.jpg
@@ -299,9 +302,12 @@ fig.savefig("bubble_shear-goal_final_meshes.jpg", dpi=300, bbox_inches="tight")
 # significantly improve the accuracy of the solution while reducing the number of
 # degrees of freedom by half.
 #
-# We encourage users to experiment with different numbers of subintervals, adaptor
-# functions and metric parameters to explore the convergence of the fixed point iteration.
-# Note that you will likely also need to decrease the timestep size to maintain stability
-# as the mesh is refined.
+# As shown in the above figure, the bubble experiences extreme deformation and requires
+# frequent adaptation to be resolved accurately (surely more than 5, as in this demo!).
+# We encourage users to experiment with different numbers of subintervals, number of
+# exports per subinterval, adaptor functions, and other parameters to explore the
+# convergence of the fixed point iteration. Another interesting experiment would be to
+# compare the impact of switching to an explicit time integration and using a smaller
+# timestep to maintain numerical stability (look at CFL condition).
 #
 # This tutorial can be dowloaded as a `Python script <bubble_shear-goal.py>`__.
