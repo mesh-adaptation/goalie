@@ -527,7 +527,7 @@ class MeshSeq:
         P = self.time_partition
         solver = self.solver
 
-        # Reinitialise the solutions dictionary
+        # Reinitialise the solution data object
         self._create_solutions()
 
         # Start annotating

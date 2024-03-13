@@ -126,7 +126,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         enriched_mesh_seq = self.get_enriched_mesh_seq(**enrichment_kwargs)
         transfer = self._get_transfer_function(enrichment_kwargs["enrichment_method"])
 
-        # Reinitialise the error indicators dictionary
+        # Reinitialise the error indicator data object
         self._create_indicators()
 
         # Solve the forward and adjoint problems on the MeshSeq and its enriched version

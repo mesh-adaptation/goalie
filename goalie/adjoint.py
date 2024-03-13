@@ -219,7 +219,7 @@ class AdjointMeshSeq(MeshSeq):
         solver = self.solver
         qoi_kwargs = solver_kwargs.get("qoi_kwargs", {})
 
-        # Reinitialise the solutions dictionary
+        # Reinitialise the solution data object
         self._create_solutions()
 
         # Solve forward to get checkpoints and evaluate QoI
