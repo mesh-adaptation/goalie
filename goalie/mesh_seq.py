@@ -13,7 +13,6 @@ from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
 from animate.quality import QualityMeasure
 from .utility import AttrDict, Mesh
-from collections import OrderedDict
 from collections.abc import Iterable
 import numpy as np
 
@@ -355,15 +354,19 @@ class MeshSeq:
         :rtype: :class:`~.AttrDict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        ic = OrderedDict(self.get_initial_condition())
-        assert isinstance(ic, dict), "`get_initial_condition` should return a dict"
-        assert set(self.fields).issubset(
-            set(ic.keys())
+        initial_condition_map = self.get_initial_condition()
+        assert isinstance(
+            initial_condition_map, dict
+        ), "`get_initial_condition` should return a dict"
+        mesh_seq_fields = set(self.fields)
+        initial_condition_fields = set(initial_condition_map.keys())
+        assert mesh_seq_fields.issubset(
+            initial_condition_fields
         ), "missing fields in initial condition"
-        assert set(ic.keys()).issubset(
-            set(self.fields)
+        assert initial_condition_fields.issubset(
+            mesh_seq_fields
         ), "more initial conditions than fields"
-        return AttrDict(ic)
+        return AttrDict(initial_condition_map)
 
     @property
     def form(self):
