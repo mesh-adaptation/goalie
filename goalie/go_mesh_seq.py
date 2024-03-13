@@ -131,7 +131,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :kwarg enrichment_kwargs: keyword arguments to pass to the global enrichment
             method - see :meth:`~.GoalOrientedMeshSeq.get_enriched_mesh_seq` for the
             supported enrichment methods and options
-        :type enrichment_kwargs: :class:`dict`
+        :type enrichment_kwargs: :class:`dict` with :class:`str` keys and values which
+            may take various types
         :kwarg solver_kwargs: parameters for the forward solver, as well as any
             parameters for the QoI, which should be included as a sub-dictionary with key
             'qoi_kwargs'
@@ -290,11 +291,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             iteration
         :kwarg enrichment_kwargs: keyword arguments to pass to the global enrichment
             method
-        :type enrichment_kwargs: :class:`dict`
+        :type enrichment_kwargs: :class:`dict` with :class:`str` keys and values which
+            may take various types
         :kwarg solver_kwargs: parameters to pass to the solver
-        :type solver_kwargs: :class:`dict`
+        :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
         :kwarg adaptor_kwargs: parameters to pass to the adaptor
-        :type adaptor_kwargs: :class:`dict`
+        :type adaptor_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
         :kwarg indicator_fn: function which maps the form, adjoint error and enriched
             space(s) as arguments to the error indicator
             :class:`firedrake.function.Function`

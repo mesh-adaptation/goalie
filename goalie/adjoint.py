@@ -120,14 +120,15 @@ class AdjointMeshSeq(MeshSeq):
 
     @annotate_qoi
     def get_qoi(self, solution_map, subinterval):
-        r"""
+        """
         Get the function for evaluating the QoI, which has either zero or one arguments,
         corresponding to either an end time or time integrated quantity of interest,
         respectively. If the QoI has an argument then it is for the current time.
 
         :arg solution_map: a dictionary whose keys are the solution field names and whose
-            values are the corresponding solution :class:`firedrake.function.Function`\s
-        :type solution_map: :class:`dict`
+            values are the corresponding solutions
+        :type solution_map: :class:`dict` with :class:`str` keys and values and
+            :class:`firedrake.function.Function` values
         :arg subinterval: the subinterval index
         :type subinterval: :class:`int`
         """
@@ -145,7 +146,8 @@ class AdjointMeshSeq(MeshSeq):
         The QoI is also evaluated.
 
         :kwarg solver_kwargs: additional keyword arguments to be passed to the solver
-        :type solver_kwargs: :class:`dict`
+        :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
         :kwarg run_final_subinterval: if ``True``, the solver is run on the final
             subinterval
         :type run_final_subinterval: :class:`bool`
@@ -228,7 +230,8 @@ class AdjointMeshSeq(MeshSeq):
         :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
             take various types
         :kwarg adj_solver_kwargs: parameters for the adjoint solver
-        :type adj_solver_kwargs: :class:`dict`
+        :type adj_solver_kwargs: :class:`dict` with :class:`str` keys and values which
+            may take various types
         :kwarg get_adj_values: if ``True``, adjoint actions are also returned at exported
             timesteps
         :type get_adj_values: :class:`bool`
@@ -270,15 +273,15 @@ class AdjointMeshSeq(MeshSeq):
         @PETSc.Log.EventDecorator("goalie.AdjointMeshSeq.solve_adjoint.evaluate_fwd")
         @wraps(solver)
         def wrapped_solver(subinterval, initial_condition_map, **kwargs):
-            r"""
+            """
             Decorator to allow the solver to stash its initial conditions as controls.
 
             :arg subinterval: the subinterval index
             :type subinterval: :class:`int`
             :arg initial_condition_map: a dictionary of initial conditions, keyed by
                 field name
-            :type initial_condition_map: :class:`dict` whose keys are :class:`str`\s
-                and whose values are :class:`firedrake.function.Function`\s
+            :type initial_condition_map: :class:`dict` with :class:`str` keys and
+                :class:`firedrake.function.Function` values
 
             All keyword arguments are passed to the solver.
             """

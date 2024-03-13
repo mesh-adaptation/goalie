@@ -76,7 +76,8 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
     :arg adjoint_error: a dictionary whose keys are field names and whose values are the
         approximations to the corresponding components of the adjoint error, or a single
         such component
-    :type adjoint_error: :class:`dict` or :class:`firedrake.function.Function`
+    :type adjoint_error: :class:`firedrake.function.Function` or :class:`dict` with
+        :class:`str` keys and :class:`firedrake.function.Function` values
     :kwarg test_space: a dictionary whose keys are field names and whose values are the
         test spaces for the corresponding fields, or a single such test space (or
         ``None`` to determine the test space(s) automatically)

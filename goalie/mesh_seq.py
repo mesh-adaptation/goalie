@@ -774,9 +774,11 @@ class MeshSeq:
             iteration. Its arguments are the parameter class and the fixed point
             iteration
         :kwarg solver_kwargs: parameters to pass to the solver
-        :type solver_kwargs: :class:`dict`
+        :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
         :kwarg adaptor_kwargs: parameters to pass to the adaptor
-        :type adaptor_kwargs: :class:`dict`
+        :type adaptor_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
         :returns: solution data object
         :rtype: :class:`~.ForwardSolutionData`
         """
