@@ -25,9 +25,15 @@ __all__ = [
 ]
 
 
-def get_new_logger(
-    name: str, fmt: str = "%(levelname)s %(message)s"
-) -> logging.StreamHandler:
+def get_new_logger(name, fmt="%(levelname)s %(message)s"):
+    """
+    :arg name: the name for the logger
+    :type name: :class:`str`
+    :kwarg fmt: format string to use
+    :type fmt: :class:`str`
+    :returns: logger instance
+    :rtype: :class:`logging.StreamHandler`
+    """
     logger = logging.getLogger(name)
     for handler in logger.handlers:
         logger.removeHandler(handler)
