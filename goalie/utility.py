@@ -154,7 +154,7 @@ def norm(v, norm_type="L2", condition=None, boundary=False):
     r"""
     Overload :func:`firedrake.norms.norm` to allow for :math:`\ell^p` norms.
 
-    Currently supported options:
+    Currently supported ``norm_type`` options:
     * ``'l1'``
     * ``'l2'``
     * ``'linf'``
@@ -226,7 +226,7 @@ def errornorm(u, uh, norm_type="L2", boundary=False, **kwargs):
     r"""
     Overload :func:`firedrake.norms.errornorm` to allow for :math:`\ell^p` norms.
 
-    Currently supported options:
+    Currently supported ``norm_type`` options:
     * ``'l1'``
     * ``'l2'``
     * ``'linf'``
