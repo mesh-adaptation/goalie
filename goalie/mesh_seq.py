@@ -684,6 +684,9 @@ class MeshSeq:
         P = self.time_partition
         solver = self.solver
 
+        # Reinitialise the solution data object
+        self._create_solutions()
+
         # Start annotating
         if pyadjoint.annotate_tape():
             tape = pyadjoint.get_working_tape()
@@ -829,7 +832,6 @@ class MeshSeq:
                 update_params(self.params, self.fp_iteration)
 
             # Solve the forward problem over all meshes
-            self._create_solutions()
             self.solve_forward(solver_kwargs=solver_kwargs)
 
             # Adapt meshes, logging element and vertex counts
