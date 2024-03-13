@@ -268,7 +268,18 @@ class MeshSeq:
         dictionary containing parts of the PDE weak form corresponding to each solution
         component.
 
+        Signature for the function to be returned:
+        ```
+        :arg index: the subinterval index
+        :type index: :class:`int`
+        :arg solutions: map from fields to tuples of current and previous solutions
+        :type solutions: :class:`dict` with :class:`str` keys and :class:`tuple` values
+        :return: map from fields to the corresponding forms
+        :rtype: :class:`dict` with :class:`str` keys and :class:`ufl.form.Form` values
+        ```
+
         :returns: the function for obtaining the form
+        :rtype: see docstring above
         """
         if self._get_form is None:
             raise NotImplementedError("'get_form' needs implementing.")
@@ -279,7 +290,20 @@ class MeshSeq:
         Get the function mapping a subinterval index and an initial condition dictionary
         to a dictionary of solutions for the corresponding solver step.
 
+        Signature for the function to be returned:
+        ```
+        :arg index: the subinterval index
+        :type index: :class:`int`
+        :arg ic: map from fields to the corresponding initial condition components
+        :type ic: :class:`dict` with :class:`str` keys and
+            :class:`firedrake.function.Function` values
+        :return: map from fields to the corresponding solutions
+        :rtype: :class:`dict` with :class:`str` keys and
+            :class:`firedrake.function.Function` values
+        ```
+
         :returns: the function for obtaining the solver
+        :rtype: see docstring above
         """
         if self._get_solver is None:
             raise NotImplementedError("'get_solver' needs implementing.")
@@ -289,6 +313,15 @@ class MeshSeq:
         """
         Get the function mapping a subinterval index to a set of Dirichlet boundary
         conditions.
+
+        Signature for the function to be returned:
+        ```
+        :arg index: the subinterval index
+        :type index: :class:`int`
+        :return: boundary conditions
+        :rtype: :class:`~.DirichletBC` or :class:`list` thereof
+        :rtype: see docstring above
+        ```
 
         :returns: the function for obtaining the boundary conditions
         """

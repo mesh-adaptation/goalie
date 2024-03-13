@@ -125,12 +125,22 @@ class AdjointMeshSeq(MeshSeq):
         corresponding to either an end time or time integrated quantity of interest,
         respectively. If the QoI has an argument then it is for the current time.
 
+        Signature for the function to be returned:
+        ```
+        :arg t: the current time (for time-integrated QoIs)
+        :type t: :class:`float`
+        :return: the QoI as a 0-form
+        :rtype: :class:`ufl.form.Form`
+        ```
+
         :arg solution_map: a dictionary whose keys are the solution field names and whose
             values are the corresponding solutions
         :type solution_map: :class:`dict` with :class:`str` keys and values and
             :class:`firedrake.function.Function` values
         :arg subinterval: the subinterval index
         :type subinterval: :class:`int`
+        :returns: the function for obtaining the QoI
+        :rtype: see docstring above
         """
         if self._get_qoi is None:
             raise NotImplementedError("'get_qoi' is not implemented.")
