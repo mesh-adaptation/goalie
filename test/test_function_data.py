@@ -41,7 +41,7 @@ class BaseTestCases:
             pass
 
         def test_data_by_field(self):
-            data = self.solution_data.data_by_field
+            data = self.solution_data._data_by_field
             self.assertTrue(isinstance(data, AttrDict))
             self.assertTrue(self.field in data)
             for label in self.labels:
@@ -56,7 +56,7 @@ class BaseTestCases:
                         self.assertTrue(isinstance(f, Function))
 
         def test_data_by_label(self):
-            data = self.solution_data.data_by_label
+            data = self.solution_data._data_by_label
             self.assertTrue(isinstance(data, AttrDict))
             for label in self.labels:
                 self.assertTrue(label in data)
@@ -71,7 +71,7 @@ class BaseTestCases:
                         self.assertTrue(isinstance(f, Function))
 
         def test_data_by_subinterval(self):
-            data = self.solution_data.data_by_subinterval
+            data = self.solution_data._data_by_subinterval
             self.assertTrue(isinstance(data, list))
             self.assertEqual(len(data), self.num_subintervals)
             for i, sub_data in enumerate(data):
@@ -134,9 +134,9 @@ class TestIndicatorData(BaseTestCases.TestFunctionData):
 
     def _test_data_by_field_or_label(self, field_or_data):
         if field_or_data == "field":
-            data = self.solution_data.data_by_field
+            data = self.solution_data._data_by_field
         else:
-            data = self.solution_data.data_by_label
+            data = self.solution_data._data_by_label
         self.assertTrue(isinstance(data, AttrDict))
         self.assertTrue(self.field in data)
         self.assertEqual(len(data[self.field]), self.num_subintervals)
@@ -153,7 +153,7 @@ class TestIndicatorData(BaseTestCases.TestFunctionData):
         self._test_data_by_field_or_label("label")
 
     def test_data_by_subinterval(self):
-        data = self.solution_data.data_by_subinterval
+        data = self.solution_data._data_by_subinterval
         self.assertTrue(isinstance(data, list))
         self.assertEqual(len(data), self.num_subintervals)
         for i, sub_data in enumerate(data):
