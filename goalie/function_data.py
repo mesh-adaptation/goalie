@@ -114,6 +114,35 @@ class FunctionData(abc.ABC):
             for subinterval in range(tp.num_subintervals)
         ]
 
+    def extract(self, layout="field"):
+        """
+        Extract field data array in a specified layout.
+
+        The default layout is a doubly-nested dictionary whose first key is the field
+        name and second key is the field label. Entries of the doubly-nested dictionary
+        are doubly-nested lists, indexed first by subinterval and then by export. That
+        is: ``data[field][label][subinterval][export]``.
+
+        Choosing a different layout simply promotes the specified variable to first
+        access:
+        * ``layout == "label"`` implies ``data[label][field][subinterval][export]``
+        * ``layout == "subinterval"`` implies ``data[subinterval][label][field][export]``
+
+        The export index is not promoted because the number of exports may differ across
+        subintervals.
+
+        :kwarg layout: the layout to promote, as described above
+        :type layout: :class:`str`
+        """
+        if layout == "field":
+            return self._data_by_field
+        elif layout == "label":
+            return self._data_by_label
+        elif layout == "subinterval":
+            return self._data_by_subinterval
+        else:
+            raise ValueError(f"Layout type '{layout}' not recognised.")
+
 
 class ForwardSolutionData(FunctionData):
     """

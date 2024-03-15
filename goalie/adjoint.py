@@ -274,9 +274,9 @@ class AdjointMeshSeq(MeshSeq):
 
         if get_adj_values:
             for field in self.fields:
-                self.solutions[field]["adj_value"] = []
+                self.solutions.extract(layout="field")[field]["adj_value"] = []
                 for i, fs in enumerate(self.function_spaces[field]):
-                    self.solutions[field]["adj_value"].append(
+                    self.solutions.extract(layout="field")[field]["adj_value"].append(
                         [
                             firedrake.Cofunction(fs.dual(), name=f"{field}_adj_value")
                             for j in range(P.num_exports_per_subinterval[i] - 1)
@@ -383,7 +383,7 @@ class AdjointMeshSeq(MeshSeq):
 
                 # Update forward and adjoint solution data based on block dependencies
                 # and outputs
-                sols = self.solutions[field]
+                sols = self.solutions.extract(layout="field")[field]
                 for j, block in enumerate(reversed(solve_blocks[::-stride])):
                     # Current forward solution is determined from outputs
                     out = self._output(field, i, block)

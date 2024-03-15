@@ -729,7 +729,7 @@ class MeshSeq:
                     )
 
                 # Update solution data based on block dependencies and outputs
-                sols = self.solutions[field]
+                sols = self.solutions.extract(layout="field")[field]
                 for j, block in enumerate(reversed(solve_blocks[::-stride])):
                     # Current solution is determined from outputs
                     out = self._output(field, i, block)

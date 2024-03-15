@@ -187,7 +187,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             # Loop over each strongly coupled field
             for f in self.fields:
                 # Loop over each timestep
-                for j in range(len(self.solutions[f]["forward"][i])):
+                solutions = self.solutions.extract(layout="field")
+                for j in range(len(solutions[f]["forward"][i])):
                     # Update fields
                     transfer(self.solutions[f][FWD][i][j], u[f])
                     transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
