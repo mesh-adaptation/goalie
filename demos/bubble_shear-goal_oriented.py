@@ -1,14 +1,15 @@
 # Goal-oriented mesh adaptation for a 2D time-dependent problem
-# ===================================================
+# =============================================================
 
-# In a `previous demo <./bubble_shear.py.html>`__, we considered the advection of a scalar
-# concentration field in a non-uniform background velocity field. The demo concluded with
-# labelling the problem as a good candidate for a goal-oriented mesh adaptation approach.
-# This is what we set out to do in this demo.
+# In a `previous demo <./bubble_shear.py.html>`__, we considered the advection of a
+# scalar concentration field in a non-uniform background velocity field. The demo
+# concluded with labelling the problem as a good candidate for a goal-oriented mesh
+# adaptation approach. This is what we set out to do in this demo.
 #
-# We will use the same setup as in the previous demo, but a small modifiction to the
+# We will use the same setup as in the original demo, but a small modifiction to the
 # :meth:`get_form` function is necessary in order to take into account a prescribed
-# time-dependent background velocity field which is not passed to :class:`GoalOrientedMeshSeq`. ::
+# time-dependent background velocity field which is not passed to
+# :class:`GoalOrientedMeshSeq`. ::
 
 from firedrake import *
 from goalie_adjoint import *
@@ -102,15 +103,16 @@ def get_solver(mesh_seq):
     return solver
 
 
-# In the previous demo, the :meth:`get_form` method was only called from within the
-# :meth:`get_solver`, so we were able to pass the velocity field as an argument when
-# calling :meth:`get_form`. However, in the context of goal-oriented mesh adaptation,
-# the :meth:`get_form` method is called from within :class:`GoalOrientedMeshSeq`
-# while computing error indicators. There, only those fields that are passed to
-# :class:`GoalOrientedMeshSeq` are passed to :meth:`get_form`. This means that the velocity
-# field would not be updated in time. In such a case, we will manually compute the
-# velocity field using the current simulation time, which will be passed automatically
-# as an :arg:`err_ind_time` kwarg in :meth:`GoalOrientedMeshSeq.indicate_errors`. ::
+# In the `first demo <bubble_shear.py>`__ where we considered this problem, the
+# :meth:`get_form` method was only called from within the :meth:`get_solver`, so we were
+# able to pass the velocity field as an argument when calling :meth:`get_form`. However,
+# in the context of goal-oriented mesh adaptation,  the :meth:`get_form` method is
+# called from within :class:`GoalOrientedMeshSeq` while computing error indicators.
+# There, only those fields that are passed to :class:`GoalOrientedMeshSeq` are passed to
+# :meth:`get_form`. This means that the velocity field would not be updated in time. In
+# such a case, we will manually compute the velocity field using the current simulation
+# time, which will be passed automatically as an :arg:`err_ind_time` kwarg in
+# :meth:`GoalOrientedMeshSeq.indicate_errors`. ::
 
 
 def get_form(mesh_seq):
@@ -126,7 +128,7 @@ def get_form(mesh_seq):
             u = Function(V).interpolate(velocity_expression(x, y, err_ind_time))
             u_ = Function(V).interpolate(velocity_expression(x, y, err_ind_time))
 
-        # the rest remains unchanged
+        # The rest remains unchanged
 
         R = FunctionSpace(mesh_seq[index], "R", 0)
         dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
@@ -233,9 +235,10 @@ def adaptor(mesh_seq, solutions, indicators):
     return True
 
 
-# Finally, we can define the :class:`GoalOrientedMeshSeq` and run the fixed point iteration.
-# For the purposes of this demo, we divide the time interval into 6 subintervals and only
-# run two iterations of the fixed point iteration, which is not enough to reach convergence. ::
+# Finally, we can define the :class:`GoalOrientedMeshSeq` and run the fixed point
+# iteration. For the purposes of this demo, we divide the time interval into 6
+# subintervals and only run two iterations of the fixed point iteration, which is not
+# enough to reach convergence. ::
 
 # Reduce the cost of the demo during testing
 test = os.environ.get("GOALIE_REGRESSION_TEST") is not None
@@ -248,7 +251,7 @@ meshes = [UnitSquareMesh(n, n) for _ in range(num_subintervals)]
 end_time = period / 2
 time_partition = TimePartition(
     end_time,
-    len(meshes),
+    num_subintervals,
     dt,
     fields,
     num_timesteps_per_export=5,
@@ -282,16 +285,16 @@ for i, ax in enumerate(axes.flatten()):
     ax.set_ylim(0, 1)
     # ax.tick_params(axis='both', which='major', labelsize=6)
 
-    # plot the solution at the final subinterval timestep
+    # Plot the solution at the final subinterval timestep
     time = time_partition.subintervals[i][-1]
     tripcolor(solutions["c"]["forward"][i][-1], axes=ax, cmap="coolwarm")
     triplot(msq[i], axes=ax, interior_kw={"linewidth": 0.08})
     ax.annotate(f"t={time:.2f}", (0.05, 0.05), color="white")
 
 fig.tight_layout(pad=0.3)
-fig.savefig("bubble_shear-goal_final_meshes.jpg", dpi=300, bbox_inches="tight")
+fig.savefig("bubble_shear-goal_oriented.jpg", dpi=300, bbox_inches="tight")
 
-# .. figure:: bubble_shear-goal_final_meshes.jpg
+# .. figure:: bubble_shear-goal_oriented.jpg
 #    :figwidth: 80%
 #    :align: center
 #
@@ -310,4 +313,4 @@ fig.savefig("bubble_shear-goal_final_meshes.jpg", dpi=300, bbox_inches="tight")
 # compare the impact of switching to an explicit time integration and using a smaller
 # timestep to maintain numerical stability (look at CFL condition).
 #
-# This tutorial can be dowloaded as a `Python script <bubble_shear-goal.py>`__.
+# This tutorial can be dowloaded as a `Python script <bubble_shear-goal_oriented.py>`__.
