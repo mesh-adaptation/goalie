@@ -54,7 +54,7 @@ class FunctionData(abc.ABC):
         )
 
     @property
-    def data_by_field(self):
+    def _data_by_field(self):
         """
         Extract field data array in the default layout: as a doubly-nested dictionary
         whose first key is the field name and second key is the field label. Entries
@@ -66,13 +66,13 @@ class FunctionData(abc.ABC):
         return self._data
 
     def __getitem__(self, key):
-        return self.data_by_field[key]
+        return self._data_by_field[key]
 
     def items(self):
-        return self.data_by_field.items()
+        return self._data_by_field.items()
 
     @property
-    def data_by_label(self):
+    def _data_by_label(self):
         """
         Extract field data array in an alternative layout: as a doubly-nested dictionary
         whose first key is the field label and second key is the field name. Entries
@@ -83,14 +83,14 @@ class FunctionData(abc.ABC):
         return AttrDict(
             {
                 label: AttrDict(
-                    {field: self.data_by_field[field][label] for field in tp.fields}
+                    {field: self._data_by_field[field][label] for field in tp.fields}
                 )
                 for label in self.labels
             }
         )
 
     @property
-    def data_by_subinterval(self):
+    def _data_by_subinterval(self):
         """
         Extract field data array in an alternative format: as a list indexed by
         subinterval. Entries of the list are doubly-nested dictionaries, which retain
@@ -104,7 +104,7 @@ class FunctionData(abc.ABC):
                 {
                     field: AttrDict(
                         {
-                            label: self.data_by_field[field][label][subinterval]
+                            label: self._data_by_field[field][label][subinterval]
                             for label in self.labels
                         }
                     )
@@ -167,7 +167,7 @@ class IndicatorData(FunctionData):
         )
 
     @property
-    def data_by_field(self):
+    def _data_by_field(self):
         """
         Extract indicator data array in the default layout: as a dictionary keyed with
         the field name. Entries of the dictionary are doubly-nested lists, indexed first
@@ -183,15 +183,15 @@ class IndicatorData(FunctionData):
         )
 
     @property
-    def data_by_label(self):
+    def _data_by_label(self):
         """
         For indicator data there is only one field label (``"error_indicator"``), so
-        this method just delegates to :meth:`~.data_by_field`.
+        this method just delegates to :meth:`~._data_by_field`.
         """
-        return self.data_by_field
+        return self._data_by_field
 
     @property
-    def data_by_subinterval(self):
+    def _data_by_subinterval(self):
         """
         Extract indicator data array in an alternative format: as a list indexed by
         subinterval. Entries of the list are dictionaries, keyed by field label.
@@ -200,7 +200,7 @@ class IndicatorData(FunctionData):
         tp = self.time_partition
         return [
             AttrDict(
-                {field: self.data_by_field[field][subinterval] for field in tp.fields}
+                {field: self._data_by_field[field][subinterval] for field in tp.fields}
             )
             for subinterval in range(tp.num_subintervals)
         ]
