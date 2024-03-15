@@ -44,7 +44,7 @@ def get_form(mesh_seq):
 def get_initial_condition(mesh_seq):
     fs = mesh_seq.function_spaces["u"][0]
     x, y = SpatialCoordinate(mesh_seq[0])
-    return {"u": interpolate(as_vector([sin(pi * x), 0]), fs)}
+    return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
 
 
 # The solver needs to be modified slightly in order to take
@@ -100,7 +100,7 @@ def get_solver(mesh_seq):
 
 def get_qoi(mesh_seq, solutions, i):
     R = FunctionSpace(mesh_seq[i], "R", 0)
-    dt = Function(R).assign(mesh_seq.time_partition[i].timestep)
+    dt = Function(R).assign(mesh_seq.time_partition.timesteps[i])
 
     def time_integrated_qoi(t):
         u = solutions["u"]

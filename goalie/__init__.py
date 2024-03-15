@@ -10,6 +10,7 @@ from goalie.point_seq import *  # noqa
 from goalie.interpolation import *  # noqa
 from goalie.function_data import *  # noqa
 from goalie.error_estimation import *  # noqa
+from firedrake.__future__ import interpolate  # noqa
 
 import numpy as np  # noqa
 import os  # noqa

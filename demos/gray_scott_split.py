@@ -32,16 +32,17 @@ def get_initial_condition(mesh_seq):
     x, y = SpatialCoordinate(mesh_seq[0])
     fs_a = mesh_seq.function_spaces["a"][0]
     fs_b = mesh_seq.function_spaces["b"][0]
-    a_init = Function(fs_a, name="a")
-    b_init = Function(fs_b, name="b")
-    b_init.interpolate(
-        conditional(
-            And(And(1 <= x, x <= 1.5), And(1 <= y, y <= 1.5)),
-            0.25 * sin(4 * pi * x) ** 2 * sin(4 * pi * y) ** 2,
-            0,
+    b_init = assemble(
+        interpolate(
+            conditional(
+                And(And(1 <= x, x <= 1.5), And(1 <= y, y <= 1.5)),
+                0.25 * sin(4 * pi * x) ** 2 * sin(4 * pi * y) ** 2,
+                0,
+            ),
+            fs_b,
         )
     )
-    a_init.interpolate(1 - 2 * b_init)
+    a_init = assemble(interpolate(1 - 2 * b_init, fs_a))
     return {"a": a_init, "b": b_init}
 
 
@@ -58,7 +59,7 @@ def get_form(mesh_seq):
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition[index].timestep)
+        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
         D_a = Function(R).assign(8.0e-05)
         D_b = Function(R).assign(4.0e-05)
         gamma = Function(R).assign(0.024)
@@ -170,8 +171,8 @@ solutions = mesh_seq.solve_adjoint()
 if not test:
     ic = mesh_seq.get_initial_condition()
     for field, sols in solutions.items():
-        fwd_outfile = File(f"gray_scott_split/{field}_forward.pvd")
-        adj_outfile = File(f"gray_scott_split/{field}_adjoint.pvd")
+        fwd_outfile = VTKFile(f"gray_scott_split/{field}_forward.pvd")
+        adj_outfile = VTKFile(f"gray_scott_split/{field}_adjoint.pvd")
         fwd_outfile.write(ic[field])
         for i, mesh in enumerate(mesh_seq):
             for sol in sols["forward"][i]:

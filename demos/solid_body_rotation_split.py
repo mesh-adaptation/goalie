@@ -54,7 +54,7 @@ def get_initial_condition_split(mesh_seq):
         "slot_cyl": slot_cyl_initial_condition,
     }
     return {
-        f: interpolate(init[f](x, y), fs[0])
+        f: assemble(interpolate(init[f](x, y), fs[0]))
         for f, fs in mesh_seq.function_spaces.items()
     }
 
@@ -90,8 +90,8 @@ solutions = mesh_seq.solve_adjoint()
 
 if not test:
     for field, sols in solutions.items():
-        fwd_outfile = File(f"solid_body_rotation_split/{field}_forward.pvd")
-        adj_outfile = File(f"solid_body_rotation_split/{field}_adjoint.pvd")
+        fwd_outfile = VTKFile(f"solid_body_rotation_split/{field}_forward.pvd")
+        adj_outfile = VTKFile(f"solid_body_rotation_split/{field}_adjoint.pvd")
         for i, mesh in enumerate(mesh_seq):
             for sol in sols["forward"][i]:
                 fwd_outfile.write(sol)

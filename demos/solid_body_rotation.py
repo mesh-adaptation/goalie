@@ -91,7 +91,7 @@ def get_initial_condition(mesh_seq, field="c"):
     bell = bell_initial_condition(x, y)
     cone = cone_initial_condition(x, y)
     slot_cyl = slot_cyl_initial_condition(x, y)
-    return {field: interpolate(bell + cone + slot_cyl, fs)}
+    return {field: assemble(interpolate(bell + cone + slot_cyl, fs))}
 
 
 # Now let's set up the time interval of interest. The `"GOALIE_REGRESSION_TEST"` flag
@@ -158,7 +158,7 @@ def get_form(mesh_seq):
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition[index].timestep)
+        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
         theta = Function(R).assign(0.5)
 
         psi = TrialFunction(V)
@@ -263,8 +263,8 @@ solutions = mesh_seq.solve_adjoint()
 
 if not test:
     for field, sols in solutions.items():
-        fwd_outfile = File(f"solid_body_rotation/{field}_forward.pvd")
-        adj_outfile = File(f"solid_body_rotation/{field}_adjoint.pvd")
+        fwd_outfile = VTKFile(f"solid_body_rotation/{field}_forward.pvd")
+        adj_outfile = VTKFile(f"solid_body_rotation/{field}_adjoint.pvd")
         for i, mesh in enumerate(mesh_seq):
             for sol in sols["forward"][i]:
                 fwd_outfile.write(sol)
