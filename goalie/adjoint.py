@@ -383,32 +383,32 @@ class AdjointMeshSeq(MeshSeq):
 
                 # Update forward and adjoint solution data based on block dependencies
                 # and outputs
-                sols = self.solutions.extract(layout="field")[field]
+                solutions = self.solutions.extract(layout="field")[field]
                 for j, block in enumerate(reversed(solve_blocks[::-stride])):
                     # Current forward solution is determined from outputs
                     out = self._output(field, i, block)
                     if out is not None:
-                        sols.forward[i][j].assign(out.saved_output)
+                        solutions.forward[i][j].assign(out.saved_output)
 
                     # Current adjoint solution is determined from the adj_sol attribute
                     if block.adj_sol is not None:
-                        sols.adjoint[i][j].assign(block.adj_sol)
+                        solutions.adjoint[i][j].assign(block.adj_sol)
 
                     # Lagged forward solution comes from dependencies
                     dep = self._dependency(field, i, block)
                     if not self.steady and dep is not None:
-                        sols.forward_old[i][j].assign(dep.saved_output)
+                        solutions.forward_old[i][j].assign(dep.saved_output)
 
                     # Adjoint action also comes from dependencies
                     if get_adj_values and dep is not None:
-                        sols.adj_value[i][j].assign(dep.adj_value)
+                        solutions.adj_value[i][j].assign(dep.adj_value)
 
                     # The adjoint solution at the 'next' timestep is determined from the
                     # adj_sol attribute of the next solve block
                     if not steady:
                         if (j + 1) * stride < num_solve_blocks:
                             if solve_blocks[(j + 1) * stride].adj_sol is not None:
-                                sols.adjoint_next[i][j].assign(
+                                solutions.adjoint_next[i][j].assign(
                                     solve_blocks[(j + 1) * stride].adj_sol
                                 )
                         elif (j + 1) * stride > num_solve_blocks:
@@ -420,15 +420,15 @@ class AdjointMeshSeq(MeshSeq):
                 # The initial timestep of the current subinterval is the 'next' timestep
                 # after the final timestep of the previous subinterval
                 if i > 0 and solve_blocks[0].adj_sol is not None:
-                    project(solve_blocks[0].adj_sol, sols.adjoint_next[i - 1][-1])
+                    project(solve_blocks[0].adj_sol, solutions.adjoint_next[i - 1][-1])
 
                 # Check non-zero adjoint solution/value
-                if np.isclose(norm(self.solutions[field].adjoint[i][0]), 0.0):
+                if np.isclose(norm(solutions.adjoint[i][0]), 0.0):
                     self.warning(
                         f"Adjoint solution for field '{field}' on {self.th(i)}"
                         " subinterval is zero."
                     )
-                if get_adj_values and np.isclose(norm(sols.adj_value[i][0]), 0.0):
+                if get_adj_values and np.isclose(norm(solutions.adj_value[i][0]), 0.0):
                     self.warning(
                         f"Adjoint action for field '{field}' on {self.th(i)}"
                         " subinterval is zero."
