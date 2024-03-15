@@ -4,6 +4,7 @@ Unit tests for :class:`~.FunctionData` and its subclasses.
 from firedrake import *
 from goalie import *
 import abc
+from parameterized import parameterized
 import unittest
 
 
@@ -40,8 +41,8 @@ class BaseTestCases:
         def _create_function_data(self):
             pass
 
-        def test_data_by_field(self):
-            data = self.solution_data._data_by_field
+        def test_extract_by_field(self):
+            data = self.solution_data.extract(layout="field")
             self.assertTrue(isinstance(data, AttrDict))
             self.assertTrue(self.field in data)
             for label in self.labels:
@@ -55,8 +56,8 @@ class BaseTestCases:
                     for f in data[self.field][label][i]:
                         self.assertTrue(isinstance(f, Function))
 
-        def test_data_by_label(self):
-            data = self.solution_data._data_by_label
+        def test_extract_by_label(self):
+            data = self.solution_data.extract(layout="label")
             self.assertTrue(isinstance(data, AttrDict))
             for label in self.labels:
                 self.assertTrue(label in data)
@@ -70,8 +71,8 @@ class BaseTestCases:
                     for f in data[label][self.field][i]:
                         self.assertTrue(isinstance(f, Function))
 
-        def test_data_by_subinterval(self):
-            data = self.solution_data._data_by_subinterval
+        def test_extract_by_subinterval(self):
+            data = self.solution_data.extract(layout="subinterval")
             self.assertTrue(isinstance(data, list))
             self.assertEqual(len(data), self.num_subintervals)
             for i, sub_data in enumerate(data):
@@ -132,11 +133,9 @@ class TestIndicatorData(BaseTestCases.TestFunctionData):
             self.time_partition, [self.mesh for _ in range(self.num_subintervals)]
         )
 
-    def _test_data_by_field_or_label(self, field_or_data):
-        if field_or_data == "field":
-            data = self.solution_data._data_by_field
-        else:
-            data = self.solution_data._data_by_label
+    @parameterized.expand([["field"], ["label"]])
+    def test_extract_by_layout(self, layout):
+        data = self.solution_data.extract(layout=layout)
         self.assertTrue(isinstance(data, AttrDict))
         self.assertTrue(self.field in data)
         self.assertEqual(len(data[self.field]), self.num_subintervals)
@@ -146,14 +145,8 @@ class TestIndicatorData(BaseTestCases.TestFunctionData):
             for f in data[self.field][i]:
                 self.assertTrue(isinstance(f, Function))
 
-    def test_data_by_field(self):
-        self._test_data_by_field_or_label("field")
-
-    def test_data_by_label(self):
-        self._test_data_by_field_or_label("label")
-
-    def test_data_by_subinterval(self):
-        data = self.solution_data._data_by_subinterval
+    def test_extract_by_subinterval(self):
+        data = self.solution_data.extract(layout="subinterval")
         self.assertTrue(isinstance(data, list))
         self.assertEqual(len(data), self.num_subintervals)
         for i, sub_data in enumerate(data):
