@@ -1,10 +1,11 @@
 # Advection of a tracer bubble in a non-uniform shear flow
-# ===================================================
+# ========================================================
 
 # In this demo, we consider the advection of a scalar concentration field, similarly to
-# our previous solid body rotation demo. However, we now consider a background velocity
-# field that is not uniform in time. We further prescribe homogeneous Dirichlet boundary
-# conditions for the concentration, so in this demo we solve
+# the `solid body rotation demo <./solid_body_rotation.py.html>`__. However, we now
+# consider a background velocity field that is not uniform in time. We further prescribe
+# homogeneous Dirichlet boundary conditions for the concentration, so in this demo we
+# solve the following advection problem:
 #
 # .. math::
 #   \begin{array}{rl}
@@ -13,9 +14,9 @@
 #       c=c_0(x,y) & \text{at}\:t=0,
 #   \end{array},
 #
-# where :math:`c=c(x,y,t)` is the sought tracer concentration, :math:`\mathbf{u}=\mathbf{u}(x,y,t)` is the
-# background velocity field, and :math:`\Omega=[0, 1]^2` is the spatial domain of
-# interest.
+# where :math:`c=c(x,y,t)` is the sought tracer concentration,
+# :math:`\mathbf{u}=\mathbf{u}(x,y,t)` is the background velocity field, and
+# :math:`\Omega=[0, 1]^2` is the spatial domain of interest.
 #
 # First, we import Firedrake and Goalie. ::
 
@@ -24,7 +25,7 @@ from goalie import *
 
 # We begin by definining the background velocity field :math:`\mathbf{u}(x, y, t)`.
 # Specifically, we choose the velocity field that is periodic in time, such as
-# in TODO: cite, and is given by
+# in :cite:<Barral:2016>, and is given by
 #
 # .. math::
 #   \mathbf{u}(x, y, t) := \cos(2\pi t/T)\left(2\sin^2(\pi x)\sin(2\pi y), -\sin(2\pi x)\sin^2(\pi y) \right),
@@ -59,10 +60,10 @@ def get_function_spaces(mesh):
 
 
 # We proceed similarly with prescribing initial and boundary conditions. At :math:`t=0`,
-# we initialise the tracer concentration :math:`c_0 = c(x, y, 0)` to be :math:`1` inside a circular
-# region of radius :math:`r_0=0.15` centred at :math:`(x_0, y_0)=(0.5, 0.65)`,
-# and :math:`0` elsewhere in the domain. Note that this is a discontinuous function which
-# will not be represented well on a coarse uniform mesh. ::
+# we initialise the tracer concentration :math:`c_0 = c(x, y, 0)` to be :math:`1` inside
+# a circular region of radius :math:`r_0=0.15` centred at :math:`(x_0, y_0)=(0.5, 0.65)`
+# and :math:`0` elsewhere in the domain. Note that this is a discontinuous function
+# which will not be represented well on a coarse uniform mesh. ::
 
 
 def get_bcs(mesh_seq):
@@ -91,8 +92,8 @@ def get_initial_condition(mesh_seq):
 # will always pass both these fields from :meth:`get_solver`. Note that we still do not
 # define the velocity field.
 # As in the point discharge with diffusion demo, we include additional `streamline
-# upwind Petrov Galerkin (SUPG)` stabilisation by modifying the test function :math:`\psi`.
-# To advance in time, we use Crank-Nicolson timestepping. ::
+# upwind Petrov Galerkin (SUPG)` stabilisation by modifying the test function
+# :math:`\psi`. To advance in time, we use Crank-Nicolson timestepping. ::
 
 
 def get_form(mesh_seq):
@@ -177,8 +178,8 @@ def get_solver(mesh_seq):
 
 
 # Now that we have defined the solver and specified how to build and update the
-# background velocity, we are ready to solve the problem. We run the simulation
-# until :math:`t=T/2` on a sequence of two coarse meshes. ::
+# background velocity, we are ready to solve the problem. We run the simulation until
+# :math:`t=T/2` on a sequence of two coarse meshes. ::
 
 # Reduce the cost of the demo during testing.
 test = os.environ.get("GOALIE_REGRESSION_TEST") is not None
@@ -190,7 +191,7 @@ meshes = [UnitSquareMesh(n, n) for _ in range(num_subintervals)]
 end_time = period / 2
 time_partition = TimePartition(
     end_time,
-    len(meshes),
+    num_subintervals,
     dt,
     fields,
     num_timesteps_per_export=30,
@@ -217,21 +218,23 @@ fig.savefig("bubble_shear.jpg")
 #    :figwidth: 80%
 #    :align: center
 #
-# We observe that the initial tracer bubble has been deformed by the strong shear forces.
-# However, we notice that the deformation appears to be reverting. This is due to the
-# periodicity of the velocity field :math:`\mathbf{u}`, which we chose to be an odd
-# function of time. This means that the velocity field reverses direction at :math:`t=T/2`,
-# and so does the deformation of the tracer bubble, which returns to its initial shape.
+# In the first part of the simulation, we observe that the initial tracer bubble becomes
+# increasingly deformed by the strong shear forces. However, we notice that the
+# deformation appears to be reverting. This is due to the periodicity of the velocity
+# field :math:`\mathbf{u}`, which we chose to be an odd function of time. This means
+# that the velocity field reverses direction at :math:`t=T/2`, and so does the
+# deformation of the tracer bubble, which returns to its initial shape.
 #
 # However, while the tracer bubble at :math:`t=T/2` does resemble a very blurry circular
-# shape, it is far from matching the initial condition. This "bluriness" is the result of
-# adding the SUPG stabilisation to the weak form, which adds numerical diffusion. This
-# diffusion is necessary for numerical stability and for preventing oscillations, but it
-# also makes the solution irreversible. The amount of difussion added is related to the
-# grid Peclet number :math:`Pe = U\,h/2D`: the coarser the mesh is, the more diffusion
-# is added. We encourage the reader to verify this by running the simulation on a
-# sequence of finer uniform meshes, and to visit the `bubble shear mesh adaptation demo <./bubble_shear-goal.py.html>`__,
-# where we use a goal-oriented approach to identify areas of the domain that require
-# refinement to reduce the numerical diffusion.
+# shape, it is far from matching the initial condition. This "bluriness" is the result
+# of adding the SUPG stabilisation to the weak form, which adds numerical diffusion.
+# Adding diffusion is necessary for numerical stability and for preventing oscillations,
+# but it also makes the solution irreversible. The amount of difussion added is related
+# to the grid Péclet number :math:`Pe = U\,h/2D`: the coarser the mesh is, the more
+# diffusion is added. We encourage the reader to verify this by running the simulation
+# on a sequence of finer uniform meshes, and to visit the
+# `bubble shear mesh adaptation demo <./bubble_shear-goal.py.html>`__, where we use a
+# goal-oriented approach to identify areas of the domain that require refinement to
+# reduce the numerical diffusion.
 #
 # This tutorial can be dowloaded as a `Python script <bubble_shear.py>`__.
