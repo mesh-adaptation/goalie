@@ -8,7 +8,7 @@ from firedrake.adjoint_utils.solving import get_solve_blocks
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
 from .function_data import ForwardSolutionData
-from .interpolation import interpolate
+from .interpolation import transfer
 from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
 from animate.quality import QualityMeasure
@@ -49,6 +49,11 @@ class MeshSeq:
         :kwarg get_bcs: a function, whose only argument is a :class:`~.MeshSeq`, which
             returns a function that determines any Dirichlet boundary conditions
         :kwarg parameters: :class:`~.AdaptParameters` instance
+        :kwarg transfer_method: a string specifying the method to use for transferring
+            fields between meshes: either parallel-compatible interpolation using
+            :func:`firedrake.__future__.interpolate`
+            (``tranfer_method = 'interpolate'``, default) or conservative projection
+            using :func:`firedrake.projection.project` (``transfer_method = 'project'``)
         """
         self.time_partition = time_partition
         self.fields = time_partition.fields
@@ -73,6 +78,10 @@ class MeshSeq:
         if self.params is None:
             self.params = AdaptParameters()
         self.sections = [{} for mesh in self]
+
+        # Set the method for transferring fields between meshes
+        transfer_method = kwargs.get("transfer_method", "interpolate")
+        self.transfer = lambda source, target: transfer(source, target, transfer_method)
 
     def __str__(self) -> str:
         return f"{[str(mesh) for mesh in self.meshes]}"
@@ -319,12 +328,12 @@ class MeshSeq:
                 diff = fields.difference(set(self.fields))
                 raise ValueError(f"Unexpected solver outputs: {diff}.")
 
-            # Transfer between meshes using conservative projection
+            # Transfer between meshes
             if i < N - 1:
                 checkpoints.append(
                     AttrDict(
                         {
-                            field: interpolate(sols[field], fs[i + 1])
+                            field: self.transfer(sols[field], fs[i + 1])
                             for field, fs in self._fs.items()
                         }
                     )
@@ -585,7 +594,7 @@ class MeshSeq:
             if i < num_subintervals - 1:
                 checkpoint = AttrDict(
                     {
-                        field: interpolate(checkpoint[field], fs[i + 1])
+                        field: self.transfer(checkpoint[field], fs[i + 1])
                         for field, fs in self._fs.items()
                     }
                 )

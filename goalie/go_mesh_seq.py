@@ -7,7 +7,7 @@ from .error_estimation import get_dwr_indicator
 from .function_data import IndicatorData
 from .log import pyrint
 from .utility import AttrDict
-from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager, project
+from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
 from firedrake.petsc import PETSc
 from collections.abc import Callable, Iterable
 import numpy as np
@@ -175,8 +175,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     # Evaluate error indicator
                     indi_e = indicator_fn(forms[f], u_star_e[f])
 
-                    # Project back to the base space
-                    indi = project(indi_e, P0_spaces[i])
+                    # Transfer back to the base space
+                    indi = self.transfer(indi_e, P0_spaces[i])
                     indi.interpolate(abs(indi))
                     self.indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
 
