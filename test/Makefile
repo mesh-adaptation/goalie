@@ -2,7 +2,7 @@ all: run
 
 run:
 	@echo "Running all tests..."
-	@python3 -m pytest -v --durations=20 .
+	@python3 -m pytest -v -s -n auto --durations=20 .
 	@echo "Done."
 
 clean:
