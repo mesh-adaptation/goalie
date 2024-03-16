@@ -1,10 +1,7 @@
 """
-Problem specification for a simple Burgers
-equation test case.
+Problem specification for a simple Burgers equation test case.
 
-The test case is notable for Goalie
-because the prognostic equation is
-nonlinear.
+The test case is notable for Goalie because the prognostic equation is nonlinear.
 
 Code here is based on that found at
     https://firedrakeproject.org/demos/burgers.py.html
@@ -39,7 +36,7 @@ def get_form(self):
 
     def form(i, sols):
         u, u_ = sols["uv_2d"]
-        dt = self.time_partition[i].timestep
+        dt = self.time_partition.timesteps[i]
         fs = self.function_spaces["uv_2d"][i]
         R = FunctionSpace(self[i], "R", 0)
         dtc = Function(R).assign(dt)
@@ -57,14 +54,12 @@ def get_form(self):
 
 def get_solver(self):
     """
-    Burgers equation solved using
-    a direct method and backward
-    Euler timestepping.
+    Burgers equation solved using a direct method and backward Euler timestepping.
     """
 
     def solver(i, ic):
-        t_start, t_end = self.time_partition[i].subinterval
-        dt = self.time_partition[i].timestep
+        t_start, t_end = self.time_partition.subintervals[i]
+        dt = self.time_partition.timesteps[i]
         fs = self.function_spaces["uv_2d"][i]
         u = Function(fs, name="uv_2d")
         solution_map = {"uv_2d": u}
@@ -92,8 +87,7 @@ def get_solver(self):
 
 def get_initial_condition(self):
     """
-    Initial condition which is
-    sinusoidal in the x-direction.
+    Initial condition which is sinusoidal in the x-direction.
     """
     init_fs = self.function_spaces["uv_2d"][0]
     x, y = SpatialCoordinate(self.meshes[0])
@@ -102,13 +96,11 @@ def get_initial_condition(self):
 
 def get_qoi(self, sol, i):
     """
-    Quantity of interest which
-    computes the square L2
-    norm over the right hand
+    Quantity of interest which computes the square :math:`L^2` norm over the right hand
     boundary.
     """
     R = FunctionSpace(self[i], "R", 0)
-    dtc = Function(R).assign(self.time_partition[i].timestep)
+    dtc = Function(R).assign(self.time_partition.timesteps[i])
 
     def time_integrated_qoi(t):
         u = sol["uv_2d"]

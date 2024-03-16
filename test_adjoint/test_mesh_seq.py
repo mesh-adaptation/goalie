@@ -131,7 +131,7 @@ class TestGetSolveBlocks(unittest.TestCase):
         self.assertEqual(str(cm.exception), msg)
 
 
-class TrivalGoalOrientedBaseClass(unittest.TestCase):
+class TrivialGoalOrientedBaseClass(unittest.TestCase):
     """
     Base class for tests with a trivial :class:`GoalOrientedMeshSeq`.
     """
@@ -140,6 +140,11 @@ class TrivalGoalOrientedBaseClass(unittest.TestCase):
         self.field = "field"
         self.time_interval = TimeInterval(1.0, [1.0], [self.field])
         self.meshes = [UnitSquareMesh(1, 1)]
+
+    @staticmethod
+    def constant_qoi(mesh_seq, solutions, index):
+        R = FunctionSpace(mesh_seq[index], "R", 0)
+        return lambda: Function(R).assign(1) * dx
 
     def go_mesh_seq(self, get_function_spaces, parameters=None):
         return GoalOrientedMeshSeq(
@@ -151,7 +156,7 @@ class TrivalGoalOrientedBaseClass(unittest.TestCase):
         )
 
 
-class TestGlobalEnrichment(TrivalGoalOrientedBaseClass):
+class TestGlobalEnrichment(TrivialGoalOrientedBaseClass):
     """
     Unit tests for global enrichment of a :class:`GoalOrientedMeshSeq`.
     """
@@ -179,6 +184,21 @@ class TestGlobalEnrichment(TrivalGoalOrientedBaseClass):
         with self.assertRaises(ValueError) as cm:
             mesh_seq.get_enriched_mesh_seq(num_enrichments=0)
         msg = "A positive number of enrichments is required."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_h_enrichment_error(self):
+        end_time = 1.0
+        num_subintervals = 2
+        dt = end_time / num_subintervals
+        mesh_seq = GoalOrientedMeshSeq(
+            TimePartition(end_time, num_subintervals, dt, "field"),
+            [UnitTriangleMesh()] * num_subintervals,
+            get_qoi=self.constant_qoi,
+            qoi_type="end_time",
+        )
+        with self.assertRaises(ValueError) as cm:
+            mesh_seq.get_enriched_mesh_seq(enrichment_method="h")
+        msg = "h-enrichment is not supported for shallow-copied meshes."
         self.assertEqual(str(cm.exception), msg)
 
     @parameterized.expand([[1], [2]])
@@ -317,15 +337,10 @@ class TestGlobalEnrichment(TrivalGoalOrientedBaseClass):
         self.assertAlmostEqual(norm(source), norm(target))
 
 
-class TestErrorIndication(TrivalGoalOrientedBaseClass):
+class TestErrorIndication(TrivialGoalOrientedBaseClass):
     """
     Unit tests for :meth:`indicate_errors`.
     """
-
-    @staticmethod
-    def constant_qoi(mesh_seq, solutions, index):
-        R = FunctionSpace(mesh_seq[index], "R", 0)
-        return lambda: Function(R).assign(1) * dx
 
     def test_form_error(self):
         mesh_seq = GoalOrientedMeshSeq(

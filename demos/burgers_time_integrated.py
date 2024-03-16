@@ -100,7 +100,7 @@ def get_solver(mesh_seq):
 
 def get_qoi(mesh_seq, solutions, i):
     R = FunctionSpace(mesh_seq[i], "R", 0)
-    dt = Function(R).assign(mesh_seq.time_partition[i].timestep)
+    dt = Function(R).assign(mesh_seq.time_partition.timesteps[i])
 
     def time_integrated_qoi(t):
         u = solutions["u"]

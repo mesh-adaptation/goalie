@@ -12,13 +12,9 @@ from .interpolation import transfer
 from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
 from animate.quality import QualityMeasure
-from .time_partition import TimePartition
 from .utility import AttrDict, Mesh
-from collections import OrderedDict
-from collections.abc import Callable, Iterable
-import matplotlib
+from collections.abc import Iterable
 import numpy as np
-from typing import Tuple
 
 
 __all__ = ["MeshSeq"]
@@ -31,29 +27,22 @@ class MeshSeq:
     """
 
     @PETSc.Log.EventDecorator()
-    def __init__(self, time_partition: TimePartition, initial_meshes: list, **kwargs):
+    def __init__(self, time_partition, initial_meshes, **kwargs):
         r"""
-        :arg time_partition: the :class:`~.TimePartition` which partitions the temporal
-            domain
-        :arg initial_meshes: list of meshes corresponding to the subintervals of the
-            :class:`~.TimePartition`, or a single mesh to use for all subintervals
-        :kwarg get_function_spaces: a function, whose only argument is a
-            :class:`~.MeshSeq`, which constructs prognostic
-            :class:`firedrake.functionspaceimpl.FunctionSpace`\s for each subinterval
-        :kwarg get_initial_condition: a function, whose only argument is a
-            :class:`~.MeshSeq`, which specifies initial conditions on the first mesh
-        :kwarg get_form: a function, whose only argument is a :class:`~.MeshSeq`, which
-            returns a function that generates the PDE weak form
-        :kwarg get_solver: a function, whose only argument is a :class:`~.MeshSeq`,
-            which returns a function that integrates initial data over a subinterval
-        :kwarg get_bcs: a function, whose only argument is a :class:`~.MeshSeq`, which
-            returns a function that determines any Dirichlet boundary conditions
-        :kwarg parameters: :class:`~.AdaptParameters` instance
-        :kwarg transfer_method: a string specifying the method to use for transferring
-            fields between meshes: either parallel-compatible interpolation using
-            :func:`firedrake.__future__.interpolate`
-            (``tranfer_method = 'interpolate'``, default) or conservative projection
-            using :func:`firedrake.projection.project` (``transfer_method = 'project'``)
+        :arg time_partition: a partition of the temporal domain
+        :type time_partition: :class:`~.TimePartition`
+        :arg initial_meshes: a list of meshes corresponding to the subinterval of the
+            time partition, or a single mesh to use for all subintervals
+        :type initial_meshes: :class:`list` or :class:`~.MeshGeometry`
+        :kwarg get_function_spaces: a function as described in
+            :meth:`~.MeshSeq.get_function_spaces`
+        :kwarg get_initial_condition: a function as described in
+            :meth:`~.MeshSeq.get_initial_condition`
+        :kwarg get_form: a function as described in :meth:`~.MeshSeq.get_form`
+        :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
+        :kwarg get_bcs: a function as described in :meth:`~.MeshSeq.get_bcs`
+        :kwarg parameters: parameters to apply to the mesh adaptation process
+        :type parameters: :class:`~.AdaptParameters`
         """
         self.time_partition = time_partition
         self.fields = time_partition.fields
@@ -83,11 +72,11 @@ class MeshSeq:
         transfer_method = kwargs.get("transfer_method", "interpolate")
         self.transfer = lambda source, target: transfer(source, target, transfer_method)
 
-    def __str__(self) -> str:
+    def __str__(self):
         return f"{[str(mesh) for mesh in self.meshes]}"
 
-    def __repr__(self) -> str:
-        name = self.__class__.__name__
+    def __repr__(self):
+        name = type(self).__name__
         if len(self) == 1:
             return f"{name}([{repr(self.meshes[0])}])"
         elif len(self) == 2:
@@ -95,43 +84,89 @@ class MeshSeq:
         else:
             return f"{name}([{repr(self.meshes[0])}, ..., {repr(self.meshes[-1])}])"
 
-    def debug(self, msg: str):
-        debug(f"{self.__class__.__name__}: {msg}")
+    def debug(self, msg):
+        """
+        Print a ``debug`` message.
 
-    def warning(self, msg: str):
-        warning(f"{self.__class__.__name__}: {msg}")
+        :arg msg: the message to print
+        :type msg: :class:`str`
+        """
+        debug(f"{type(self).__name__}: {msg}")
 
-    def info(self, msg: str):
-        info(f"{self.__class__.__name__}: {msg}")
+    def warning(self, msg):
+        """
+        Print a ``warning`` message.
 
-    def __len__(self) -> int:
+        :arg msg: the message to print
+        :type msg: :class:`str`
+        """
+        warning(f"{type(self).__name__}: {msg}")
+
+    def info(self, msg):
+        """
+        Print an ``info`` level message.
+
+        :arg msg: the message to print
+        :type msg: :class:`str`
+        """
+        info(f"{type(self).__name__}: {msg}")
+
+    def __len__(self):
         return len(self.meshes)
 
-    def __getitem__(self, i: int) -> firedrake.MeshGeometry:
-        return self.meshes[i]
+    def __getitem__(self, subinterval):
+        """
+        :arg subinterval: a subinterval index
+        :type subinterval: :class:`int`
+        :returns: the corresponding mesh
+        :rtype: :class:`firedrake.MeshGeometry`
+        """
+        return self.meshes[subinterval]
 
-    def __setitem__(
-        self, i: int, mesh: firedrake.MeshGeometry
-    ) -> firedrake.MeshGeometry:
-        self.meshes[i] = mesh
+    def __setitem__(self, subinterval, mesh):
+        """
+        :arg subinterval: a subinterval index
+        :type subinterval: :class:`int`
+        :arg mesh: the mesh to use for that subinterval
+        :type subinterval: :class:`firedrake.MeshGeometry`
+        """
+        self.meshes[subinterval] = mesh
 
-    def count_elements(self) -> list:
-        return [mesh.num_cells() for mesh in self]  # TODO: make parallel safe
+    def count_elements(self):
+        r"""
+        Count the number of elements in each mesh in the sequence.
 
-    def count_vertices(self) -> list:
-        return [mesh.num_vertices() for mesh in self]  # TODO: make parallel safe
+        :returns: list of element counts
+        :rtype: :class:`list` of :class:`int`\s
+        """
+        return [mesh.num_cells() for mesh in self]  # TODO #123: make parallel safe
 
-    def reset_counts(self):
+    def count_vertices(self):
+        r"""
+        Count the number of vertices in each mesh in the sequence.
+
+        :returns: list of vertex counts
+        :rtype: :class:`list` of :class:`int`\s
+        """
+        return [mesh.num_vertices() for mesh in self]  # TODO #123: make parallel safe
+
+    def _reset_counts(self):
+        """
+        Reset the lists of element and vertex counts.
+        """
         self.element_counts = [self.count_elements()]
         self.vertex_counts = [self.count_vertices()]
 
     def set_meshes(self, meshes):
-        """
-        Update the meshes associated with the :class:`~.MeshSeq`, as well as the
-        associated attributes.
+        r"""
+        Set all meshes in the sequence and deduce various properties.
 
-        :arg meshes: mesh or list of meshes to use in the sequence
+        :arg meshes: list of meshes to use in the sequence, or a single mesh to use for
+            all subintervals
+        :type meshes: :class:`list` of :class:`firedrake.MeshGeometry`\s or
+            :class:`firedrake.MeshGeometry`
         """
+        # TODO #122: Refactor to use the set method
         if not isinstance(meshes, Iterable):
             meshes = [Mesh(meshes) for subinterval in self.subintervals]
         self.meshes = meshes
@@ -139,7 +174,7 @@ class MeshSeq:
         if dim.min() != dim.max():
             raise ValueError("Meshes must all have the same topological dimension.")
         self.dim = dim.min()
-        self.reset_counts()
+        self._reset_counts()
         if logger.level == DEBUG:
             for i, mesh in enumerate(meshes):
                 nc = mesh.num_cells()
@@ -152,17 +187,19 @@ class MeshSeq:
                 )
             debug(100 * "-")
 
-    def plot(
-        self, **kwargs
-    ) -> Tuple[matplotlib.figure.Figure, matplotlib.axes._axes.Axes]:
+    def plot(self, fig=None, axes=None, **kwargs):
         """
         Plot the meshes comprising a 2D :class:`~.MeshSeq`.
 
-        :kwarg fig: matplotlib figure
-        :kwarg axes: matplotlib axes
-        :kwargs: parameters to pass to :func:`firedrake.pyplot.triplot`
-            function
-        :return: matplotlib figure and axes for the plots
+        :kwarg fig: matplotlib figure to use
+        :type fig: :class:`matplotlib.figure.Figure`
+        :kwarg axes: matplotlib axes to use
+        :type axes: :class:`matplotlib.axes._axes.Axes`
+        :returns: matplotlib figure and axes for the plots
+        :rtype1: :class:`matplotlib.figure.Figure`
+        :rtype2: :class:`matplotlib.axes._axes.Axes`
+
+        All keyword arguments are passed to :func:`firedrake.pyplot.triplot`.
         """
         from matplotlib.pyplot import subplots
 
@@ -170,8 +207,6 @@ class MeshSeq:
             raise ValueError("MeshSeq plotting only supported in 2D")
 
         # Process kwargs
-        fig = kwargs.pop("fig", None)
-        axes = kwargs.pop("axes", None)
         interior_kw = {"edgecolor": "k"}
         interior_kw.update(kwargs.pop("interior_kw", {}))
         boundary_kw = {"edgecolor": "k"}
@@ -200,12 +235,30 @@ class MeshSeq:
             axes = axes[0]
         return fig, axes
 
-    def get_function_spaces(self, mesh: firedrake.MeshGeometry) -> Callable:
+    def get_function_spaces(self, mesh):
+        """
+        Construct the function spaces corresponding to each field, for a given mesh.
+
+        :arg mesh: the mesh to base the function spaces on
+        :type mesh: :class:`firedrake.mesh.MeshGeometry`
+        :returns: a dictionary whose keys are field names and whose values are the
+            corresponding function spaces
+        :rtype: :class:`dict` with :class:`str` keys and
+            :class:`firedrake.functionspaceimpl.FunctionSpace` values
+        """
         if self._get_function_spaces is None:
             raise NotImplementedError("'get_function_spaces' needs implementing.")
         return self._get_function_spaces(mesh)
 
-    def get_initial_condition(self) -> dict:
+    def get_initial_condition(self):
+        r"""
+        Get the initial conditions applied on the first mesh in the sequence.
+
+        :returns: the dictionary, whose keys are field names and whose values are the
+            corresponding initial conditions applied
+        :rtype: :class:`dict` with :class:`str` keys and
+            :class:`firedrake.function.Function` values
+        """
         if self._get_initial_condition is not None:
             return self._get_initial_condition(self)
         return {
@@ -213,22 +266,81 @@ class MeshSeq:
             for field, fs in self.function_spaces.items()
         }
 
-    def get_form(self) -> Callable:
+    def get_form(self):
+        """
+        Get the function mapping a subinterval index and a solution dictionary to a
+        dictionary containing parts of the PDE weak form corresponding to each solution
+        component.
+
+        Signature for the function to be returned:
+        ```
+        :arg index: the subinterval index
+        :type index: :class:`int`
+        :arg solutions: map from fields to tuples of current and previous solutions
+        :type solutions: :class:`dict` with :class:`str` keys and :class:`tuple` values
+        :return: map from fields to the corresponding forms
+        :rtype: :class:`dict` with :class:`str` keys and :class:`ufl.form.Form` values
+        ```
+
+        :returns: the function for obtaining the form
+        :rtype: see docstring above
+        """
         if self._get_form is None:
             raise NotImplementedError("'get_form' needs implementing.")
         return self._get_form(self)
 
-    def get_solver(self) -> Callable:
+    def get_solver(self):
+        """
+        Get the function mapping a subinterval index and an initial condition dictionary
+        to a dictionary of solutions for the corresponding solver step.
+
+        Signature for the function to be returned:
+        ```
+        :arg index: the subinterval index
+        :type index: :class:`int`
+        :arg ic: map from fields to the corresponding initial condition components
+        :type ic: :class:`dict` with :class:`str` keys and
+            :class:`firedrake.function.Function` values
+        :return: map from fields to the corresponding solutions
+        :rtype: :class:`dict` with :class:`str` keys and
+            :class:`firedrake.function.Function` values
+        ```
+
+        :returns: the function for obtaining the solver
+        :rtype: see docstring above
+        """
         if self._get_solver is None:
             raise NotImplementedError("'get_solver' needs implementing.")
         return self._get_solver(self)
 
-    def get_bcs(self) -> Callable:
+    def get_bcs(self):
+        """
+        Get the function mapping a subinterval index to a set of Dirichlet boundary
+        conditions.
+
+        Signature for the function to be returned:
+        ```
+        :arg index: the subinterval index
+        :type index: :class:`int`
+        :return: boundary conditions
+        :rtype: :class:`~.DirichletBC` or :class:`list` thereof
+        :rtype: see docstring above
+        ```
+
+        :returns: the function for obtaining the boundary conditions
+        """
         if self._get_bcs is not None:
             return self._get_bcs(self)
 
-    @property
-    def _function_spaces_consistent(self) -> bool:
+    def _function_spaces_consistent(self):
+        """
+        Determine whether the mesh sequence's function spaces are consistent with its
+        meshes.
+
+        :returns: ``True`` if the meshes and function spaces are consistent, otherwise
+            ``False``
+        :rtype: `:class:`bool`
+        """
         consistent = len(self.time_partition) == len(self)
         consistent &= all(len(self) == len(self._fs[field]) for field in self.fields)
         for field in self.fields:
@@ -241,65 +353,93 @@ class MeshSeq:
             )
         return consistent
 
-    def update_function_spaces(self) -> list:
+    def _update_function_spaces(self):
         """
-        Update the function space dictionary associated with the :class:`MeshSeq`.
+        Update the function space dictionary associated with the mesh sequence.
         """
-        if self._fs is None or not self._function_spaces_consistent:
-            self._fs = [self.get_function_spaces(mesh) for mesh in self.meshes]
+        if self._fs is None or not self._function_spaces_consistent():
             self._fs = AttrDict(
                 {
-                    field: [self._fs[i][field] for i in range(len(self))]
+                    field: [self.get_function_spaces(mesh)[field] for mesh in self]
                     for field in self.fields
                 }
             )
         assert (
-            self._function_spaces_consistent
+            self._function_spaces_consistent()
         ), "Meshes and function spaces are inconsistent"
-        return self._fs
 
     @property
     def function_spaces(self):
-        return self.update_function_spaces()
+        """
+        Get the function spaces associated with the mesh sequence.
+
+        :returns: a dictionary whose keys are field names and whose values are the
+            corresponding function spaces
+        :rtype: :class:`~.AttrDict` with :class:`str` keys and
+            :class:`firedrake.functionspaceimpl.FunctionSpace` values
+        """
+        self._update_function_spaces()
+        return self._fs
 
     @property
-    def initial_condition(self) -> AttrDict:
-        ic = OrderedDict(self.get_initial_condition())
-        assert issubclass(
-            ic.__class__, dict
+    def initial_condition(self):
+        """
+        Get the initial conditions associated with the first subinterval.
+
+        :returns: a dictionary whose keys are field names and whose values are the
+            corresponding initial conditions applied on the first subinterval
+        :rtype: :class:`~.AttrDict` with :class:`str` keys and
+            :class:`firedrake.function.Function` values
+        """
+        initial_condition_map = self.get_initial_condition()
+        assert isinstance(
+            initial_condition_map, dict
         ), "`get_initial_condition` should return a dict"
-        assert set(self.fields).issubset(
-            set(ic.keys())
+        mesh_seq_fields = set(self.fields)
+        initial_condition_fields = set(initial_condition_map.keys())
+        assert mesh_seq_fields.issubset(
+            initial_condition_fields
         ), "missing fields in initial condition"
-        assert set(ic.keys()).issubset(
-            set(self.fields)
+        assert initial_condition_fields.issubset(
+            mesh_seq_fields
         ), "more initial conditions than fields"
-        return AttrDict(ic)
+        return AttrDict(initial_condition_map)
 
     @property
-    def form(self) -> Callable:
+    def form(self):
+        """
+        See :meth:`~.MeshSeq.get_form`.
+        """
         return self.get_form()
 
     @property
-    def solver(self) -> Callable:
+    def solver(self):
+        """
+        See :meth:`~.MeshSeq.get_solver`.
+        """
         return self.get_solver()
 
     @property
-    def bcs(self) -> Callable:
+    def bcs(self):
+        """
+        See :meth:`~.MeshSeq.get_bcs`.
+        """
         return self.get_bcs()
 
     @PETSc.Log.EventDecorator()
-    def get_checkpoints(
-        self, solver_kwargs: dict = {}, run_final_subinterval: bool = False
-    ) -> list:
-        """
+    def get_checkpoints(self, solver_kwargs={}, run_final_subinterval=False):
+        r"""
         Solve forward on the sequence of meshes, extracting checkpoints corresponding
         to the starting fields on each subinterval.
 
-        :kwarg solver_kwargs: additional keyword arguments which will be passed to the
-            solver
-        :kwarg run_final_subinterval: toggle whether to solve the PDE on the final
+        :kwarg solver_kwargs: parameters for the forward solver
+        :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :kwarg run_final_subinterval: if ``True``, the solver is run on the final
             subinterval
+        :type run_final_subinterval: :class:`bool`
+        :returns: checkpoints for each subinterval
+        :rtype: :class:`list` of :class:`firedrake.function.Function`\s
         """
         N = len(self)
 
@@ -342,13 +482,17 @@ class MeshSeq:
         return checkpoints
 
     @PETSc.Log.EventDecorator()
-    def get_solve_blocks(self, field: str, subinterval: int) -> list:
-        """
+    def get_solve_blocks(self, field, subinterval):
+        r"""
         Get all blocks of the tape corresponding to solve steps for prognostic solution
         field on a given subinterval.
 
         :arg field: name of the prognostic solution field
+        :type field: :class:`str`
         :arg subinterval: subinterval index
+        :type subinterval: :class:`int`
+        :returns: list of solve blocks
+        :rtype: :class:`list` of :class:`pyadjoint.block.Block`\s
         """
         tape = pyadjoint.get_working_tape()
         if tape is None:
@@ -393,7 +537,7 @@ class MeshSeq:
                 )
 
         # Check that the number of timesteps does not exceed the number of solve blocks
-        num_timesteps = self.time_partition[subinterval].num_timesteps
+        num_timesteps = self.time_partition.num_timesteps_per_subinterval[subinterval]
         if num_timesteps > N:
             raise ValueError(
                 f"Number of timesteps exceeds number of solve blocks for field '{field}'"
@@ -412,13 +556,19 @@ class MeshSeq:
 
     def _output(self, field, subinterval, solve_block):
         """
-        For a given solve block and solution field, get the block's outputs which
-        corresponds to the solution from the current timestep.
+        For a given solve block and solution field, get the block's outputs corresponding
+        to the solution from the current timestep.
 
         :arg field: field of interest
+        :type field: :class:`str`
         :arg subinterval: subinterval index
-        :arg solve_block: taped :class:`firedrake.adjoint.blocks.GenericSolveBlock`
+        :type subinterval: :class:`int`
+        :arg solve_block: taped solve block
+        :type solve_block: :class:`firedrake.adjoint.blocks.GenericSolveBlock`
+        :returns: the output
+        :rtype: :class:`firedrake.function.Function`
         """
+        # TODO #93: Inconsistent return value - can be None
         fs = self.function_spaces[field][subinterval]
 
         # Loop through the solve block's outputs
@@ -459,9 +609,15 @@ class MeshSeq:
         corresponds to the solution from the previous timestep.
 
         :arg field: field of interest
+        :type field: :class:`str`
         :arg subinterval: subinterval index
-        :arg solve_block: taped :class:`firedrake.adjoint.blocks.GenericSolveBlock`
+        :type subinterval: :class:`int`
+        :arg solve_block: taped solve block
+        :type solve_block: :class:`firedrake.adjoint.blocks.GenericSolveBlock`
+        :returns: the dependency
+        :rtype: :class:`firedrake.function.Function`
         """
+        # TODO #93: Inconsistent return value - can be None
         if self.field_types[field] == "steady":
             return
         fs = self.function_spaces[field][subinterval]
@@ -499,42 +655,41 @@ class MeshSeq:
             )
 
     def _create_solutions(self):
+        """
+        Create the :class:`~.FunctionData` instance for holding solution data.
+        """
         self._solutions = ForwardSolutionData(self.time_partition, self.function_spaces)
 
     @property
     def solutions(self):
         """
-        Arrays holding exported solution fields and their lagged counterparts.
+        :returns: the solution data object
+        :rtype: :class:`~.FunctionData`
         """
         if not hasattr(self, "_solutions"):
             self._create_solutions()
         return self._solutions
 
     @PETSc.Log.EventDecorator()
-    def solve_forward(self, solver_kwargs: dict = {}) -> AttrDict:
-        """
+    def solve_forward(self, solver_kwargs={}):
+        r"""
         Solve a forward problem on a sequence of subintervals.
 
-        A dictionary of solution fields is computed, the contents of which give values
-        at all exported timesteps, indexed first by the field label and then by type.
-        The contents of these nested dictionaries are nested lists which are indexed
-        first by subinterval and then by export. For a given exported timestep, the
-        field types are:
+        A dictionary of solution fields is computed - see :class:`~.ForwardSolutionData`
+        for more details.
 
-        * ``'forward'``: the forward solution after taking the timestep;
-        * ``'forward_old'``: the forward solution before taking the timestep (provided
-          the problem is not steady-state).
-
-        :kwarg solver_kwargs: a dictionary providing parameters to the solver. Any
-            keyword arguments for the QoI should be included as a subdict with label
-            'qoi_kwargs'
-
-        :return solution: an :class:`~.AttrDict` containing solution fields and their
-            lagged versions. This can also be accessed as :meth:`solutions`.
+        :kwarg solver_kwargs: parameters for the forward solver
+        :type solver_kwargs: :class:`dict` whose keys are :class:`str`\s and whose values
+            may take various types
+        :returns: the solution data of the forward solves
+        :rtype: :class:`~.ForwardSolutionData`
         """
         num_subintervals = len(self)
         P = self.time_partition
         solver = self.solver
+
+        # Reinitialise the solution data object
+        self._create_solutions()
 
         # Start annotating
         if pyadjoint.annotate_tape():
@@ -605,12 +760,13 @@ class MeshSeq:
         return self.solutions
 
     def check_element_count_convergence(self):
-        """
+        r"""
         Check for convergence of the fixed point iteration due to the relative
         difference in element count being smaller than the specified tolerance.
 
-        :return: Boolean array with ``True`` in the appropriate entry if convergence is
-            detected on a subinterval.
+        :return: an array, whose entries are ``True`` if convergence is detected on the
+            corresponding subinterval
+        :rtype: :class:`list` of :class:`bool`\s
         """
         if self.params.drop_out_converged:
             converged = self.converged
@@ -648,27 +804,28 @@ class MeshSeq:
 
     @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
-        self,
-        adaptor: Callable,
-        solver_kwargs: dict = {},
-        adaptor_kwargs: dict = {},
-        **kwargs,
+        self, adaptor, update_params=None, solver_kwargs={}, adaptor_kwargs={}
     ):
         r"""
-        Apply goal-oriented mesh adaptation using a fixed point iteration loop.
+        Apply mesh adaptation using a fixed point iteration loop approach.
 
-        :arg adaptor: function for adapting the mesh sequence. Its arguments are the
-            :class:`~.MeshSeq` instance and the dictionary of solution
-            :class:`firedrake.function.Function`\s. It should return ``True`` if the
+        :arg adaptor: function for adapting the mesh sequence. Its arguments are the mesh
+            sequence and the solution data object. It should return ``True`` if the
             convergence criteria checks are to be skipped for this iteration. Otherwise,
             it should return ``False``.
         :kwarg update_params: function for updating :attr:`~.MeshSeq.params` at each
             iteration. Its arguments are the parameter class and the fixed point
             iteration
-        :kwarg solver_kwargs: a dictionary providing parameters to the solver
-        :kwarg adaptor_kwargs: a dictionary providing parameters to the adaptor
+        :kwarg solver_kwargs: parameters to pass to the solver
+        :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :kwarg adaptor_kwargs: parameters to pass to the adaptor
+        :type adaptor_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :returns: solution data object
+        :rtype: :class:`~.ForwardSolutionData`
         """
-        update_params = kwargs.get("update_params")
+        # TODO #124: adaptor no longer needs solution data to be passed explicitly
         self.element_counts = [self.count_elements()]
         self.vertex_counts = [self.count_vertices()]
         self.converged[:] = False
@@ -679,7 +836,6 @@ class MeshSeq:
                 update_params(self.params, self.fp_iteration)
 
             # Solve the forward problem over all meshes
-            self._create_solutions()
             self.solve_forward(solver_kwargs=solver_kwargs)
 
             # Adapt meshes, logging element and vertex counts

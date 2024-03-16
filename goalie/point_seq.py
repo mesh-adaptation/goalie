@@ -43,4 +43,4 @@ class PointSeq(MeshSeq):
         self.meshes = [mesh for _ in self.subintervals]
         self.dim = mesh.topological_dimension()
         assert self.dim == 0
-        self.reset_counts()
+        self._reset_counts()
