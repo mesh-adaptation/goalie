@@ -9,178 +9,135 @@ from firedrake.petsc import PETSc
 from petsc4py import PETSc as petsc4py
 
 
-__all__ = ["project"]
+__all__ = ["transfer", "interpolate", "project"]
 
 
+@PETSc.Log.EventDecorator()
+def transfer(source, target_space, transfer_method="project", **kwargs):
+    r"""
+    Overload functions :func:`firedrake.__future__.interpolate` and
+    :func:`firedrake.projection.project` to account for the case of two mixed
+    function spaces defined on different meshes and for the adjoint interpolation
+    operator when applied to :class:`firedrake.cofunction.Cofunction`\s.
+
+    :arg source: the function to be transferred
+    :type source: :class:`firedrake.function.Function` or
+        :class:`firedrake.cofunction.Cofunction`
+    :arg target_space: the function space which we seek to transfer onto, or the
+        function or cofunction to use as the target
+    :type target_space: :class:`firedrake.functionspaceimpl.FunctionSpace`,
+        :class:`firedrake.function.Function` or :class:`firedrake.cofunction.Cofunction`
+    :kwarg transfer_method: the method to use for the transfer. Options are
+        "interpolate" (default) and "project".
+    :type transfer_method: str
+    :returns: the transferred function
+    :rtype: :class:`firedrake.function.Function` or
+        :class:`firedrake.cofunction.Cofunction`
+
+    Extra keyword arguments are passed to :func:`firedrake.__future__.interpolate` or
+        :func:`firedrake.projection.project`.
+    """
+    if transfer_method not in ("interpolate", "project"):
+        raise ValueError(
+            f"Invalid transfer method: {transfer_method}."
+            " Options are 'interpolate' and 'project'."
+        )
+    if not isinstance(source, (firedrake.Function, firedrake.Cofunction)):
+        raise NotImplementedError(
+            f"Can only currently {transfer_method} Functions and Cofunctions."
+        )
+    if isinstance(target_space, WithGeometry):
+        target = firedrake.Function(target_space)
+    elif isinstance(target_space, (firedrake.Cofunction, firedrake.Function)):
+        target = target_space
+    else:
+        raise TypeError(
+            "Second argument must be a FunctionSpace, Function, or Cofunction."
+        )
+    if isinstance(source, firedrake.Cofunction):
+        return _transfer_adjoint(source, target, transfer_method, **kwargs)
+    elif source.function_space() == target.function_space():
+        return target.assign(source)
+    else:
+        return _transfer_forward(source, target, transfer_method, **kwargs)
+
+
+@PETSc.Log.EventDecorator()
 def interpolate(source, target_space, **kwargs):
-    r"""
-    Overload :func:`firedrake.projection.interpolate` to account for the case of two mixed
-    function spaces defined on different meshes and for the adjoint interpolation operator
-    when applied to :class:`firedrake.cofunction.Cofunction`\s.
-
-    Extra keyword arguments are passed to :func:`firedrake.__future__.interpolate`.
-
-    :arg source: the :class:`firedrake.function.Function` or
-        :class:`firedrake.cofunction.Cofunction` to be interpolated
-    :arg target_space: the :class:`firedrake.functionspaceimpl.FunctionSpace` which we
-        seek to interpolate into, or the :class:`firedrake.function.Function` or
-        :class:`firedrake.cofunction.Cofunction` to use as the target
     """
-    if not isinstance(source, (firedrake.Function, firedrake.Cofunction)):
-        raise NotImplementedError(
-            "Can only currently interpolate Functions and Cofunctions."
-        )
-    if isinstance(target_space, WithGeometry):
-        target = firedrake.Function(target_space)
-    elif isinstance(target_space, (firedrake.Cofunction, firedrake.Function)):
-        target = target_space
-    else:
-        raise TypeError(
-            "Second argument must be a FunctionSpace, Function, or Cofunction."
-        )
-    if isinstance(source, firedrake.Cofunction):
-        return _transfer_adjoint(source, target, **kwargs)
-    elif source.function_space() == target.function_space():
-        return target.assign(source)
-    else:
-        return _interpolate(source, target, **kwargs)
-
-
-@PETSc.Log.EventDecorator("goalie.interpolation.interpolate")
-def _interpolate(source, target, **kwargs):
+    A wrapper for :func:`transfer` with ``transfer_method="interpolate"``.
     """
-    Apply a mesh-to-mesh conservative interpolation to some source
-    :class:`firedrake.function.Function`, mapping to a target
-    :class:`firedrake.function.Function`.
-
-    This function extends to the case of mixed spaces.
-
-    Extra keyword arguments are passed to Firedrake's
-    :func:`firedrake.__future__.interpolate`` function.
-
-    :arg source: the `Function` to be interpolated
-    :arg target: the `Function` which we seek to interpolate onto
-    """
-    Vs = source.function_space()
-    Vt = target.function_space()
-    if hasattr(Vs, "num_sub_spaces"):
-        if not hasattr(Vt, "num_sub_spaces"):
-            raise ValueError(
-                "Source space has multiple components but target space does not."
-            )
-        if Vs.num_sub_spaces() != Vt.num_sub_spaces():
-            raise ValueError(
-                "Inconsistent numbers of components in source and target spaces:"
-                f" {Vs.num_sub_spaces()} vs. {Vt.num_sub_spaces()}."
-            )
-    elif hasattr(Vt, "num_sub_spaces"):
-        raise ValueError(
-            "Target space has multiple components but source space does not."
-        )
-    assert isinstance(target, firedrake.Function)
-    if hasattr(Vt, "num_sub_spaces"):
-        for s, t in zip(source.subfunctions, target.subfunctions):
-            t.interpolate(s, **kwargs)
-    else:
-        target.interpolate(source, **kwargs)
-    return target
+    return transfer(source, target_space, transfer_method="interpolate", **kwargs)
 
 
+@PETSc.Log.EventDecorator()
 def project(source, target_space, **kwargs):
-    r"""
-    Overload :func:`firedrake.projection.project` to account for the case of two mixed
-    function spaces defined on different meshes and for the adjoint projection operator
-    when applied to :class:`firedrake.cofunction.Cofunction`\s.
-
-    Extra keyword arguments are passed to :func:`firedrake.projection.project`.
-
-    :arg source: the :class:`firedrake.function.Function` or
-        :class:`firedrake.cofunction.Cofunction` to be projected
-    :arg target_space: the :class:`firedrake.functionspaceimpl.FunctionSpace` which we
-        seek to project into, or the :class:`firedrake.function.Function` or
-        :class:`firedrake.cofunction.Cofunction` to use as the target
     """
-    if not isinstance(source, (firedrake.Function, firedrake.Cofunction)):
-        raise NotImplementedError(
-            "Can only currently project Functions and Cofunctions."
-        )
-    if isinstance(target_space, WithGeometry):
-        target = firedrake.Function(target_space)
-    elif isinstance(target_space, (firedrake.Cofunction, firedrake.Function)):
-        target = target_space
-    else:
-        raise TypeError(
-            "Second argument must be a FunctionSpace, Function, or Cofunction."
-        )
-    if isinstance(source, firedrake.Cofunction):
-        return _transfer_adjoint(source, target, **kwargs)
-    elif source.function_space() == target.function_space():
-        return target.assign(source)
-    else:
-        return _project(source, target, **kwargs)
-
-
-@PETSc.Log.EventDecorator("goalie.interpolation.project")
-def _project(source, target, **kwargs):
+    A wrapper for :func:`transfer` with ``transfer_method="interpolate"``.
     """
-    Apply a mesh-to-mesh conservative projection to some source
-    :class:`firedrake.function.Function`, mapping to a target
-    :class:`firedrake.function.Function`.
+    return transfer(source, target_space, transfer_method="project", **kwargs)
 
-    This function extends to the case of mixed spaces.
 
-    Extra keyword arguments are passed to Firedrake's
-    :func:`firedrake.projection.project`` function.
+@PETSc.Log.EventDecorator()
+def _transfer_forward(source, target, transfer_method, **kwargs):
+    """
+    Apply mesh-to-mesh transfer operator to a Function.
 
-    :arg source: the `Function` to be projected
-    :arg target: the `Function` which we seek to project onto
+    This function extends the functionality of :func:`firedrake.__future__.interpolate`
+    and :func:`firedrake.projection.project` to account for mixed spaces.
+
+    :arg source: the Function to be transferred
+    :type source: :class:`firedrake.function.Function`
+    :arg target: the Function which we seek to transfer onto
+    :type target: :class:`firedrake.function.Function`
+    :kwarg transfer_method: the method to use for the transfer. Options are
+        "interpolate" (default) and "project".
+    :type transfer_method: str
+    :returns: the transferred Function
+    :rtype: :class:`firedrake.function.Function`
+
+    Extra keyword arguments are passed to :func:`firedrake.__future__.interpolate` or
+        :func:`firedrake.projection.project`.
     """
     Vs = source.function_space()
     Vt = target.function_space()
-    if hasattr(Vs, "num_sub_spaces"):
-        if not hasattr(Vt, "num_sub_spaces"):
-            raise ValueError(
-                "Source space has multiple components but target space does not."
-            )
-        if Vs.num_sub_spaces() != Vt.num_sub_spaces():
-            raise ValueError(
-                "Inconsistent numbers of components in source and target spaces:"
-                f" {Vs.num_sub_spaces()} vs. {Vt.num_sub_spaces()}."
-            )
-    elif hasattr(Vt, "num_sub_spaces"):
-        raise ValueError(
-            "Target space has multiple components but source space does not."
-        )
+    _validate_matching_spaces(Vs, Vt)
     assert isinstance(target, firedrake.Function)
     if hasattr(Vt, "num_sub_spaces"):
         for s, t in zip(source.subfunctions, target.subfunctions):
-            t.project(s, **kwargs)
+            if transfer_method == "interpolate":
+                t.interpolate(s, **kwargs)
+            else:
+                t.project(s, **kwargs)
     else:
-        target.project(source, **kwargs)
+        if transfer_method == "interpolate":
+            target.interpolate(source, **kwargs)
+        else:
+            target.project(source, **kwargs)
     return target
 
 
-@PETSc.Log.EventDecorator("goalie.interpolation.project_adjoint")
-def _transfer_adjoint(target_b, source_b, **kwargs):
+@PETSc.Log.EventDecorator()
+def _transfer_adjoint(target_b, source_b, transfer_method, **kwargs):
     """
-    Apply the adjoint of a mesh-to-mesh conservative projection to some seed
-    :class:`firedrake.cofunction.Cofunction`, mapping to an output
-    :class:`firedrake.cofunction.Cofunction`.
+    Apply an adjoint mesh-to-mesh transfer operator to a Cofunction.
 
-    The notation used here is in terms of the adjoint of standard projection.
-    However, this function may also be interpreted as a projector in its own right,
-    mapping ``target_b`` to ``source_b``.
+    :arg target_b: seed Cofunction from the target space of the forward projection
+    :type target_b: :class:`firedrake.cofunction.Cofunction`
+    :arg source_b: output Cofunction from the source space of the forward projection
+    :type source_b: :class:`firedrake.cofunction.Cofunction`
+    :kwarg transfer_method: the method to use for the transfer. Options are
+        "interpolate" (default) and "project".
+    :type transfer_method: str
+    :returns: the transferred Cofunction
+    :rtype: :class:`firedrake.cofunction.Cofunction`
 
-    Extra keyword arguments are passed to :func:`firedrake.projection.project`.
-
-    :arg target_b: seed :class:`firedrake.cofunction.Cofunction` from the target space
-        of the forward projection
-    :arg source_b: the :class:`firedrake.cofunction.Cofunction` from the source space
-        of the forward projection
+    Extra keyword arguments are passed to :func:`firedrake.__future__.interpolate` or
+        :func:`firedrake.projection.project`.
     """
     from firedrake.supermeshing import assemble_mixed_mass_matrix
 
-    # Map to Functions to apply the adjoint projection
+    # Map to Functions to apply the adjoint transfer
     if not isinstance(target_b, firedrake.Function):
         target_b = cofunction2function(target_b)
     if not isinstance(source_b, firedrake.Function):
@@ -188,31 +145,23 @@ def _transfer_adjoint(target_b, source_b, **kwargs):
 
     Vt = target_b.function_space()
     Vs = source_b.function_space()
+    if Vs == Vt:
+        source_b.assign(target_b)
+        return function2cofunction(source_b)
+
+    _validate_matching_spaces(Vs, Vt)
     if hasattr(Vs, "num_sub_spaces"):
-        if not hasattr(Vt, "num_sub_spaces"):
-            raise ValueError(
-                "Source space has multiple components but target space does not."
-            )
-        if Vs.num_sub_spaces() != Vt.num_sub_spaces():
-            raise ValueError(
-                "Inconsistent numbers of components in target and source spaces:"
-                f" {Vs.num_sub_spaces()} vs. {Vt.num_sub_spaces()}."
-            )
         target_b_split = target_b.subfunctions
         source_b_split = source_b.subfunctions
-    elif hasattr(Vt, "num_sub_spaces"):
-        raise ValueError(
-            "Target space has multiple components but source space does not."
-        )
     else:
         target_b_split = [target_b]
         source_b_split = [source_b]
 
-    # Apply adjoint projection operator to each component
-    if Vs == Vt:
-        source_b.assign(target_b)
-    else:
-        for i, (t_b, s_b) in enumerate(zip(target_b_split, source_b_split)):
+    # Apply adjoint transfer operator to each component
+    for i, (t_b, s_b) in enumerate(zip(target_b_split, source_b_split)):
+        if transfer_method == "interpolate":
+            s_b.interpolate(t_b, **kwargs)
+        else:
             ksp = petsc4py.KSP().create()
             ksp.setOperators(assemble_mass_matrix(t_b.function_space()))
             mixed_mass = assemble_mixed_mass_matrix(Vt[i], Vs[i])
@@ -223,3 +172,21 @@ def _transfer_adjoint(target_b, source_b, **kwargs):
 
     # Map back to a Cofunction
     return function2cofunction(source_b)
+
+
+@PETSc.Log.EventDecorator()
+def _validate_matching_spaces(Vs, Vt):
+    if hasattr(Vs, "num_sub_spaces"):
+        if not hasattr(Vt, "num_sub_spaces"):
+            raise ValueError(
+                "Source space has multiple components but target space does not."
+            )
+        if Vs.num_sub_spaces() != Vt.num_sub_spaces():
+            raise ValueError(
+                "Inconsistent numbers of components in source and target spaces:"
+                f" {Vs.num_sub_spaces()} vs. {Vt.num_sub_spaces()}."
+            )
+    elif hasattr(Vt, "num_sub_spaces"):
+        raise ValueError(
+            "Target space has multiple components but source space does not."
+        )
