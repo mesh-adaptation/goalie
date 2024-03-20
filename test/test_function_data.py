@@ -4,7 +4,6 @@ Unit tests for :class:`~.FunctionData` and its subclasses.
 from firedrake import *
 from goalie import *
 import abc
-from parameterized import parameterized
 import unittest
 
 
@@ -133,9 +132,7 @@ class TestIndicatorData(BaseTestCases.TestFunctionData):
             self.time_partition, [self.mesh for _ in range(self.num_subintervals)]
         )
 
-    @parameterized.expand([["field"], ["label"]])
-    def test_extract_by_layout(self, layout):
-        data = self.solution_data.extract(layout=layout)
+    def _test_extract_by_field_or_label(self, data):
         self.assertTrue(isinstance(data, AttrDict))
         self.assertTrue(self.field in data)
         self.assertEqual(len(data[self.field]), self.num_subintervals)
@@ -144,6 +141,14 @@ class TestIndicatorData(BaseTestCases.TestFunctionData):
             self.assertEqual(len(data[self.field][i]), num_exports)
             for f in data[self.field][i]:
                 self.assertTrue(isinstance(f, Function))
+
+    def test_extract_by_field(self):
+        data = self.solution_data.extract(layout="field")
+        self._test_extract_by_field_or_label(data)
+
+    def test_extract_by_label(self):
+        data = self.solution_data.extract(layout="label")
+        self._test_extract_by_field_or_label(data)
 
     def test_extract_by_subinterval(self):
         data = self.solution_data.extract(layout="subinterval")
