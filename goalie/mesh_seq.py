@@ -473,14 +473,14 @@ class MeshSeq:
         # Otherwise, solve each subsequent subinterval, in each case making use of the
         # previous checkpoint
         for i in range(N if run_final_subinterval else N - 1):
-            sols = self.solver(i, checkpoints[i], **solver_kwargs)
-            if not isinstance(sols, dict):
+            solutions = self.solver(i, checkpoints[i], **solver_kwargs)
+            if not isinstance(solutions, dict):
                 raise TypeError(
-                    f"Solver should return a dictionary, not '{type(sols)}'."
+                    f"Solver should return a dictionary, not '{type(solutions)}'."
                 )
 
             # Check that the output of the solver is as expected
-            fields = set(sols.keys())
+            fields = set(solutions.keys())
             if not set(self.fields).issubset(fields):
                 diff = set(self.fields).difference(fields)
                 raise ValueError(f"Fields are missing from the solver: {diff}.")
@@ -493,7 +493,7 @@ class MeshSeq:
                 checkpoints.append(
                     AttrDict(
                         {
-                            field: self._transfer(sols[field], fs[i + 1])
+                            field: self._transfer(solutions[field], fs[i + 1])
                             for field, fs in self._fs.items()
                         }
                     )
@@ -753,17 +753,17 @@ class MeshSeq:
                     )
 
                 # Update solution data based on block dependencies and outputs
-                sols = self.solutions[field]
+                solutions = self.solutions.extract(layout="field")[field]
                 for j, block in enumerate(reversed(solve_blocks[::-stride])):
                     # Current solution is determined from outputs
                     out = self._output(field, i, block)
                     if out is not None:
-                        sols.forward[i][j].assign(out.saved_output)
+                        solutions.forward[i][j].assign(out.saved_output)
 
                     # Lagged solution comes from dependencies
                     dep = self._dependency(field, i, block)
                     if not self.steady and dep is not None:
-                        sols.forward_old[i][j].assign(dep.saved_output)
+                        solutions.forward_old[i][j].assign(dep.saved_output)
 
             # Transfer the checkpoint between subintervals
             if i < num_subintervals - 1:

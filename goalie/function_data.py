@@ -18,7 +18,7 @@ class FunctionData(abc.ABC):
     Abstract base class for classes holding field data.
     """
 
-    labels = {}
+    _label_dict = {}
 
     def __init__(self, time_partition, function_spaces):
         r"""
@@ -30,10 +30,11 @@ class FunctionData(abc.ABC):
         self.time_partition = time_partition
         self.function_spaces = function_spaces
         self._data = None
+        self.labels = self._label_dict["steady"] + self._label_dict["unsteady"]
 
     def _create_data(self):
-        assert self.labels
-        P = self.time_partition
+        assert self._label_dict
+        tp = self.time_partition
         self._data = AttrDict(
             {
                 field: AttrDict(
@@ -41,41 +42,109 @@ class FunctionData(abc.ABC):
                         label: [
                             [
                                 ffunc.Function(fs, name=f"{field}_{label}")
-                                for j in range(P.num_exports_per_subinterval[i] - 1)
+                                for j in range(tp.num_exports_per_subinterval[i] - 1)
                             ]
                             for i, fs in enumerate(self.function_spaces[field])
                         ]
-                        for label in self.labels[field_type]
+                        for label in self._label_dict[field_type]
                     }
                 )
-                for field, field_type in zip(P.fields, P.field_types)
+                for field, field_type in zip(tp.fields, tp.field_types)
             }
         )
 
     @property
-    def data(self):
+    def _data_by_field(self):
+        """
+        Extract field data array in the default layout: as a doubly-nested dictionary
+        whose first key is the field name and second key is the field label. Entries
+        of the doubly-nested dictionary are doubly-nested lists, indexed first by
+        subinterval and then by export.
+        """
         if self._data is None:
             self._create_data()
         return self._data
 
     def __getitem__(self, key):
-        return self.data[key]
+        return self._data_by_field[key]
 
     def items(self):
-        return self.data.items()
-
-
-class SolutionData(FunctionData, abc.ABC):
-    """
-    Abstract base class that defines the API for solution data classes.
-    """
+        return self._data_by_field.items()
 
     @property
-    def solutions(self):
-        return self.data
+    def _data_by_label(self):
+        """
+        Extract field data array in an alternative layout: as a doubly-nested dictionary
+        whose first key is the field label and second key is the field name. Entries
+        of the doubly-nested dictionary are doubly-nested lists, which retain the default
+        layout: indexed first by subinterval and then by export.
+        """
+        tp = self.time_partition
+        return AttrDict(
+            {
+                label: AttrDict(
+                    {field: self._data_by_field[field][label] for field in tp.fields}
+                )
+                for label in self.labels
+            }
+        )
+
+    @property
+    def _data_by_subinterval(self):
+        """
+        Extract field data array in an alternative format: as a list indexed by
+        subinterval. Entries of the list are doubly-nested dictionaries, which retain
+        the default layout: with the first key being field name and the second key being
+        the field label. Entries of the doubly-nested dictionaries are lists of field
+        data, indexed by export.
+        """
+        tp = self.time_partition
+        return [
+            AttrDict(
+                {
+                    field: AttrDict(
+                        {
+                            label: self._data_by_field[field][label][subinterval]
+                            for label in self.labels
+                        }
+                    )
+                    for field in tp.fields
+                }
+            )
+            for subinterval in range(tp.num_subintervals)
+        ]
+
+    def extract(self, layout="field"):
+        """
+        Extract field data array in a specified layout.
+
+        The default layout is a doubly-nested dictionary whose first key is the field
+        name and second key is the field label. Entries of the doubly-nested dictionary
+        are doubly-nested lists, indexed first by subinterval and then by export. That
+        is: ``data[field][label][subinterval][export]``.
+
+        Choosing a different layout simply promotes the specified variable to first
+        access:
+        * ``layout == "label"`` implies ``data[label][field][subinterval][export]``
+        * ``layout == "subinterval"`` implies ``data[subinterval][field][label][export]``
+
+        The export index is not promoted because the number of exports may differ across
+        subintervals.
+
+        :kwarg layout: the layout to promote, as described above
+        :type layout: :class:`str`
+        """
+        if layout == "field":
+            return self._data_by_field
+        elif layout == "label":
+            return self._data_by_label
+        elif layout == "subinterval":
+            return self._data_by_subinterval
+        else:
+            raise ValueError(f"Layout type '{layout}' not recognised.")
 
 
-class ForwardSolutionData(SolutionData):
+class ForwardSolutionData(FunctionData):
     """
     Class representing solution data for general forward problems.
 
@@ -87,11 +156,14 @@ class ForwardSolutionData(SolutionData):
     """
 
     def __init__(self, *args, **kwargs):
-        self.labels = {"steady": ("forward",), "unsteady": ("forward", "forward_old")}
+        self._label_dict = {
+            "steady": ("forward",),
+            "unsteady": ("forward", "forward_old"),
+        }
         super().__init__(*args, **kwargs)
 
 
-class AdjointSolutionData(SolutionData):
+class AdjointSolutionData(FunctionData):
     """
     Class representing solution data for general adjoint problems.
 
@@ -106,7 +178,7 @@ class AdjointSolutionData(SolutionData):
     """
 
     def __init__(self, *args, **kwargs):
-        self.labels = {
+        self._label_dict = {
             "steady": ("forward", "adjoint"),
             "unsteady": ("forward", "forward_old", "adjoint", "adjoint_next"),
         }
@@ -127,25 +199,52 @@ class IndicatorData(FunctionData):
             in time
         :arg meshes: the list of meshes used to discretise the problem in space
         """
-        self.labels = {
+        self._label_dict = {
             field_type: ("error_indicator",) for field_type in ("steady", "unsteady")
         }
-        P0_spaces = [ffs.FunctionSpace(mesh, "DG", 0) for mesh in meshes]
         super().__init__(
-            time_partition, {key: P0_spaces for key in time_partition.fields}
+            time_partition,
+            {
+                key: [ffs.FunctionSpace(mesh, "DG", 0) for mesh in meshes]
+                for key in time_partition.fields
+            },
         )
 
-    def _create_data(self):
-        assert all(len(labels) == 1 for labels in self.labels.values())
-        super()._create_data()
-        P = self.time_partition
-        self._data = AttrDict(
+    @property
+    def _data_by_field(self):
+        """
+        Extract indicator data array in the default layout: as a dictionary keyed with
+        the field name. Entries of the dictionary are doubly-nested lists, indexed first
+        by subinterval and then by export.
+        """
+        if self._data is None:
+            self._create_data()
+        return AttrDict(
             {
-                field: self.data[field][self.labels[field_type][0]]
-                for field, field_type in zip(P.fields, P.field_types)
+                field: self._data[field]["error_indicator"]
+                for field in self.time_partition.fields
             }
         )
 
     @property
-    def indicators(self):
-        return self.data
+    def _data_by_label(self):
+        """
+        For indicator data there is only one field label (``"error_indicator"``), so
+        this method just delegates to :meth:`~._data_by_field`.
+        """
+        return self._data_by_field
+
+    @property
+    def _data_by_subinterval(self):
+        """
+        Extract indicator data array in an alternative format: as a list indexed by
+        subinterval. Entries of the list are dictionaries, keyed by field label.
+        Entries of the dictionaries are lists of field data, indexed by export.
+        """
+        tp = self.time_partition
+        return [
+            AttrDict(
+                {field: self._data_by_field[field][subinterval] for field in tp.fields}
+            )
+            for subinterval in range(tp.num_subintervals)
+        ]
