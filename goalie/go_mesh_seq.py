@@ -187,7 +187,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             # Loop over each strongly coupled field
             for f in self.fields:
                 # Loop over each timestep
-                for j in range(len(self.solutions[f]["forward"][i])):
+                solutions = self.solutions.extract(layout="field")
+                indicators = self.indicators.extract(layout="field")
+                for j in range(len(solutions[f]["forward"][i])):
                     # Update fields
                     transfer(self.solutions[f][FWD][i][j], u[f])
                     transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
@@ -211,7 +213,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     # Project back to the base space
                     indi = project(indi_e, P0_spaces[i])
                     indi.interpolate(abs(indi))
-                    self.indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
+                    indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
 
         return self.solutions, self.indicators
 
