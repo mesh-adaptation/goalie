@@ -107,13 +107,23 @@ def _transfer_forward(source, target, transfer_method, **kwargs):
         for s, t in zip(source.subfunctions, target.subfunctions):
             if transfer_method == "interpolate":
                 t.interpolate(s, **kwargs)
-            else:
+            elif transfer_method == "project":
                 t.project(s, **kwargs)
+            else:
+                raise ValueError(
+                    f"Invalid transfer method: {transfer_method}."
+                    " Options are 'interpolate' and 'project'."
+                )
     else:
         if transfer_method == "interpolate":
             target.interpolate(source, **kwargs)
-        else:
+        elif transfer_method == "project":
             target.project(source, **kwargs)
+        else:
+            raise ValueError(
+                f"Invalid transfer method: {transfer_method}."
+                " Options are 'interpolate' and 'project'."
+            )
     return target
 
 
@@ -161,7 +171,7 @@ def _transfer_adjoint(target_b, source_b, transfer_method, **kwargs):
     for i, (t_b, s_b) in enumerate(zip(target_b_split, source_b_split)):
         if transfer_method == "interpolate":
             s_b.interpolate(t_b, **kwargs)
-        else:
+        elif transfer_method == "project":
             ksp = petsc4py.KSP().create()
             ksp.setOperators(assemble_mass_matrix(t_b.function_space()))
             mixed_mass = assemble_mixed_mass_matrix(Vt[i], Vs[i])
@@ -169,6 +179,11 @@ def _transfer_adjoint(target_b, source_b, transfer_method, **kwargs):
                 residual = tb.copy()
                 ksp.solveTranspose(tb, residual)
                 mixed_mass.mult(residual, sb)  # NOTE: already transposed above
+        else:
+            raise ValueError(
+                f"Invalid transfer method: {transfer_method}."
+                " Options are 'interpolate' and 'project'."
+            )
 
     # Map back to a Cofunction
     return function2cofunction(source_b)

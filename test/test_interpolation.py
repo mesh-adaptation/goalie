@@ -5,6 +5,7 @@ Test interpolation schemes.
 from firedrake import *
 from goalie import *
 from goalie.utility import function2cofunction
+from goalie.interpolation import _transfer_forward, _transfer_adjoint
 import unittest
 from parameterized import parameterized
 
@@ -27,6 +28,15 @@ class TestTransfer(unittest.TestCase):
         Vt = FunctionSpace(self.target_mesh, "CG", 1)
         with self.assertRaises(ValueError) as cm:
             transfer(Function(Vs), Function(Vt), transfer_method="proj")
+        msg = "Invalid transfer method: proj. Options are 'interpolate' and 'project'."
+        self.assertEqual(str(cm.exception), msg)
+
+    @parameterized.expand([_transfer_forward, _transfer_adjoint])
+    def test_method_typo_error_private(self, private_transfer_func):
+        Vs = FunctionSpace(self.source_mesh, "CG", 1)
+        Vt = FunctionSpace(self.target_mesh, "CG", 1)
+        with self.assertRaises(ValueError) as cm:
+            private_transfer_func(Function(Vs), Function(Vt), transfer_method="proj")
         msg = "Invalid transfer method: proj. Options are 'interpolate' and 'project'."
         self.assertEqual(str(cm.exception), msg)
 
