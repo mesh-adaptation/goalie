@@ -126,7 +126,7 @@ class FunctionData(abc.ABC):
         Choosing a different layout simply promotes the specified variable to first
         access:
         * ``layout == "label"`` implies ``data[label][field][subinterval][export]``
-        * ``layout == "subinterval"`` implies ``data[subinterval][label][field][export]``
+        * ``layout == "subinterval"`` implies ``data[subinterval][field][label][export]``
 
         The export index is not promoted because the number of exports may differ across
         subintervals.
