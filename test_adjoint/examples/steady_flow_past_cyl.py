@@ -10,7 +10,9 @@ nonlinear.
 Code here is based on that found at
     https://nbviewer.jupyter.org/github/firedrakeproject/firedrake/blob/master/docs/notebooks/06-pde-constrained-optimisation.ipynb
 """
+
 from firedrake import *
+from firedrake.__future__ import interpolate
 import os
 
 
@@ -63,7 +65,7 @@ def get_bcs(self):
         u_inflow = as_vector([y * (10 - y) / 25.0, 0])
         W = self.function_spaces["up"][i]
         noslip = DirichletBC(W.sub(0), (0, 0), (3, 5))
-        inflow = DirichletBC(W.sub(0), interpolate(u_inflow, W.sub(0)), 1)
+        inflow = DirichletBC(W.sub(0), assemble(interpolate(u_inflow, W.sub(0))), 1)
         return [inflow, noslip, DirichletBC(W.sub(0), 0, 4)]
 
     return bcs

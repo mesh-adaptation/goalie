@@ -16,9 +16,11 @@ class AdaptParameters(AttrDict):
     loops.
     """
 
-    def __init__(self, parameters: dict = {}):
+    def __init__(self, parameters={}):
         """
-        :arg parameters: dictionary of parameters to set
+        :arg parameters: parameters to set
+        :type parameters: :class:`dict` with :class:`str` keys and values which may take
+            various types
         """
         self["miniter"] = 3  # Minimum iteration count
         self["maxiter"] = 35  # Maximum iteration count
@@ -42,6 +44,14 @@ class AdaptParameters(AttrDict):
         self._check_type("drop_out_converged", bool)
 
     def _check_type(self, key, expected):
+        """
+        Check that a given parameter is of the expected type.
+
+        :arg key: the parameter label
+        :type key: :class:`str`
+        :arg expected: the expected type
+        :type expected: :class:`type`
+        """
         if not isinstance(self[key], expected):
             if isinstance(expected, tuple):
                 name = "' or '".join([e.__name__ for e in expected])
@@ -53,18 +63,26 @@ class AdaptParameters(AttrDict):
             )
 
     def _check_value(self, key, possibilities):
+        """
+        Check that a given parameter takes one of the possible values.
+
+        :arg key: the parameter label
+        :type key: :class:`str`
+        :arg possibilities: all possible values for the parameter
+        :type possibilities: :class:`list`
+        """
         value = self[key]
         if value not in possibilities:
             raise ValueError(
                 f"Unsupported value '{value}' for '{key}'. Choose from {possibilities}."
             )
 
-    def __str__(self) -> str:
+    def __str__(self):
         return str({key: value for key, value in self.items()})
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         d = ", ".join([f"{key}={value}" for key, value in self.items()])
-        return f"{self.__class__.__name__}({d})"
+        return f"{type(self).__name__}({d})"
 
 
 class MetricParameters(AdaptParameters):
@@ -73,9 +91,11 @@ class MetricParameters(AdaptParameters):
     metric-based adaptive mesh fixed point iteration loops.
     """
 
-    def __init__(self, parameters: dict = {}):
+    def __init__(self, parameters={}):
         """
-        :arg parameters: dictionary of parameters to set
+        :arg parameters: parameters to set
+        :type parameters: :class:`dict` with :class:`str` keys and values which may take
+            various types
         """
         self["num_ramp_iterations"] = 3  # Number of iterations to ramp over
         self["verbosity"] = -1  # -1 = silent, 10 = maximum
@@ -124,7 +144,8 @@ class MetricParameters(AdaptParameters):
         """
         Set parameters appropriate to a given :class:`RiemannianMetric`.
 
-        :arg metric: the :class:`RiemannianMetric` to apply parameters to
+        :arg metric: the metric to apply parameters to
+        :type metric: :class:`animate.metric.RiemannianMetric`
         """
         if not isinstance(metric, RiemannianMetric):
             raise TypeError(
@@ -160,7 +181,12 @@ class GoalOrientedParameters(AdaptParameters):
     loops.
     """
 
-    def __init__(self, parameters: dict = {}):
+    def __init__(self, parameters={}):
+        """
+        :arg parameters: parameters to set
+        :type parameters: :class:`dict` with :class:`str` keys and values which may take
+            various types
+        """
         self["qoi_rtol"] = 0.001  # Relative tolerance for QoI
         self["estimator_rtol"] = 0.001  # Relative tolerance for estimator
         self["convergence_criteria"] = "any"  # Mode for convergence checking

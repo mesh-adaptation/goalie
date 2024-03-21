@@ -6,12 +6,10 @@ from .adjoint import AdjointMeshSeq
 from .error_estimation import get_dwr_indicator
 from .function_data import IndicatorData
 from .log import pyrint
-from .utility import AttrDict
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager, project
 from firedrake.petsc import PETSc
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 import numpy as np
-from typing import Tuple
 import ufl
 
 
@@ -28,18 +26,22 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self.estimator_values = []
 
     @PETSc.Log.EventDecorator()
-    def get_enriched_mesh_seq(
-        self, enrichment_method: str = "p", num_enrichments: int = 1
-    ) -> AdjointMeshSeq:
+    def get_enriched_mesh_seq(self, enrichment_method="p", num_enrichments=1):
         """
         Construct a sequence of globally enriched spaces.
 
-        Currently, global enrichment may be achieved using one of:
-        * h-refinement (``enrichment_method = 'h'``);
-        * p-refinement (``enrichment_method = 'p'``).
+        The following global enrichment methods are supported:
+        * h-refinement (``enrichment_method='h'``) - refine each mesh element
+          uniformly in each direction;
+        * p-refinement (``enrichment_method='p'``) - increase the function space
+          polynomial order by one globally.
 
-        The number of refinements may be controlled by the keyword argument
-        ``num_enrichments``.
+        :kwarg enrichment_method: the method for enriching the mesh sequence
+        :type enrichment_method: :class:`str`
+        :kwarg num_enrichments: the number of enrichments to apply
+        :type num_enrichments: :class:`int`
+        :returns: the enriched mesh sequence
+        :type: the type is inherited from the parent mesh sequence
         """
         if enrichment_method not in ("h", "p"):
             raise ValueError(f"Enrichment method '{enrichment_method}' not supported.")
@@ -48,12 +50,16 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         # Apply h-refinement
         if enrichment_method == "h":
+            if any(mesh == self.meshes[0] for mesh in self.meshes[1:]):
+                raise ValueError(
+                    "h-enrichment is not supported for shallow-copied meshes."
+                )
             meshes = [MeshHierarchy(mesh, num_enrichments)[-1] for mesh in self.meshes]
         else:
             meshes = self.meshes
 
         # Construct object to hold enriched spaces
-        mesh_seq_e = self.__class__(
+        enriched_mesh_seq = type(self)(
             self.time_partition,
             meshes,
             get_function_spaces=self._get_function_spaces,
@@ -65,36 +71,50 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             qoi_type=self.qoi_type,
             parameters=self.params,
         )
-        mesh_seq_e.update_function_spaces()
+        enriched_mesh_seq._update_function_spaces()
 
         # Apply p-refinement
         if enrichment_method == "p":
-            for label, fs in mesh_seq_e.function_spaces.items():
+            for label, fs in enriched_mesh_seq.function_spaces.items():
                 for n, _space in enumerate(fs):
                     element = _space.ufl_element()
                     element = element.reconstruct(
                         degree=element.degree() + num_enrichments
                     )
-                    mesh_seq_e._fs[label][n] = FunctionSpace(
-                        mesh_seq_e.meshes[n], element
+                    enriched_mesh_seq._fs[label][n] = FunctionSpace(
+                        enriched_mesh_seq.meshes[n], element
                     )
 
-        return mesh_seq_e
+        return enriched_mesh_seq
 
     @staticmethod
     def _get_transfer_function(enrichment_method):
+        """
+        Get the function for transferring function data between a mesh sequence and its
+        enriched counterpart.
+
+        :arg enrichment_method: the enrichment method used to generate the counterpart
+            - see :meth:`~.GoalOrientedMeshSeq.get_enriched_mesh_seq` for the supported
+            enrichment methods
+        :type enrichment_method: :class:`str`
+        :returns: the function for mapping function data between mesh sequences
+        """
         if enrichment_method == "h":
             return TransferManager().prolong
         else:
             return lambda source, target: target.interpolate(source)
 
     def _create_indicators(self):
+        """
+        Create the :class:`~.FunctionData` instance for holding error indicator data.
+        """
         self._indicators = IndicatorData(self.time_partition, self.meshes)
 
     @property
     def indicators(self):
         """
-        Arrays holding exported error indicators.
+        :returns: the error indicator data object
+        :rtype: :class:`~.IndicatorData`
         """
         if not hasattr(self, "_indicators"):
             self._create_indicators()
@@ -102,29 +122,40 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
     @PETSc.Log.EventDecorator()
     def indicate_errors(
-        self,
-        enrichment_kwargs: dict = {},
-        adj_kwargs: dict = {},
-        indicator_fn: Callable = get_dwr_indicator,
-    ) -> Tuple[dict, AttrDict]:
+        self, enrichment_kwargs={}, solver_kwargs={}, indicator_fn=get_dwr_indicator
+    ):
         """
         Compute goal-oriented error indicators for each subinterval based on solving the
         adjoint problem in a globally enriched space.
 
         :kwarg enrichment_kwargs: keyword arguments to pass to the global enrichment
-            method
-        :kwarg adj_kwargs: keyword arguments to pass to the adjoint solver
-        :kwarg indicator_fn: function for error indication, which takes the form,
-            adjoint error and enriched space(s) as arguments
+            method - see :meth:`~.GoalOrientedMeshSeq.get_enriched_mesh_seq` for the
+            supported enrichment methods and options
+        :type enrichment_kwargs: :class:`dict` with :class:`str` keys and values which
+            may take various types
+        :kwarg solver_kwargs: parameters for the forward solver, as well as any
+            parameters for the QoI, which should be included as a sub-dictionary with key
+            'qoi_kwargs'
+        :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :kwarg indicator_fn: function which maps the form, adjoint error and enriched
+            space(s) as arguments to the error indicator
+            :class:`firedrake.function.Function`
+        :returns: solution and indicator data objects
+        :rtype1: :class:`~.AdjointSolutionData
+        :rtype2: :class:`~.IndicatorData
         """
         enrichment_kwargs.setdefault("enrichment_method", "p")
         enrichment_kwargs.setdefault("num_enrichments", 1)
-        mesh_seq_e = self.get_enriched_mesh_seq(**enrichment_kwargs)
+        enriched_mesh_seq = self.get_enriched_mesh_seq(**enrichment_kwargs)
         transfer = self._get_transfer_function(enrichment_kwargs["enrichment_method"])
 
+        # Reinitialise the error indicator data object
+        self._create_indicators()
+
         # Solve the forward and adjoint problems on the MeshSeq and its enriched version
-        self.solve_adjoint(**adj_kwargs)
-        mesh_seq_e.solve_adjoint(**adj_kwargs)
+        self.solve_adjoint(**solver_kwargs)
+        enriched_mesh_seq.solve_adjoint(**solver_kwargs)
 
         FWD, ADJ = "forward", "adjoint"
         FWD_OLD = "forward" if self.steady else "forward_old"
@@ -133,7 +164,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         for i, mesh in enumerate(self):
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
-            enriched_spaces = {f: mesh_seq_e.function_spaces[f][i] for f in self.fields}
+            enriched_spaces = {
+                f: enriched_mesh_seq.function_spaces[f][i] for f in self.fields
+            }
             mapping = {}
             for f, fs_e in enriched_spaces.items():
                 u[f] = Function(fs_e)
@@ -144,7 +177,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 u_star_e[f] = Function(fs_e)
 
             # Get forms for each equation in enriched space
-            forms = mesh_seq_e.form(i, mapping)
+            forms = enriched_mesh_seq.form(i, mapping)
             if not isinstance(forms, dict):
                 raise TypeError(
                     "The function defined by get_form should return a dictionary"
@@ -154,7 +187,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             # Loop over each strongly coupled field
             for f in self.fields:
                 # Loop over each timestep
-                for j in range(len(self.solutions[f]["forward"][i])):
+                solutions = self.solutions.extract(layout="field")
+                indicators = self.indicators.extract(layout="field")
+                for j in range(len(solutions[f]["forward"][i])):
                     # Update fields
                     transfer(self.solutions[f][FWD][i][j], u[f])
                     transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
@@ -166,8 +201,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     u_star_e[f].assign(
                         0.5
                         * (
-                            mesh_seq_e.solutions[f][ADJ][i][j]
-                            + mesh_seq_e.solutions[f][ADJ_NEXT][i][j]
+                            enriched_mesh_seq.solutions[f][ADJ][i][j]
+                            + enriched_mesh_seq.solutions[f][ADJ_NEXT][i][j]
                         )
                     )
                     u_star_e[f] -= u_star[f]
@@ -178,17 +213,20 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     # Project back to the base space
                     indi = project(indi_e, P0_spaces[i])
                     indi.interpolate(abs(indi))
-                    self.indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
+                    indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
 
         return self.solutions, self.indicators
 
     @PETSc.Log.EventDecorator()
-    def error_estimate(self, absolute_value: bool = False) -> float:
+    def error_estimate(self, absolute_value=False):
         r"""
-        Deduce the error estimator value associated with error indicator fields defined over
-        a :class:`~.MeshSeq`.
+        Deduce the error estimator value associated with error indicator fields defined
+        over the mesh sequence.
 
-        :kwarg absolute_value: toggle whether to take the modulus on each element
+        :kwarg absolute_value: if ``True``, the modulus is taken on each element
+        :type absolute_value: :class:`bool`
+        :returns: the error estimator value
+        :rtype: :class:`float`
         """
         assert isinstance(self.indicators, IndicatorData)
         if not isinstance(absolute_value, bool):
@@ -218,6 +256,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         difference in error estimator value being smaller than the specified tolerance.
 
         :return: ``True`` if estimator convergence is detected, else ``False``
+        :rtype: :class:`bool`
         """
         if not self.check_convergence.any():
             self.info(
@@ -238,32 +277,42 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
     @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
         self,
-        adaptor: Callable,
-        enrichment_kwargs: dict = {},
-        adaptor_kwargs: dict = {},
-        adj_kwargs: dict = {},
-        indicator_fn: Callable = get_dwr_indicator,
-        **kwargs,
+        adaptor,
+        update_params=None,
+        enrichment_kwargs={},
+        adaptor_kwargs={},
+        solver_kwargs={},
+        indicator_fn=get_dwr_indicator,
     ):
         r"""
-        Apply goal-oriented mesh adaptation using a fixed point iteration loop.
+        Apply goal-oriented mesh adaptation using a fixed point iteration loop approach.
 
-        :arg adaptor: function for adapting the mesh sequence. Its arguments are the
-            :class:`~.MeshSeq` instance, the dictionary of solution
-            :class:`firedrake.function.Function`\s and the list of error indicators.
-            It should return ``True`` if the convergence criteria checks are to be
-            skipped for this iteration. Otherwise, it should return ``False``.
-        :kwarg update_params: function for updating :attr:`~.GoalOrientedMeshSeq.params`
-            at each iteration. Its arguments are the parameter class and the fixed point
-            iteration number
+        :arg adaptor: function for adapting the mesh sequence. Its arguments are the mesh
+            sequence and the solution and indicator data objects. It should return
+            ``True`` if the convergence criteria checks are to be skipped for this
+            iteration. Otherwise, it should return ``False``.
+        :kwarg update_params: function for updating :attr:`~.MeshSeq.params` at each
+            iteration. Its arguments are the parameter class and the fixed point
+            iteration
         :kwarg enrichment_kwargs: keyword arguments to pass to the global enrichment
             method
-        :kwarg adaptor_kwargs: a dictionary providing parameters to the adaptor
-        :kwarg adj_kwargs: keyword arguments to pass to the adjoint solver
-        :kwarg indicator_fn: function for error indication, which takes the form, adjoint
-            error and enriched space(s) as arguments
+        :type enrichment_kwargs: :class:`dict` with :class:`str` keys and values which
+            may take various types
+        :kwarg solver_kwargs: parameters to pass to the solver
+        :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :kwarg adaptor_kwargs: parameters to pass to the adaptor
+        :type adaptor_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :kwarg indicator_fn: function which maps the form, adjoint error and enriched
+            space(s) as arguments to the error indicator
+            :class:`firedrake.function.Function`
+        :returns: solution and indicator data objects
+        :rtype1: :class:`~.AdjointSolutionData
+        :rtype2: :class:`~.IndicatorData
         """
-        update_params = kwargs.get("update_params")
+        # TODO #124: adaptor no longer needs solution and indicator data to be passed
+        #            explicitly
         self.element_counts = [self.count_elements()]
         self.vertex_counts = [self.count_vertices()]
         self.qoi_values = []
@@ -276,18 +325,15 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 update_params(self.params, self.fp_iteration)
 
             # Indicate errors over all meshes
-            self._create_solutions()
-            self._create_indicators()
             self.indicate_errors(
                 enrichment_kwargs=enrichment_kwargs,
-                adj_kwargs=adj_kwargs,
+                solver_kwargs=solver_kwargs,
                 indicator_fn=indicator_fn,
             )
 
             # Check for QoI convergence
-            # TODO: Put this check inside the adjoint solve as
-            #       an optional return condition so that we
-            #       can avoid unnecessary extra solves
+            # TODO #23: Put this check inside the adjoint solve as an optional return
+            #           condition so that we can avoid unnecessary extra solves
             self.qoi_values.append(self.J)
             qoi_converged = self.check_qoi_convergence()
             if self.params.convergence_criteria == "any" and qoi_converged:

@@ -2,10 +2,8 @@
 Partitioning for the temporal domain.
 """
 from .log import debug
-from .utility import AttrDict
 from collections.abc import Iterable
 import numpy as np
-from typing import List, Optional, Union
 
 
 __all__ = ["TimePartition", "TimeInterval", "TimeInstant"]
@@ -21,27 +19,37 @@ class TimePartition:
 
     def __init__(
         self,
-        end_time: float,
-        num_subintervals: int,
-        timesteps: Union[List[float], float],
-        fields: Union[List[str], str],
-        num_timesteps_per_export: int = 1,
-        start_time: float = 0.0,
-        subintervals: Optional[List[float]] = None,
-        field_types: Optional[Union[List[str], str]] = None,
+        end_time,
+        num_subintervals,
+        timesteps,
+        fields,
+        num_timesteps_per_export=1,
+        start_time=0.0,
+        subintervals=None,
+        field_types=None,
     ):
-        """
+        r"""
         :arg end_time: end time of the interval of interest
+        :type end_time: :class:`float` or :class:`int`
         :arg num_subintervals: number of subintervals in the partition
-        :arg timesteps: (list of values for the) timestep used on each subinterval
-        :arg fields: (list of) field names
-        :kwarg num_timesteps_per_export: (list of) number of timesteps per export
+        :type num_subintervals: :class:`int`
+        :arg timesteps: a list timesteps to be used on each subinterval, or a single
+            timestep to use for all subintervals
+        :type timesteps: :class:`list` of :class:`float`\s or :class:`float`
+        :arg fields: the list of field names to consider
+        :type fields: :class:`list` of :class:`str`\s or :class:`str`
+        :kwarg num_timesteps_per_export: a list of numbers of timesteps per export for
+            each subinterval, or a single number to use for all subintervals
+        :type num_timesteps_per_export: :class:`list` of :class`int`\s or :class:`int`
         :kwarg start_time: start time of the interval of interest
-        :kwarg subinterals: user-provided sequence of subintervals, which need not be of
-            uniform length
-        :kwarg field_types: (list of) strings indicating whether each field is
+        :type start_time: :class:`float` or :class:`int`
+        :kwarg subinterals: sequence of subintervals (which need not be of uniform
+            length), or ``None`` to use uniform subintervals (the default)
+        :type subintervals: :class:`list` of :class:`tuple`\s
+        :kwarg field_types: a list of strings indicating whether each field is
             'unsteady' or 'steady', i.e., does the corresponding equation involve time
             derivatives or not?
+        :type field_types: :class:`list` of :class:`str`\s or :class:`str`
         """
         debug(100 * "-")
         if isinstance(fields, str):
@@ -121,9 +129,11 @@ class TimePartition:
         debug("field_types")
         debug(100 * "-")
 
-    def debug(self, attr: str):
+    def debug(self, attr):
         """
         Print attribute 'msg' for debugging purposes.
+
+        :arg attr: the attribute to display debugging information for
         """
         try:
             val = self.__getattribute__(attr)
@@ -134,10 +144,10 @@ class TimePartition:
         label = " ".join(attr.split("_"))
         debug(f"TimePartition: {label:25s} {val}")
 
-    def __str__(self) -> str:
+    def __str__(self):
         return f"{self.subintervals}"
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         timesteps = ", ".join([str(dt) for dt in self.timesteps])
         fields = ", ".join([f"'{field}'" for field in self.fields])
         return (
@@ -148,30 +158,41 @@ class TimePartition:
             f"fields=[{fields}])"
         )
 
-    def __len__(self) -> int:
+    def __len__(self):
         return self.num_subintervals
 
-    def __getitem__(self, i: int) -> dict:
+    def __getitem__(self, index_or_slice):
         """
-        :arg i: index
-        :return: subinterval bounds and timestep
-            associated with that index
+        :arg index_or_slice: an index or slice to generate a sub-time partition for
+        :type index_or_slice: :class:`int` or :class:`slice`
+        :returns: a time partition for the given index or slice
+        :rtype: :class:`~.TimePartition`
         """
-        return AttrDict(
-            {
-                "subinterval": self.subintervals[i],
-                "timestep": self.timesteps[i],
-                "num_timesteps_per_export": self.num_timesteps_per_export[i],
-                "num_exports": self.num_exports_per_subinterval[i],
-                "num_timesteps": self.num_timesteps_per_subinterval[i],
-                "start_time": self.subintervals[i][0],
-                "end_time": self.subintervals[i][1],
-                "length": self.subintervals[i][1] - self.subintervals[i][0],
-            }
+        sl = index_or_slice
+        if not isinstance(sl, slice):
+            sl = slice(sl, sl + 1, 1)
+        step = sl.step or 1
+        if step != 1:
+            raise NotImplementedError(
+                "Can only currently handle slices with step size 1."
+            )
+        num_subintervals = len(range(sl.start, sl.stop, step))
+        return TimePartition(
+            end_time=self.subintervals[sl.stop - 1][1],
+            num_subintervals=num_subintervals,
+            timesteps=self.timesteps[sl],
+            fields=self.fields,
+            num_timesteps_per_export=self.num_timesteps_per_export[sl],
+            start_time=self.subintervals[sl.start][0],
+            field_types=self.field_types,
         )
 
     @property
     def num_timesteps(self):
+        """
+        :returns the total number of timesteps
+        :rtype: :class:`int`
+        """
         return sum(self.num_timesteps_per_subinterval)
 
     def _check_subintervals(self):
@@ -271,7 +292,7 @@ class TimePartition:
 
 class TimeInterval(TimePartition):
     """
-    A trivial :class:`~.TimePartition`.
+    A trivial :class:`~.TimePartition` with a single subinterval.
     """
 
     def __init__(self, *args, **kwargs):
@@ -285,7 +306,7 @@ class TimeInterval(TimePartition):
         fields = args[2]
         super().__init__(end_time, 1, timestep, fields, **kwargs)
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return (
             f"TimeInterval("
             f"end_time={self.end_time}, "
@@ -294,7 +315,11 @@ class TimeInterval(TimePartition):
         )
 
     @property
-    def timestep(self) -> float:
+    def timestep(self):
+        """
+        :returns: the timestep used on the single interval
+        :rtype: :class:`float`
+        """
         return self.timesteps[0]
 
 
@@ -302,11 +327,10 @@ class TimeInstant(TimeInterval):
     """
     A :class:`~.TimePartition` for steady-state problems.
 
-    Under the hood this means dividing :math:`[0,1)` into
-    a single timestep.
+    Under the hood this means dividing :math:`[0,1)` into a single timestep.
     """
 
-    def __init__(self, fields: Union[List[str], str], **kwargs):
+    def __init__(self, fields, **kwargs):
         if "end_time" in kwargs:
             if "time" in kwargs:
                 raise ValueError("Both 'time' and 'end_time' are set.")
@@ -316,8 +340,8 @@ class TimeInstant(TimeInterval):
         timestep = time
         super().__init__(time, timestep, fields, **kwargs)
 
-    def __str__(self) -> str:
+    def __str__(self):
         return f"({self.end_time})"
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"TimeInstant(" f"time={self.end_time}, " f"fields={self.fields})"

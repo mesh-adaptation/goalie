@@ -1,6 +1,7 @@
 """
 Test utility functions.
 """
+
 from firedrake import *
 from firedrake.norms import norm as fnorm
 from firedrake.norms import errornorm as ferrnorm
@@ -22,9 +23,9 @@ scalar_norm_types = pointwise_norm_types + integral_scalar_norm_types
 # ---------------------------
 
 
-class TestPVD(unittest.TestCase):
+class TestVTK(unittest.TestCase):
     """
-    Test the subclass of Firedrake's :class:`File`.
+    Test the subclass of Firedrake's :class:`VTKFile`.
     """
 
     def setUp(self):
@@ -40,14 +41,14 @@ class TestPVD(unittest.TestCase):
                 os.remove(fname + ext)
 
     def test_adaptive(self):
-        file = File(self.fname)
+        file = VTKFile(self.fname)
         self.assertTrue(os.path.exists(self.fname))
         self.assertTrue(file._adaptive)
 
     def test_different_fnames(self):
         f = Function(self.fs, name="f")
         g = Function(self.fs, name="g")
-        file = File(self.fname)
+        file = VTKFile(self.fname)
         file.write(f)
         file.write(g)
         self.assertEqual("f", g.name())
@@ -55,7 +56,7 @@ class TestPVD(unittest.TestCase):
     def test_different_lengths(self):
         f = Function(self.fs, name="f")
         g = Function(self.fs, name="g")
-        file = File(self.fname)
+        file = VTKFile(self.fname)
         file.write(f)
         with self.assertRaises(ValueError) as cm:
             file.write(f, g)
@@ -95,7 +96,7 @@ class TestNorm(unittest.TestCase):
         self.mesh = uniform_mesh(2, 4)
         self.x, self.y = SpatialCoordinate(self.mesh)
         V = FunctionSpace(self.mesh, "CG", 1)
-        self.f = interpolate(self.x**2 + self.y, V)
+        self.f = assemble(interpolate(self.x**2 + self.y, V))
 
     def test_boundary_error(self):
         with self.assertRaises(NotImplementedError) as cm:
@@ -150,8 +151,7 @@ class TestNorm(unittest.TestCase):
     def test_consistency_hdiv(self):
         V = VectorFunctionSpace(self.mesh, "CG", 1)
         x, y = SpatialCoordinate(self.mesh)
-        f = Function(V)
-        f.interpolate(as_vector([y * y, -x * x]))
+        f = assemble(interpolate(as_vector([y * y, -x * x]), V))
         expected = fnorm(f, norm_type="HDiv")
         got = norm(f, norm_type="HDiv")
         self.assertAlmostEqual(expected, got)
@@ -179,8 +179,8 @@ class TestErrorNorm(unittest.TestCase):
         self.mesh = uniform_mesh(2, 4)
         self.x, self.y = SpatialCoordinate(self.mesh)
         V = FunctionSpace(self.mesh, "CG", 1)
-        self.f = interpolate(self.x**2 + self.y, V)
-        self.g = interpolate(self.x + self.y**2, V)
+        self.f = assemble(interpolate(self.x**2 + self.y, V))
+        self.g = assemble(interpolate(self.x + self.y**2, V))
 
     def test_shape_error(self):
         with self.assertRaises(RuntimeError) as cm:
@@ -215,7 +215,7 @@ class TestErrorNorm(unittest.TestCase):
     def test_zero_hdiv(self):
         V = VectorFunctionSpace(self.mesh, "CG", 1)
         x, y = SpatialCoordinate(self.mesh)
-        f = interpolate(as_vector([y * y, -x * x]), V)
+        f = assemble(interpolate(as_vector([y * y, -x * x]), V))
         err = errornorm(f, f, norm_type="HDiv")
         self.assertAlmostEqual(err, 0.0)
 
@@ -228,8 +228,8 @@ class TestErrorNorm(unittest.TestCase):
     def test_consistency_hdiv(self):
         V = VectorFunctionSpace(self.mesh, "CG", 1)
         x, y = SpatialCoordinate(self.mesh)
-        f = interpolate(as_vector([y * y, -x * x]), V)
-        g = interpolate(as_vector([x * y, 1.0]), V)
+        f = assemble(interpolate(as_vector([y * y, -x * x]), V))
+        g = assemble(interpolate(as_vector([x * y, 1.0]), V))
         expected = ferrnorm(f, g, norm_type="HDiv")
         got = errornorm(f, g, norm_type="HDiv")
         self.assertAlmostEqual(expected, got)

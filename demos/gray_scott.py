@@ -58,7 +58,7 @@ def get_form(mesh_seq):
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition[index].timestep)
+        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
         D_a = Function(R).assign(8.0e-05)
         D_b = Function(R).assign(4.0e-05)
         gamma = Function(R).assign(0.024)
@@ -166,8 +166,8 @@ solutions = mesh_seq.solve_adjoint()
 if not test:
     ic = mesh_seq.get_initial_condition()
     for field, sols in solutions.items():
-        fwd_outfile = File(f"gray_scott/{field}_forward.pvd")
-        adj_outfile = File(f"gray_scott/{field}_adjoint.pvd")
+        fwd_outfile = VTKFile(f"gray_scott/{field}_forward.pvd")
+        adj_outfile = VTKFile(f"gray_scott/{field}_adjoint.pvd")
         fwd_outfile.write(*ic[field].subfunctions)
         for i, mesh in enumerate(mesh_seq):
             for sol in sols["forward"][i]:

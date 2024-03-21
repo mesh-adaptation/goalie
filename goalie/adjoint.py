@@ -9,10 +9,8 @@ from .function_data import AdjointSolutionData
 from .interpolation import project
 from .mesh_seq import MeshSeq
 from .options import GoalOrientedParameters
-from .time_partition import TimePartition
 from .utility import AttrDict, norm
 from .log import pyrint
-from collections.abc import Callable
 from functools import wraps
 import numpy as np
 
@@ -20,11 +18,14 @@ import numpy as np
 __all__ = ["AdjointMeshSeq", "annotate_qoi"]
 
 
-def annotate_qoi(get_qoi: Callable) -> Callable:
+def annotate_qoi(get_qoi):
     """
     Decorator that ensures QoIs are annotated properly.
 
-    Should be applied to the :meth:`~.AdjointMeshSeq.get_qoi` method.
+    To be applied to the :meth:`~.AdjointMeshSeq.get_qoi` method.
+
+    :arg get_qoi: a function mapping a dictionary of solution data and an integer index
+        to a QoI function
     """
 
     @wraps(get_qoi)
@@ -72,12 +73,23 @@ class AdjointMeshSeq(MeshSeq):
     :attr:`~AdjointMeshSeq.J`, which holds the QoI value.
     """
 
-    def __init__(self, time_partition: TimePartition, initial_meshes: list, **kwargs):
-        """
-        :kwarg get_qoi: a function, with two arguments, a :class:`~.AdjointMeshSeq`,
-            which returns a function of either one or two variables, corresponding to
-            either an end time or time integrated quantity of interest, respectively,
-            as well as an index for the :class:`~.MeshSeq`
+    def __init__(self, time_partition, initial_meshes, **kwargs):
+        r"""
+        :arg time_partition: a partition of the temporal domain
+        :type time_partition: :class:`~.TimePartition`
+        :arg initial_meshes: a list of meshes corresponding to the subinterval of the
+            time partition, or a single mesh to use for all subintervals
+        :type initial_meshes: :class:`list` or :class:`~.MeshGeometry`
+        :kwarg get_function_spaces: a function as described in
+            :meth:`~.MeshSeq.get_function_spaces`
+        :kwarg get_initial_condition: a function as described in
+            :meth:`~.MeshSeq.get_initial_condition`
+        :kwarg get_form: a function as described in :meth:`~.MeshSeq.get_form`
+        :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
+        :kwarg get_bcs: a function as described in :meth:`~.MeshSeq.get_bcs`
+        :kwarg parameters: parameters to apply to the mesh adaptation process
+        :type parameters: :class:`~.AdaptParameters`
+        :kwarg get_qoi: a function as described in :meth:`~.AdjointMeshSeq.get_qoi`
         """
         if kwargs.get("parameters") is None:
             kwargs["parameters"] = GoalOrientedParameters()
@@ -98,7 +110,7 @@ class AdjointMeshSeq(MeshSeq):
             )
         self._get_qoi = kwargs.get("get_qoi")
         self.J = 0
-        self.controls = None
+        self._controls = None
         self.qoi_values = []
 
     @property
@@ -107,26 +119,50 @@ class AdjointMeshSeq(MeshSeq):
         return super().initial_condition
 
     @annotate_qoi
-    def get_qoi(self, solution_map: dict, i: int) -> Callable:
+    def get_qoi(self, solution_map, subinterval):
+        """
+        Get the function for evaluating the QoI, which has either zero or one arguments,
+        corresponding to either an end time or time integrated quantity of interest,
+        respectively. If the QoI has an argument then it is for the current time.
+
+        Signature for the function to be returned:
+        ```
+        :arg t: the current time (for time-integrated QoIs)
+        :type t: :class:`float`
+        :return: the QoI as a 0-form
+        :rtype: :class:`ufl.form.Form`
+        ```
+
+        :arg solution_map: a dictionary whose keys are the solution field names and whose
+            values are the corresponding solutions
+        :type solution_map: :class:`dict` with :class:`str` keys and values and
+            :class:`firedrake.function.Function` values
+        :arg subinterval: the subinterval index
+        :type subinterval: :class:`int`
+        :returns: the function for obtaining the QoI
+        :rtype: see docstring above
+        """
         if self._get_qoi is None:
             raise NotImplementedError("'get_qoi' is not implemented.")
-        return self._get_qoi(self, solution_map, i)
+        return self._get_qoi(self, solution_map, subinterval)
 
     @pyadjoint.no_annotations
     @PETSc.Log.EventDecorator()
-    def get_checkpoints(
-        self, solver_kwargs: dict = {}, run_final_subinterval: bool = False
-    ) -> list:
-        """
+    def get_checkpoints(self, solver_kwargs={}, run_final_subinterval=False):
+        r"""
         Solve forward on the sequence of meshes, extracting checkpoints corresponding
         to the starting fields on each subinterval.
 
         The QoI is also evaluated.
 
-        :kwarg solver_kwargs: additional keyword arguments which will be passed to the
-            solver
-        :kwarg run_final_subinterval: toggle whether to solve the PDE on the final
+        :kwarg solver_kwargs: additional keyword arguments to be passed to the solver
+        :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :kwarg run_final_subinterval: if ``True``, the solver is run on the final
             subinterval
+        :type run_final_subinterval: :class:`bool`
+        :returns: checkpoints for each subinterval
+        :rtype: :class:`list` of :class:`firedrake.function.Function`\s
         """
 
         # In some cases we run over all subintervals to check the QoI that is computed
@@ -145,17 +181,20 @@ class AdjointMeshSeq(MeshSeq):
         return checkpoints
 
     @PETSc.Log.EventDecorator()
-    def get_solve_blocks(
-        self, field: str, subinterval: int, has_adj_sol: bool = True
-    ) -> list:
-        """
+    def get_solve_blocks(self, field, subinterval, has_adj_sol=True):
+        r"""
         Get all blocks of the tape corresponding to solve steps for prognostic solution
         field on a given subinterval.
 
         :arg field: name of the prognostic solution field
+        :type field: :class:`str`
         :arg subinterval: subinterval index
+        :type subinterval: :class:`int`
         :kwarg has_adj_sol: if ``True``, only blocks with ``adj_sol`` attributes will be
             considered
+        :type has_adj_sol: :class:`bool`
+        :returns: list of solve blocks
+        :rtype: :class:`list` of :class:`pyadjoint.block.Block`\s
         """
         solve_blocks = super().get_solve_blocks(field, subinterval)
         if not has_adj_sol:
@@ -176,48 +215,50 @@ class AdjointMeshSeq(MeshSeq):
         return solve_blocks
 
     def _create_solutions(self):
+        """
+        Create the :class:`~.FunctionData` instance for holding solution data.
+        """
         self._solutions = AdjointSolutionData(self.time_partition, self.function_spaces)
 
     @PETSc.Log.EventDecorator()
     def solve_adjoint(
         self,
-        solver_kwargs: dict = {},
-        adj_solver_kwargs: dict = {},
-        get_adj_values: bool = False,
-        test_checkpoint_qoi: bool = False,
-    ) -> dict:
+        solver_kwargs={},
+        adj_solver_kwargs={},
+        get_adj_values=False,
+        test_checkpoint_qoi=False,
+    ):
         """
         Solve an adjoint problem on a sequence of subintervals.
 
-        As well as the quantity of interest value, a dictionary of solution fields is
-        computed, the contents of which give values at all exported timesteps, indexed
-        first by the field label and then by type. The contents of these nested
-        dictionaries are lists which are indexed first by subinterval and then by
-        export. For a given exported timestep, the field types are:
+        As well as the quantity of interest value, solution fields are computed - see
+        :class:`~.AdjointSolutionData` for more information.
 
-        * ``'forward'``: the forward solution after taking the timestep;
-        * ``'forward_old'``: the forward solution before taking the timestep (provided
-          the problem is not steady-state)
-        * ``'adjoint'``: the adjoint solution after taking the timestep;
-        * ``'adjoint_next'``: the adjoint solution before taking the timestep
-          backwards (provided the problem is not steady-state).
-
-        :kwarg solver_kwargs: a dictionary providing parameters to the solver. Any
-            keyword arguments for the QoI should be included as a subdict with label
+        :kwarg solver_kwargs: parameters for the forward solver, as well as any
+            parameters for the QoI, which should be included as a sub-dictionary with key
             'qoi_kwargs'
-        :kwarg adj_solver_kwargs: a dictionary providing parameters to the adjoint
-            solver.
-        :kwarg get_adj_values: additionally output adjoint actions at exported timesteps
+        :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :kwarg adj_solver_kwargs: parameters for the adjoint solver
+        :type adj_solver_kwargs: :class:`dict` with :class:`str` keys and values which
+            may take various types
+        :kwarg get_adj_values: if ``True``, adjoint actions are also returned at exported
+            timesteps
+        :type get_adj_values: :class:`bool`
         :kwarg test_checkpoint_qoi: solve over the final subinterval when checkpointing
             so that the QoI value can be checked across runs
-
-        :return solution: an :class:`~.AttrDict` containing solution fields and their
-            lagged versions. This can also be accessed as :meth:`solutions`.
+        :returns: the solution data of the forward and adjoint solves
+        :rtype: :class:`~.AdjointSolutionData`
         """
+        # TODO #125: Support get_adj_values in AdjointSolutionData
+        # TODO #126: Separate out qoi_kwargs
         P = self.time_partition
         num_subintervals = len(self)
         solver = self.solver
         qoi_kwargs = solver_kwargs.get("qoi_kwargs", {})
+
+        # Reinitialise the solution data object
+        self._create_solutions()
 
         # Solve forward to get checkpoints and evaluate QoI
         checkpoints = self.get_checkpoints(
@@ -233,9 +274,9 @@ class AdjointMeshSeq(MeshSeq):
 
         if get_adj_values:
             for field in self.fields:
-                self.solutions[field]["adj_value"] = []
+                self.solutions.extract(layout="field")[field]["adj_value"] = []
                 for i, fs in enumerate(self.function_spaces[field]):
-                    self.solutions[field]["adj_value"].append(
+                    self.solutions.extract(layout="field")[field]["adj_value"].append(
                         [
                             firedrake.Cofunction(fs.dual(), name=f"{field}_adj_value")
                             for j in range(P.num_exports_per_subinterval[i] - 1)
@@ -244,20 +285,27 @@ class AdjointMeshSeq(MeshSeq):
 
         @PETSc.Log.EventDecorator("goalie.AdjointMeshSeq.solve_adjoint.evaluate_fwd")
         @wraps(solver)
-        def wrapped_solver(subinterval, ic, **kwargs):
+        def wrapped_solver(subinterval, initial_condition_map, **kwargs):
             """
             Decorator to allow the solver to stash its initial conditions as controls.
 
             :arg subinterval: the subinterval index
-            :arg ic: the dictionary of initial condition :class:`~.Functions`
+            :type subinterval: :class:`int`
+            :arg initial_condition_map: a dictionary of initial conditions, keyed by
+                field name
+            :type initial_condition_map: :class:`dict` with :class:`str` keys and
+                :class:`firedrake.function.Function` values
 
             All keyword arguments are passed to the solver.
             """
-            init = AttrDict(
-                {field: ic[field].copy(deepcopy=True) for field in self.fields}
+            copy_map = AttrDict(
+                {
+                    field: initial_condition.copy(deepcopy=True)
+                    for field, initial_condition in initial_condition_map.items()
+                }
             )
-            self.controls = [pyadjoint.Control(init[field]) for field in self.fields]
-            return solver(subinterval, init, **kwargs)
+            self._controls = list(map(pyadjoint.Control, copy_map.values()))
+            return solver(subinterval, copy_map, **kwargs)
 
         # Loop over subintervals in reverse
         seeds = {}
@@ -299,7 +347,7 @@ class AdjointMeshSeq(MeshSeq):
             # Solve adjoint problem
             tape = pyadjoint.get_working_tape()
             with PETSc.Log.Event("goalie.AdjointMeshSeq.solve_adjoint.evaluate_adj"):
-                m = pyadjoint.enlisting.Enlist(self.controls)
+                m = pyadjoint.enlisting.Enlist(self._controls)
                 with pyadjoint.stop_annotating():
                     with tape.marked_nodes(m):
                         tape.evaluate_adj(markings=True)
@@ -335,52 +383,52 @@ class AdjointMeshSeq(MeshSeq):
 
                 # Update forward and adjoint solution data based on block dependencies
                 # and outputs
-                sols = self.solutions[field]
-                for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
+                solutions = self.solutions.extract(layout="field")[field]
+                for j, block in enumerate(reversed(solve_blocks[::-stride])):
                     # Current forward solution is determined from outputs
                     out = self._output(field, i, block)
                     if out is not None:
-                        sols.forward[i][j].assign(out.saved_output)
+                        solutions.forward[i][j].assign(out.saved_output)
 
                     # Current adjoint solution is determined from the adj_sol attribute
                     if block.adj_sol is not None:
-                        sols.adjoint[i][j].assign(block.adj_sol)
+                        solutions.adjoint[i][j].assign(block.adj_sol)
 
                     # Lagged forward solution comes from dependencies
                     dep = self._dependency(field, i, block)
                     if not self.steady and dep is not None:
-                        sols.forward_old[i][j].assign(dep.saved_output)
+                        solutions.forward_old[i][j].assign(dep.saved_output)
 
                     # Adjoint action also comes from dependencies
                     if get_adj_values and dep is not None:
-                        sols.adj_value[i][j].assign(dep.adj_value)
+                        solutions.adj_value[i][j].assign(dep.adj_value)
 
                     # The adjoint solution at the 'next' timestep is determined from the
                     # adj_sol attribute of the next solve block
                     if not steady:
-                        if j * stride + 1 < num_solve_blocks:
-                            if solve_blocks[j * stride + 1].adj_sol is not None:
-                                sols.adjoint_next[i][j].assign(
-                                    solve_blocks[j * stride + 1].adj_sol
+                        if (j + 1) * stride < num_solve_blocks:
+                            if solve_blocks[(j + 1) * stride].adj_sol is not None:
+                                solutions.adjoint_next[i][j].assign(
+                                    solve_blocks[(j + 1) * stride].adj_sol
                                 )
-                        elif j * stride + 1 == num_solve_blocks:
-                            if i + 1 < num_subintervals:
-                                project(
-                                    sols.adjoint_next[i + 1][0], sols.adjoint_next[i][j]
-                                )
-                        else:
+                        elif (j + 1) * stride > num_solve_blocks:
                             raise IndexError(
                                 "Cannot extract solve block"
-                                f" {j*stride+1} > {num_solve_blocks}."
+                                f" {(j + 1) * stride} > {num_solve_blocks}."
                             )
 
+                # The initial timestep of the current subinterval is the 'next' timestep
+                # after the final timestep of the previous subinterval
+                if i > 0 and solve_blocks[0].adj_sol is not None:
+                    project(solve_blocks[0].adj_sol, solutions.adjoint_next[i - 1][-1])
+
                 # Check non-zero adjoint solution/value
-                if np.isclose(norm(self.solutions[field].adjoint[i][0]), 0.0):
+                if np.isclose(norm(solutions.adjoint[i][0]), 0.0):
                     self.warning(
                         f"Adjoint solution for field '{field}' on {self.th(i)}"
                         " subinterval is zero."
                     )
-                if get_adj_values and np.isclose(norm(sols.adj_value[i][0]), 0.0):
+                if get_adj_values and np.isclose(norm(solutions.adj_value[i][0]), 0.0):
                     self.warning(
                         f"Adjoint action for field '{field}' on {self.th(i)}"
                         " subinterval is zero."
@@ -388,7 +436,7 @@ class AdjointMeshSeq(MeshSeq):
 
             # Get adjoint action on each subinterval
             with pyadjoint.stop_annotating():
-                for field, control in zip(self.fields, self.controls):
+                for field, control in zip(self.fields, self._controls):
                     seeds[field] = firedrake.Cofunction(
                         self.function_spaces[field][i].dual()
                     )
@@ -415,9 +463,14 @@ class AdjointMeshSeq(MeshSeq):
         return self.solutions
 
     @staticmethod
-    def th(num: int) -> str:
+    def th(num):
         """
         Convert from cardinal to ordinal.
+
+        :arg num: the cardinal number to convert
+        :type num: :class:`int`
+        :returns: the corresponding ordinal number
+        :rtype: :class:`str`
         """
         end = int(str(num)[-1])
         try:
@@ -436,6 +489,7 @@ class AdjointMeshSeq(MeshSeq):
         difference in QoI value being smaller than the specified tolerance.
 
         :return: ``True`` if QoI convergence is detected, else ``False``
+        :rtype: :class:`bool`
         """
         if not self.check_convergence.any():
             self.info(

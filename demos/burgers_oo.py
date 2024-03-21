@@ -82,12 +82,12 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
     def get_initial_condition(self):
         fs = self.function_spaces["u"][0]
         x, y = SpatialCoordinate(self[0])
-        return {"u": interpolate(as_vector([sin(pi * x), 0]), fs)}
+        return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
 
     @annotate_qoi
     def get_qoi(self, solutions, i):
         R = FunctionSpace(self[i], "R", 0)
-        dt = Function(R).assign(self.time_partition[i].timestep)
+        dt = Function(R).assign(self.time_partition.timesteps[i])
 
         def end_time_qoi():
             u = solutions["u"]
