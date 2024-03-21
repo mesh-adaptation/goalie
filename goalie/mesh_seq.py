@@ -8,7 +8,7 @@ from firedrake.adjoint_utils.solving import get_solve_blocks
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
 from .function_data import ForwardSolutionData
-from .interpolation import project
+from .interpolation import transfer
 from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
 from animate.quality import QualityMeasure
@@ -41,6 +41,9 @@ class MeshSeq:
         :kwarg get_form: a function as described in :meth:`~.MeshSeq.get_form`
         :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
         :kwarg get_bcs: a function as described in :meth:`~.MeshSeq.get_bcs`
+        :kwarg transfer_method: the method to use for transferring fields between
+            meshes. Options are "interpolate" (default) and "project"
+        :type transfer_method: :class:`str`
         :kwarg parameters: parameters to apply to the mesh adaptation process
         :type parameters: :class:`~.AdaptParameters`
         """
@@ -59,6 +62,7 @@ class MeshSeq:
         self._get_form = kwargs.get("get_form")
         self._get_solver = kwargs.get("get_solver")
         self._get_bcs = kwargs.get("get_bcs")
+        self._transfer_method = kwargs.get("transfer_method", "interpolate")
         self.params = kwargs.get("parameters")
         self.steady = time_partition.steady
         self.check_convergence = np.array([True] * len(self), dtype=bool)
@@ -328,6 +332,26 @@ class MeshSeq:
         if self._get_bcs is not None:
             return self._get_bcs(self)
 
+    def _transfer(self, source, target_space, **kwargs):
+        """
+        Transfer a field between meshes using the specified transfer method.
+
+        :arg source: the function to be transferred
+        :type source: :class:`firedrake.function.Function` or
+            :class:`firedrake.cofunction.Cofunction`
+        :arg target_space: the function space which we seek to transfer onto, or the
+            function or cofunction to use as the target
+        :type target_space: :class:`firedrake.functionspaceimpl.FunctionSpace`,
+            :class:`firedrake.function.Function`
+            or :class:`firedrake.cofunction.Cofunction`
+        :returns: the transferred function
+        :rtype: :class:`firedrake.function.Function` or
+            :class:`firedrake.cofunction.Cofunction`
+
+        Extra keyword arguments are passed to :func:`goalie.interpolation.transfer`.
+        """
+        return transfer(source, target_space, self._transfer_method, **kwargs)
+
     def _function_spaces_consistent(self):
         """
         Determine whether the mesh sequence's function spaces are consistent with its
@@ -464,12 +488,12 @@ class MeshSeq:
                 diff = fields.difference(set(self.fields))
                 raise ValueError(f"Unexpected solver outputs: {diff}.")
 
-            # Transfer between meshes using conservative projection
+            # Transfer between meshes
             if i < N - 1:
                 checkpoints.append(
                     AttrDict(
                         {
-                            field: project(solutions[field], fs[i + 1])
+                            field: self._transfer(solutions[field], fs[i + 1])
                             for field, fs in self._fs.items()
                         }
                     )
@@ -745,7 +769,7 @@ class MeshSeq:
             if i < num_subintervals - 1:
                 checkpoint = AttrDict(
                     {
-                        field: project(checkpoint[field], fs[i + 1])
+                        field: self._transfer(checkpoint[field], fs[i + 1])
                         for field, fs in self._fs.items()
                     }
                 )
