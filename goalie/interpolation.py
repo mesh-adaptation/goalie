@@ -174,7 +174,6 @@ def _transfer_adjoint(target_b, source_b, transfer_method, **kwargs):
     return function2cofunction(source_b)
 
 
-@PETSc.Log.EventDecorator()
 def _validate_matching_spaces(Vs, Vt):
     if hasattr(Vs, "num_sub_spaces"):
         if not hasattr(Vt, "num_sub_spaces"):
