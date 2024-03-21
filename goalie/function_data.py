@@ -94,8 +94,8 @@ class FunctionData(abc.ABC):
         """
         Extract field data array in an alternative format: as a list indexed by
         subinterval. Entries of the list are doubly-nested dictionaries, which retain
-        the default layout: with the first key being field label and the second key being
-        the field name. Entries of the doubly-nested dictionaries are lists of field
+        the default layout: with the first key being field name and the second key being
+        the field label. Entries of the doubly-nested dictionaries are lists of field
         data, indexed by export.
         """
         tp = self.time_partition
