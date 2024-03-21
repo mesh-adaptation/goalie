@@ -209,7 +209,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     indi_e = indicator_fn(forms[f], u_star_e[f])
 
                     # Transfer back to the base space
-                    indi = self.transfer(indi_e, P0_spaces[i])
+                    indi = self._transfer(indi_e, P0_spaces[i])
                     indi.interpolate(abs(indi))
                     self.indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
 

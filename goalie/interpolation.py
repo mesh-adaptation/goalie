@@ -28,7 +28,7 @@ def transfer(source, target_space, transfer_method="project", **kwargs):
     :type target_space: :class:`firedrake.functionspaceimpl.FunctionSpace`,
         :class:`firedrake.function.Function` or :class:`firedrake.cofunction.Cofunction`
     :kwarg transfer_method: the method to use for the transfer. Options are
-        "interpolate" (default) and "project".
+        "interpolate" (default) and "project"
     :type transfer_method: str
     :returns: the transferred function
     :rtype: :class:`firedrake.function.Function` or
@@ -91,7 +91,7 @@ def _transfer_forward(source, target, transfer_method, **kwargs):
     :arg target: the Function which we seek to transfer onto
     :type target: :class:`firedrake.function.Function`
     :kwarg transfer_method: the method to use for the transfer. Options are
-        "interpolate" (default) and "project".
+        "interpolate" (default) and "project"
     :type transfer_method: str
     :returns: the transferred Function
     :rtype: :class:`firedrake.function.Function`
@@ -137,7 +137,7 @@ def _transfer_adjoint(target_b, source_b, transfer_method, **kwargs):
     :arg source_b: output Cofunction from the source space of the forward projection
     :type source_b: :class:`firedrake.cofunction.Cofunction`
     :kwarg transfer_method: the method to use for the transfer. Options are
-        "interpolate" (default) and "project".
+        "interpolate" (default) and "project"
     :type transfer_method: str
     :returns: the transferred Cofunction
     :rtype: :class:`firedrake.cofunction.Cofunction`
