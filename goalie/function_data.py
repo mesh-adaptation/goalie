@@ -1,6 +1,7 @@
 r"""
 Nested dictionaries of solution data :class:`~.Function`\s.
 """
+
 import firedrake.function as ffunc
 import firedrake.functionspace as ffs
 from .utility import AttrDict
@@ -52,6 +53,19 @@ class FunctionData(abc.ABC):
                 for field, field_type in zip(tp.fields, tp.field_types)
             }
         )
+
+    def fly_update(self, idx, fs=None):
+        self.function_spaces = fs if fs else self.function_spaces
+        if self._data is None:
+            self._create_data()
+        tp = self.time_partition
+        for field, field_type in zip(tp.fields, tp.field_types):
+            for label in self._label_dict[field_type]:
+                for i, fs in zip([idx], [self.function_spaces[field][idx]]):
+                    self._data[field][label][i] = [
+                        ffunc.Function(fs, name=f"{field}_{label}")
+                        for j in range(tp.num_exports_per_subinterval[i] - 1)
+                    ]
 
     @property
     def _data_by_field(self):
