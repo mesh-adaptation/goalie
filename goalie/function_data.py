@@ -1,6 +1,7 @@
 r"""
 Nested dictionaries of solution data :class:`~.Function`\s.
 """
+
 import firedrake.function as ffunc
 import firedrake.functionspace as ffs
 from .utility import AttrDict
@@ -80,12 +81,16 @@ class FunctionData(abc.ABC):
         layout: indexed first by subinterval and then by export.
         """
         tp = self.time_partition
+        _labels = []
+        for field_type in tp.field_types:
+            _labels.extend(self._label_dict[field_type])
+
         return AttrDict(
             {
                 label: AttrDict(
                     {field: self._data_by_field[field][label] for field in tp.fields}
                 )
-                for label in self.labels
+                for label in _labels
             }
         )
 
@@ -99,13 +104,17 @@ class FunctionData(abc.ABC):
         data, indexed by export.
         """
         tp = self.time_partition
+        _labels = []
+        for field_type in tp.field_types:
+            _labels.extend(self._label_dict[field_type])
+
         return [
             AttrDict(
                 {
                     field: AttrDict(
                         {
                             label: self._data_by_field[field][label][subinterval]
-                            for label in self.labels
+                            for label in _labels
                         }
                     )
                     for field in tp.fields
