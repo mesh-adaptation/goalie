@@ -1,6 +1,7 @@
 """
 Unit tests for :class:`~.FunctionData` and its subclasses.
 """
+
 from firedrake import *
 from goalie import *
 import abc
@@ -88,7 +89,36 @@ class BaseTestCases:
                         self.assertTrue(isinstance(f, Function))
 
 
-class TestForwardSolutionData(BaseTestCases.TestFunctionData):
+class TestSteadyForwardSolutionData(BaseTestCases.TestFunctionData):
+    """
+    Unit tests for :class:`~.ForwardSolutionData`.
+    """
+
+    def setUp(self):
+        end_time = 1.0
+        self.num_subintervals = 1
+        timesteps = [1.0]
+        self.field = "field"
+        self.num_exports = [1]
+        self.mesh = UnitTriangleMesh()
+        self.time_partition = TimePartition(
+            end_time, self.num_subintervals, timesteps, self.field
+        )
+        self.function_spaces = {
+            self.field: [
+                FunctionSpace(self.mesh, "DG", 0) for _ in range(self.num_subintervals)
+            ]
+        }
+        self._create_function_data()
+        self.labels = ("forward",)
+
+    def _create_function_data(self):
+        self.solution_data = ForwardSolutionData(
+            self.time_partition, self.function_spaces
+        )
+
+
+class TestUnsteadyForwardSolutionData(BaseTestCases.TestFunctionData):
     """
     Unit tests for :class:`~.ForwardSolutionData`.
     """
@@ -103,7 +133,36 @@ class TestForwardSolutionData(BaseTestCases.TestFunctionData):
         )
 
 
-class TestAdjointSolutionData(BaseTestCases.TestFunctionData):
+class TestSteadyAdjointSolutionData(BaseTestCases.TestFunctionData):
+    """
+    Unit tests for :class:`~.AdjointSolutionData`.
+    """
+
+    def setUp(self):
+        end_time = 1.0
+        self.num_subintervals = 1
+        timesteps = [1.0]
+        self.field = "field"
+        self.num_exports = [1]
+        self.mesh = UnitTriangleMesh()
+        self.time_partition = TimePartition(
+            end_time, self.num_subintervals, timesteps, self.field
+        )
+        self.function_spaces = {
+            self.field: [
+                FunctionSpace(self.mesh, "DG", 0) for _ in range(self.num_subintervals)
+            ]
+        }
+        self._create_function_data()
+        self.labels = ("forward", "adjoint")
+
+    def _create_function_data(self):
+        self.solution_data = AdjointSolutionData(
+            self.time_partition, self.function_spaces
+        )
+
+
+class TestUnsteadyAdjointSolutionData(BaseTestCases.TestFunctionData):
     """
     Unit tests for :class:`~.AdjointSolutionData`.
     """
