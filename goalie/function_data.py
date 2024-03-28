@@ -29,7 +29,10 @@ class FunctionData(abc.ABC):
         self.time_partition = time_partition
         self.function_spaces = function_spaces
         self._data = None
-        self.labels = self._label_dict["steady"] + self._label_dict["unsteady"]
+        self.labels = [
+            [label for label in self._label_dict[field]]
+            for field in self.time_partition.field_types
+        ][0]
 
     def _create_data(self):
         assert self._label_dict
@@ -79,16 +82,16 @@ class FunctionData(abc.ABC):
         layout: indexed first by subinterval and then by export.
         """
         tp = self.time_partition
-        _labels = []
-        for field_type in tp.field_types:
-            _labels.extend(self._label_dict[field_type])
+        # _labels = []
+        # for field_type in tp.field_types:
+        #     _labels.extend(self._label_dict[field_type])
 
         return AttrDict(
             {
                 label: AttrDict(
                     {field: self._data_by_field[field][label] for field in tp.fields}
                 )
-                for label in _labels
+                for label in self.labels
             }
         )
 
@@ -102,9 +105,9 @@ class FunctionData(abc.ABC):
         data, indexed by export.
         """
         tp = self.time_partition
-        _labels = []
-        for field_type in tp.field_types:
-            _labels.extend(self._label_dict[field_type])
+        # _labels = []
+        # for field_type in tp.field_types:
+        #     _labels.extend(self._label_dict[field_type])
 
         return [
             AttrDict(
@@ -112,7 +115,7 @@ class FunctionData(abc.ABC):
                     field: AttrDict(
                         {
                             label: self._data_by_field[field][label][subinterval]
-                            for label in _labels
+                            for label in self.labels
                         }
                     )
                     for field in tp.fields
