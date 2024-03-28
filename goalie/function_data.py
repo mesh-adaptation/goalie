@@ -29,10 +29,14 @@ class FunctionData(abc.ABC):
         self.time_partition = time_partition
         self.function_spaces = function_spaces
         self._data = None
-        self.labels = [
-            [label for label in self._label_dict[field]]
-            for field in self.time_partition.field_types
-        ][0]
+        self.labels = (
+            [
+                [label for label in self._label_dict[field]]
+                for field in self.time_partition.field_types
+            ][0]
+            if self.time_partition.fields
+            else []
+        )
 
     def _create_data(self):
         assert self._label_dict
