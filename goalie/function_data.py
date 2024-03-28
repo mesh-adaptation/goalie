@@ -86,10 +86,6 @@ class FunctionData(abc.ABC):
         layout: indexed first by subinterval and then by export.
         """
         tp = self.time_partition
-        # _labels = []
-        # for field_type in tp.field_types:
-        #     _labels.extend(self._label_dict[field_type])
-
         return AttrDict(
             {
                 label: AttrDict(
@@ -109,10 +105,6 @@ class FunctionData(abc.ABC):
         data, indexed by export.
         """
         tp = self.time_partition
-        # _labels = []
-        # for field_type in tp.field_types:
-        #     _labels.extend(self._label_dict[field_type])
-
         return [
             AttrDict(
                 {
