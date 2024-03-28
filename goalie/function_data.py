@@ -19,8 +19,6 @@ class FunctionData(abc.ABC):
     Abstract base class for classes holding field data.
     """
 
-    _label_dict = {}
-
     def __init__(self, time_partition, function_spaces):
         r"""
         :arg time_partition: the :class:`~.TimePartition` used to discretise the problem
