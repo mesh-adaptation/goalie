@@ -167,11 +167,9 @@ class MetricParameters(AdaptParameters):
             "hausdorff_number",
             "gradation_factor",
         )
-        metric_parameters = {
-            "dm_plex_metric": {key: self[key] for key in petsc_specific}
-        }
-        metric_parameters["num_iterations"] = self["num_parmmg_iterations"]
-        metric.set_parameters(metric_parameters)
+        mp = {"dm_plex_metric": {key: self[key] for key in petsc_specific}}
+        mp["dm_plex_metric_num_iterations"] = self["num_parmmg_iterations"]
+        metric.set_parameters(mp)
 
 
 class GoalOrientedParameters(AdaptParameters):
