@@ -1,6 +1,7 @@
 """
 Unit tests for :class:`~.FunctionData` and its subclasses.
 """
+
 from firedrake import *
 from goalie import *
 import abc
@@ -18,12 +19,30 @@ class BaseTestCases:
         Base class for unit testing subclasses of :class:`~.FunctionData`.
         """
 
-        def setUp(self):
+        def setUpUnsteady(self):
             end_time = 1.0
             self.num_subintervals = 2
             timesteps = [0.5, 0.25]
             self.field = "field"
             self.num_exports = [1, 2]
+            self.mesh = UnitTriangleMesh()
+            self.time_partition = TimePartition(
+                end_time, self.num_subintervals, timesteps, self.field
+            )
+            self.function_spaces = {
+                self.field: [
+                    FunctionSpace(self.mesh, "DG", 0)
+                    for _ in range(self.num_subintervals)
+                ]
+            }
+            self._create_function_data()
+
+        def setUpSteady(self):
+            end_time = 1.0
+            self.num_subintervals = 1
+            timesteps = [1.0]
+            self.field = "field"
+            self.num_exports = [1]
             self.mesh = UnitTriangleMesh()
             self.time_partition = TimePartition(
                 end_time, self.num_subintervals, timesteps, self.field
@@ -88,13 +107,28 @@ class BaseTestCases:
                         self.assertTrue(isinstance(f, Function))
 
 
-class TestForwardSolutionData(BaseTestCases.TestFunctionData):
+class TestSteadyForwardSolutionData(BaseTestCases.TestFunctionData):
     """
     Unit tests for :class:`~.ForwardSolutionData`.
     """
 
     def setUp(self):
-        super().setUp()
+        super().setUpSteady()
+        self.labels = ("forward",)
+
+    def _create_function_data(self):
+        self.solution_data = ForwardSolutionData(
+            self.time_partition, self.function_spaces
+        )
+
+
+class TestUnsteadyForwardSolutionData(BaseTestCases.TestFunctionData):
+    """
+    Unit tests for :class:`~.ForwardSolutionData`.
+    """
+
+    def setUp(self):
+        super().setUpUnsteady()
         self.labels = ("forward", "forward_old")
 
     def _create_function_data(self):
@@ -103,13 +137,28 @@ class TestForwardSolutionData(BaseTestCases.TestFunctionData):
         )
 
 
-class TestAdjointSolutionData(BaseTestCases.TestFunctionData):
+class TestSteadyAdjointSolutionData(BaseTestCases.TestFunctionData):
     """
     Unit tests for :class:`~.AdjointSolutionData`.
     """
 
     def setUp(self):
-        super().setUp()
+        super().setUpSteady()
+        self.labels = ("forward", "adjoint")
+
+    def _create_function_data(self):
+        self.solution_data = AdjointSolutionData(
+            self.time_partition, self.function_spaces
+        )
+
+
+class TestUnsteadyAdjointSolutionData(BaseTestCases.TestFunctionData):
+    """
+    Unit tests for :class:`~.AdjointSolutionData`.
+    """
+
+    def setUp(self):
+        super().setUpUnsteady()
         self.labels = ("forward", "forward_old", "adjoint", "adjoint_next")
 
     def _create_function_data(self):
@@ -124,7 +173,7 @@ class TestIndicatorData(BaseTestCases.TestFunctionData):
     """
 
     def setUp(self):
-        super().setUp()
+        super().setUpUnsteady()
         self.labels = ("error_indicator",)
 
     def _create_function_data(self):

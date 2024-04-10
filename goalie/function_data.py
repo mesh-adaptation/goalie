@@ -1,6 +1,7 @@
 r"""
 Nested dictionaries of solution data :class:`~.Function`\s.
 """
+
 import firedrake.function as ffunc
 import firedrake.functionspace as ffs
 from .utility import AttrDict
@@ -18,8 +19,6 @@ class FunctionData(abc.ABC):
     Abstract base class for classes holding field data.
     """
 
-    _label_dict = {}
-
     def __init__(self, time_partition, function_spaces):
         r"""
         :arg time_partition: the :class:`~.TimePartition` used to discretise the problem
@@ -30,7 +29,9 @@ class FunctionData(abc.ABC):
         self.time_partition = time_partition
         self.function_spaces = function_spaces
         self._data = None
-        self.labels = self._label_dict["steady"] + self._label_dict["unsteady"]
+        self.labels = self._label_dict[
+            "steady" if time_partition.steady else "unsteady"
+        ]
 
     def _create_data(self):
         assert self._label_dict
