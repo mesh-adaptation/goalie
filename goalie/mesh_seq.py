@@ -12,7 +12,8 @@ from .interpolation import transfer
 from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
 from animate.quality import QualityMeasure
-from .utility import AttrDict, Mesh
+from animate.utility import Mesh
+from .utility import AttrDict
 from collections.abc import Iterable
 import numpy as np
 

@@ -5,10 +5,11 @@ Drivers for solving adjoint problems on sequences of meshes.
 import firedrake
 from firedrake.petsc import PETSc
 from firedrake.adjoint import pyadjoint
+from animate.utility import norm
 from .function_data import AdjointSolutionData
 from .mesh_seq import MeshSeq
 from .options import GoalOrientedParameters
-from .utility import AttrDict, norm
+from .utility import AttrDict
 from .log import pyrint
 from functools import wraps
 import numpy as np

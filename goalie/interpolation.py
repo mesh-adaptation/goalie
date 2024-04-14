@@ -2,7 +2,11 @@
 Driver functions for mesh-to-mesh data transfer.
 """
 
-from .utility import assemble_mass_matrix, cofunction2function, function2cofunction
+from animate.utility import (
+    assemble_mass_matrix,
+    cofunction2function,
+    function2cofunction,
+)
 import firedrake
 from firedrake.functionspaceimpl import WithGeometry
 from firedrake.petsc import PETSc
