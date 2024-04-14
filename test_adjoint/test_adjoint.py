@@ -3,6 +3,7 @@ Test adjoint drivers.
 """
 
 from firedrake import *
+from animate.utility import errornorm, norm
 from goalie_adjoint import *
 import pyadjoint
 import pytest

@@ -2,6 +2,7 @@
 Testing for the mesh sequence objects.
 """
 from firedrake import *
+from animate.utility import norm
 from goalie_adjoint import *
 from goalie.log import *
 from goalie.mesh_seq import MeshSeq

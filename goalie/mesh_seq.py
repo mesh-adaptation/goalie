@@ -8,11 +8,12 @@ from firedrake.adjoint_utils.solving import get_solve_blocks
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
 from .function_data import ForwardSolutionData
-from .interpolation import transfer
 from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
+from animate.interpolation import transfer
 from animate.quality import QualityMeasure
-from .utility import AttrDict, Mesh
+from animate.utility import Mesh
+from .utility import AttrDict
 from collections.abc import Iterable
 import numpy as np
 
