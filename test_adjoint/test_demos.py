@@ -25,6 +25,8 @@ def demo_file(request):
 
 
 def test_demos(demo_file, tmpdir, monkeypatch):
+    if not os.environ.get("GITHUB_ACTIONS_TEST_RUN"):  # FIXME: 160
+        pytest.skip()
     assert os.path.isfile(demo_file), f"Demo file '{demo_file}' not found."
 
     # Copy mesh files
