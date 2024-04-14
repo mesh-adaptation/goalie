@@ -3,9 +3,10 @@ Test interpolation schemes.
 """
 
 from firedrake import *
+from animate.utility import errornorm
 from goalie import *
-from goalie.utility import function2cofunction
 from goalie.interpolation import _transfer_forward, _transfer_adjoint
+from animate.utility import function2cofunction
 import unittest
 from parameterized import parameterized
 
