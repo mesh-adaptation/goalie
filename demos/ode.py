@@ -331,4 +331,7 @@ print(f"Crank-Nicolson: {crank_nicolson_trajectory[-1]:.9f}")
 #    Backward Euler: 3.051757812
 #    Crank-Nicolson: 2.727412827
 #
+# In the `next demo <./burgers.py.html>`__, we move on to solve a *partial* differential
+# equation (PDE) using a :class:`MeshSeq`.
+#
 # This demo can also be accessed as a `Python script <ode.py>`__.
