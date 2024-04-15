@@ -47,10 +47,10 @@ class FunctionData(abc.ABC):
                             ]
                             for i, fs in enumerate(self.function_spaces[field])
                         ]
-                        for label in self._label_dict[field_type]
+                        for label in self.labels
                     }
                 )
-                for field, field_type in zip(tp.fields, tp.field_types)
+                for field in tp.fields
             }
         )
 
@@ -201,7 +201,7 @@ class IndicatorData(FunctionData):
         :arg meshes: the list of meshes used to discretise the problem in space
         """
         self._label_dict = {
-            field_type: ("error_indicator",) for field_type in ("steady", "unsteady")
+            time_dep: ("error_indicator",) for time_dep in ("steady", "unsteady")
         }
         super().__init__(
             time_partition,
