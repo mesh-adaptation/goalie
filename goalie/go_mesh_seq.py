@@ -8,6 +8,7 @@ from .function_data import IndicatorData
 from .log import pyrint
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
 from firedrake.petsc import PETSc
+from animate.interpolation import interpolate
 from collections.abc import Iterable
 import numpy as np
 import ufl
@@ -102,7 +103,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         if enrichment_method == "h":
             return TransferManager().prolong
         else:
-            return lambda source, target: target.interpolate(source)
+            return lambda source, target: interpolate(source, target)
 
     def _create_indicators(self):
         """
