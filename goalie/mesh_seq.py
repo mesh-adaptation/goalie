@@ -760,10 +760,29 @@ class MeshSeq:
                     if out is not None:
                         solutions.forward[i][j].assign(out.saved_output)
 
-                    # Lagged solution comes from dependencies
-                    dep = self._dependency(field, i, block)
-                    if not self.steady and dep is not None:
-                        solutions.forward_old[i][j].assign(dep.saved_output)
+                    if not self.steady:
+                        # Lagged solution comes from dependencies for unsteady fields
+                        if self.field_types[field] == "unsteady":
+                            dep = self._dependency(field, i, block)
+                            solutions.forward_old[i][j].assign(dep.saved_output)
+                        # Lagged solution comes from previous block for steady fields
+                        elif self.field_types[field] == "steady":
+                            if stride == 1:
+                                if j == 0:
+                                    if i == 0:
+                                        forward_old = self.initial_condition[field]
+                                    else:
+                                        forward_old = self._transfer(
+                                            solutions.forward[i - 1][-1], fs[i]
+                                        )
+                                else:
+                                    forward_old = solutions.forward[i][j - 1]
+                            else:
+                                old_block = solve_blocks[solve_blocks.index(block) - 1]
+                                old_out = self._output(field, i, old_block)
+                                if out is not None:
+                                    forward_old = old_out.saved_output
+                            solutions.forward_old[i][j].assign(forward_old)
 
             # Transfer the checkpoint between subintervals
             if i < num_subintervals - 1:
