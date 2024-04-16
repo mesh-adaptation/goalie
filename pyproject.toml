@@ -38,15 +38,6 @@ Repository = "https://github.com/mesh-adaptation/goalie"
 [tool.setuptools]
 packages = ["goalie", "goalie_adjoint"]
 
-[tool.black]
-line-length = 88
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-)/
-'''
-
 [tool.ruff]
 line-length = 88
 select = [
@@ -64,6 +55,10 @@ ignore = [
   "F403",  # unable to detect undefined names
   "F405",  # name may be undefined, or defined from star imports
 ]
+
+[tool.ruff.format]
+include = [".pyi?$"]
+exclude = [".git"]
 
 [tool.pytest.ini_options]
 filterwarnings = [
