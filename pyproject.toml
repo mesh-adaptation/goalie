@@ -7,7 +7,7 @@ version = "0.2"
 dependencies = [
   "black",
   "coverage",
-  "flake8",
+  "ruff",
   "parameterized",
   "pre-commit",
 ]
