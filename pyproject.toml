@@ -51,8 +51,8 @@ exclude = '''
 [tool.ruff]
 line-length = 88
 select = [
-#  "B",  # flake8-bugbear  TODO: enable this  (#163)
-#  "C",  # mccabe complexity  TODO: enable this (#163)
+#  "B",  # flake8-bugbear  TODO: enable this  (#165)
+#  "C",  # mccabe complexity  TODO: enable this (#165)
   "E", "W",  # Pycodestyle
   "F",  # Pyflakes
   "I",  # isort
