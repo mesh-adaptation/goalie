@@ -1,17 +1,20 @@
 """
 Testing for the mesh sequence objects.
 """
-from firedrake import *
-from goalie_adjoint import *
-from goalie.log import *
-from goalie.mesh_seq import MeshSeq
-from goalie.go_mesh_seq import GoalOrientedMeshSeq
-from goalie.time_partition import TimeInterval
-from parameterized import parameterized
+
 import logging
+import unittest
+
 import pyadjoint
 import pytest
-import unittest
+from firedrake import *
+from parameterized import parameterized
+
+from goalie.go_mesh_seq import GoalOrientedMeshSeq
+from goalie.log import *
+from goalie.mesh_seq import MeshSeq
+from goalie.time_partition import TimeInterval
+from goalie_adjoint import *
 
 
 class TestGetSolveBlocks(unittest.TestCase):

@@ -2,7 +2,6 @@ import numpy as np
 import ufl
 import ufl.core.expr
 
-
 __all__ = ["bessi0", "bessk0"]
 
 

@@ -2,17 +2,18 @@
 Drivers for solving adjoint problems on sequences of meshes.
 """
 
+from functools import wraps
+
 import firedrake
-from firedrake.petsc import PETSc
+import numpy as np
 from firedrake.adjoint import pyadjoint
+from firedrake.petsc import PETSc
+
 from .function_data import AdjointSolutionData
+from .log import pyrint
 from .mesh_seq import MeshSeq
 from .options import GoalOrientedParameters
 from .utility import AttrDict, norm
-from .log import pyrint
-from functools import wraps
-import numpy as np
-
 
 __all__ = ["AdjointMeshSeq", "annotate_qoi"]
 

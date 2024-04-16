@@ -21,6 +21,7 @@
 # side. See the Firedrake demo for details on the discretisation used.
 
 from firedrake import *
+
 from goalie import *
 
 # In this problem, we have a single prognostic variable,

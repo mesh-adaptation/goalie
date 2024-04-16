@@ -1,10 +1,12 @@
 """
 Partitioning for the temporal domain.
 """
-from .log import debug
+
 from collections.abc import Iterable
+
 import numpy as np
 
+from .log import debug
 
 __all__ = ["TimePartition", "TimeInterval", "TimeInstant"]
 

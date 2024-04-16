@@ -13,11 +13,11 @@
 # adaptation functionality from Firedrake, which can be found in ``firedrake.meshadapt``.
 # ::
 
-from firedrake import *
 from animate.adapt import adapt
 from animate.metric import RiemannianMetric
-from goalie import *
+from firedrake import *
 
+from goalie import *
 
 # We again consider the "point discharge with diffusion" test case from the
 # `previous demo <./point_discharge2d.py.html>`__, approximating the tracer concentration

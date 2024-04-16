@@ -1,6 +1,6 @@
-from .utility import AttrDict
 from animate.adapt import RiemannianMetric
 
+from .utility import AttrDict
 
 __all__ = [
     "AdaptParameters",

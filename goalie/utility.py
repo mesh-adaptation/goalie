@@ -2,14 +2,15 @@
 Utility functions and classes for mesh adaptation.
 """
 
+import os
 from collections import OrderedDict
+
 import firedrake
 import firedrake.mesh as fmesh
-from firedrake.petsc import PETSc
-from firedrake.__future__ import interpolate
 import numpy as np
-import os
 import ufl
+from firedrake.__future__ import interpolate
+from firedrake.petsc import PETSc
 
 
 @PETSc.Log.EventDecorator()
