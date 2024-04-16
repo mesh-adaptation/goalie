@@ -6,7 +6,13 @@ import re
 import unittest
 from unittest.mock import patch
 
-from firedrake import *
+from firedrake import (
+    Function,
+    FunctionSpace,
+    UnitCubeMesh,
+    UnitSquareMesh,
+    UnitTriangleMesh,
+)
 from pyadjoint.block_variable import BlockVariable
 
 from goalie.mesh_seq import MeshSeq
