@@ -11,6 +11,8 @@ install:
 	@echo "Done."
 
 lint:
+	@echo "Installing ruff..."
+	@python3 -m pip install ruff
 	@echo "Checking lint..."
 	@ruff check
 	@echo "PASS"
