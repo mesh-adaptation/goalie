@@ -185,17 +185,20 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     f", not type '{type(forms)}'."
                 )
 
-            # Loop over each strongly coupled field
-            for f in self.fields:
-                # Loop over each timestep
-                solutions = self.solutions.extract(layout="field")
-                indicators = self.indicators.extract(layout="field")
-                for j in range(len(solutions[f]["forward"][i])):
-                    # Update fields
+            # Loop over each timestep
+            for j in range(self.time_partition.num_exports_per_subinterval[i] - 1):
+                # Loop over each strongly coupled field
+                for f in self.fields:
+                    # Transfer solutions associated to the current field
                     transfer(self.solutions[f][FWD][i][j], u[f])
                     transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
                     transfer(self.solutions[f][ADJ][i][j], u_star[f])
                     transfer(self.solutions[f][ADJ_NEXT][i][j], u_star_next[f])
+                    # Transfer solutions associated to the fields solved next
+                    f_idx = self.fields.index(f)
+                    if len(self.fields) > 1 and f_idx < len(self.fields) - 1:
+                        for f_next in self.fields[f_idx + 1 :]:
+                            transfer(self.solutions[f_next][FWD_OLD][i][j], u[f_next])
 
                     # Combine adjoint solutions as appropriate
                     u_star[f].assign(0.5 * (u_star[f] + u_star_next[f]))
@@ -214,7 +217,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     # Transfer back to the base space
                     indi = self._transfer(indi_e, P0_spaces[i])
                     indi.interpolate(abs(indi))
-                    indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
+                    self.indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
 
         return self.solutions, self.indicators
 

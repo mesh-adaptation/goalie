@@ -127,6 +127,13 @@ def get_form(mesh_seq):
     return form
 
 
+# In the solver, it is important to solve for the fields in the order in which they are
+# defined in the ``fields`` list. This is to ensure that the error indicators are
+# computed correctly. Therefore, in the time integration loop, we first solve the
+# Stokes equations for the velocity and pressure fields, and then solve the energy
+# equation for the temperature field.
+
+
 def get_solver(mesh_seq):
     def solver(index, ic):
         Z = mesh_seq.function_spaces["up"][index]
