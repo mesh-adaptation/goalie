@@ -5,7 +5,6 @@ requires = ["setuptools"]
 name = "goalie"
 version = "0.2"
 dependencies = [
-  "black",
   "coverage",
   "ruff",
   "parameterized",
