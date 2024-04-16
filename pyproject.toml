@@ -55,8 +55,6 @@ ignore = [
   "F403",  # unable to detect undefined names
   "F405",  # name may be undefined, or defined from star imports
 ]
-
-[tool.ruff.format]
 include = [".pyi?$"]
 exclude = [".git"]
 
