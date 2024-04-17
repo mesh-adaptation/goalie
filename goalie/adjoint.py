@@ -6,6 +6,7 @@ from functools import wraps
 
 import firedrake
 import numpy as np
+from animate.utility import norm
 from firedrake.adjoint import pyadjoint
 from firedrake.petsc import PETSc
 
@@ -13,7 +14,7 @@ from .function_data import AdjointSolutionData
 from .log import pyrint
 from .mesh_seq import MeshSeq
 from .options import GoalOrientedParameters
-from .utility import AttrDict, norm
+from .utility import AttrDict
 
 __all__ = ["AdjointMeshSeq", "annotate_qoi"]
 

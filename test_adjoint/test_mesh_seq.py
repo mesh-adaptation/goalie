@@ -7,6 +7,7 @@ import unittest
 
 import pyadjoint
 import pytest
+from animate.utility import norm
 from firedrake import *
 from parameterized import parameterized
 

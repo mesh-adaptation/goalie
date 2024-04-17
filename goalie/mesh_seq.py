@@ -6,17 +6,18 @@ from collections.abc import Iterable
 
 import firedrake
 import numpy as np
+from animate.interpolation import transfer
 from animate.quality import QualityMeasure
+from animate.utility import Mesh
 from firedrake.adjoint import pyadjoint
 from firedrake.adjoint_utils.solving import get_solve_blocks
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
 
 from .function_data import ForwardSolutionData
-from .interpolation import transfer
 from .log import DEBUG, debug, info, logger, pyrint, warning
 from .options import AdaptParameters
-from .utility import AttrDict, Mesh
+from .utility import AttrDict
 
 __all__ = ["MeshSeq"]
 

@@ -7,6 +7,7 @@ import unittest
 import numpy as np
 import pytest
 from animate.metric import RiemannianMetric
+from animate.utility import errornorm
 from firedrake import *
 from parameterized import parameterized
 from sensors import *

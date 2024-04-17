@@ -9,6 +9,7 @@ import unittest
 
 import pyadjoint
 import pytest
+from animate.utility import errornorm, norm
 from firedrake import *
 
 from goalie_adjoint import *
