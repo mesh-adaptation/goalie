@@ -10,7 +10,7 @@ import unittest
 import pyadjoint
 import pytest
 from animate.utility import errornorm, norm
-from firedrake import *
+from firedrake import Cofunction, UnitTriangleMesh
 
 from goalie_adjoint import *
 
