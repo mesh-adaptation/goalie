@@ -2,14 +2,15 @@
 Test utility functions.
 """
 
-from firedrake import *
-from goalie import *
-from utility import uniform_mesh
 import os
 import pathlib
 import shutil
 import unittest
 
+from firedrake import *
+from utility import uniform_mesh
+
+from goalie import *
 
 pointwise_norm_types = [["l1"], ["l2"], ["linf"]]
 integral_scalar_norm_types = [["L1"], ["L2"], ["L4"], ["H1"], ["HCurl"]]

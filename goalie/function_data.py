@@ -2,10 +2,12 @@ r"""
 Nested dictionaries of solution data :class:`~.Function`\s.
 """
 
+import abc
+
 import firedrake.function as ffunc
 import firedrake.functionspace as ffs
+
 from .utility import AttrDict
-import abc
 
 __all__ = [
     "ForwardSolutionData",

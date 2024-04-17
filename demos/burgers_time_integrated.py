@@ -9,6 +9,7 @@
 # Begin by importing from Goalie and the first Burgers demo. ::
 
 from firedrake import *
+
 from goalie_adjoint import *
 
 # Redefine the ``get_initial_condition``, ``get_function_spaces``,

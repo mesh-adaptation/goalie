@@ -1,4 +1,8 @@
+import unittest
+
 from firedrake import *
+from parameterized import parameterized
+
 from goalie.error_estimation import (
     form2indicator,
     get_dwr_indicator,
@@ -6,8 +10,6 @@ from goalie.error_estimation import (
 from goalie.function_data import IndicatorData
 from goalie.go_mesh_seq import GoalOrientedMeshSeq
 from goalie.time_partition import TimeInstant, TimePartition
-from parameterized import parameterized
-import unittest
 
 
 class ErrorEstimationTestCase(unittest.TestCase):

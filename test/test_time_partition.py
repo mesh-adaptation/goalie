@@ -1,8 +1,10 @@
 """
 Testing for the time partition objects.
 """
-from goalie.time_partition import TimePartition, TimeInterval, TimeInstant
+
 import unittest
+
+from goalie.time_partition import TimeInstant, TimeInterval, TimePartition
 
 
 class TestSetup(unittest.TestCase):

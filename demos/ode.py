@@ -42,8 +42,8 @@ plt.savefig("ode-analytical.jpg")
 # First, import from the namespaces of Firedrake and Goalie. ::
 
 from firedrake import *
-from goalie import *
 
+from goalie import *
 
 # Next, create a simple :class:`~.TimeInterval` object to hold information related to
 # the time discretisation. This is a simplified version of :class:`~.TimePartition`,

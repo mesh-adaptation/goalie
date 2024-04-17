@@ -2,9 +2,10 @@
 Utility functions and classes for mesh adaptation.
 """
 
+import os
+
 import firedrake
 import numpy as np
-import os
 
 
 class AttrDict(dict):

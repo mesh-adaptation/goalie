@@ -1,4 +1,6 @@
-# Directories
+# .gitignore
+
+# Subdirectories
 htmlcov*
 outputs/
 plots/

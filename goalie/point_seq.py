@@ -1,5 +1,6 @@
 import firedrake
 import firedrake.mesh as fmesh
+
 from .mesh_seq import MeshSeq
 
 __all__ = ["PointSeq"]

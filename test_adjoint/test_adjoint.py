@@ -2,16 +2,17 @@
 Test adjoint drivers.
 """
 
-from firedrake import *
-from animate.utility import errornorm, norm
-from goalie_adjoint import *
-import pyadjoint
-import pytest
 import importlib
 import os
 import sys
 import unittest
 
+import pyadjoint
+import pytest
+from animate.utility import errornorm, norm
+from firedrake import Cofunction, UnitTriangleMesh
+
+from goalie_adjoint import *
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "examples"))
 

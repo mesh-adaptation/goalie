@@ -10,14 +10,14 @@
 # We copy over the setup as before. The only difference is that we import from
 # `goalie_adjoint` rather than `goalie`. ::
 
-from firedrake import *
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 from animate.adapt import adapt
 from animate.metric import RiemannianMetric
-from goalie_adjoint import *
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
+from firedrake import *
 from matplotlib import ticker
 
+from goalie_adjoint import *
 
 fields = ["c"]
 

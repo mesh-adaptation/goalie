@@ -2,10 +2,12 @@
 Unit tests for :class:`~.FunctionData` and its subclasses.
 """
 
-from firedrake import *
-from goalie import *
 import abc
 import unittest
+
+from firedrake import *
+
+from goalie import *
 
 
 class BaseTestCases:

@@ -10,7 +10,6 @@ Code here is based on that found at
 from firedrake import *
 from firedrake.__future__ import interpolate
 
-
 # Problem setup
 n = 32
 mesh = UnitSquareMesh(n, n, diagonal="left")
