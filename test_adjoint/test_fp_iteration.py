@@ -1,9 +1,11 @@
-from firedrake import *
-from goalie_adjoint import *
 import abc
-from parameterized import parameterized
 import unittest
 from unittest.mock import MagicMock
+
+from firedrake import *
+from parameterized import parameterized
+
+from goalie_adjoint import *
 
 
 def constant_qoi(mesh_seq, solutions, index):

@@ -12,6 +12,7 @@
 # of both Firedrake and Goalie. ::
 
 from firedrake import *
+
 from goalie import *
 
 # Again, turn debugging mode on to get verbose output. ::

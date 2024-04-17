@@ -9,12 +9,12 @@
 #
 # As before, we copy over what is now effectively boiler plate to set up our problem. ::
 
-from firedrake import *
+import matplotlib.pyplot as plt
 from animate.adapt import adapt
 from animate.metric import RiemannianMetric
-from goalie import *
-import matplotlib.pyplot as plt
+from firedrake import *
 
+from goalie import *
 
 fields = ["u"]
 

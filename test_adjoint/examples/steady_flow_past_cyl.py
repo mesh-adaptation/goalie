@@ -11,10 +11,10 @@ Code here is based on that found at
     https://nbviewer.jupyter.org/github/firedrakeproject/firedrake/blob/master/docs/notebooks/06-pde-constrained-optimisation.ipynb
 """
 
-from firedrake import *
-from firedrake.__future__ import interpolate
 import os
 
+from firedrake import *
+from firedrake.__future__ import interpolate
 
 mesh = Mesh(os.path.join(os.path.dirname(__file__), "mesh-with-hole.msh"))
 fields = ["up"]

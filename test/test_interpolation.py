@@ -2,12 +2,14 @@
 Test interpolation schemes.
 """
 
-from firedrake import *
-from goalie import *
-from goalie.utility import function2cofunction
-from goalie.interpolation import _transfer_forward, _transfer_adjoint
 import unittest
+
+from firedrake import *
 from parameterized import parameterized
+
+from goalie import *
+from goalie.interpolation import _transfer_adjoint, _transfer_forward
+from goalie.utility import function2cofunction
 
 
 class TestTransfer(unittest.TestCase):

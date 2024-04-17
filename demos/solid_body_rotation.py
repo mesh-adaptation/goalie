@@ -37,6 +37,7 @@
 # adjoint mode activated. ::
 
 from firedrake import *
+
 from goalie_adjoint import *
 
 # For simplicity, we use a :math:`\mathbb P1` space for each
@@ -113,9 +114,8 @@ time_partition = TimeInterval(
 # only the :meth:`get_function_spaces` and :meth:`get_initial_condition`
 # methods implemented. ::
 
-from firedrake.pyplot import tricontourf
 import matplotlib.pyplot as plt
-
+from firedrake.pyplot import tricontourf
 
 mesh_seq = MeshSeq(
     time_partition,

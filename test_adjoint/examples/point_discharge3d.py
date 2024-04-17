@@ -24,10 +24,11 @@ effectivity index can be computed.
     Proceedings of the 28th International
     Meshing Roundtable (2020).
 """
-from firedrake import *
-from goalie.math import bessk0
-import numpy as np
 
+import numpy as np
+from firedrake import *
+
+from goalie.math import bessk0
 
 # Problem setup
 n = 0

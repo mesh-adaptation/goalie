@@ -1,14 +1,16 @@
 """
 Driver functions for metric-based mesh adaptation.
 """
-from .log import debug
-from animate.metric import RiemannianMetric
-import firedrake
-from firedrake.petsc import PETSc
+
 from collections.abc import Iterable
+
+import firedrake
 import numpy as np
 import ufl
+from animate.metric import RiemannianMetric
+from firedrake.petsc import PETSc
 
+from .log import debug
 
 __all__ = ["enforce_variable_constraints", "space_time_normalise", "ramp_complexity"]
 

@@ -2,12 +2,12 @@
 Driver functions for mesh-to-mesh data transfer.
 """
 
-from .utility import assemble_mass_matrix, cofunction2function, function2cofunction
 import firedrake
 from firedrake.functionspaceimpl import WithGeometry
 from firedrake.petsc import PETSc
 from petsc4py import PETSc as petsc4py
 
+from .utility import assemble_mass_matrix, cofunction2function, function2cofunction
 
 __all__ = ["transfer", "interpolate", "project"]
 

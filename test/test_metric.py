@@ -1,15 +1,18 @@
 """
 Test metric normalisation functionality.
 """
-from firedrake import *
-from goalie import *
+
+import unittest
+
+import numpy as np
+import pytest
 from animate.metric import RiemannianMetric
+from firedrake import *
+from parameterized import parameterized
 from sensors import *
 from utility import uniform_mesh
-import numpy as np
-from parameterized import parameterized
-import pytest
-import unittest
+
+from goalie import *
 
 
 class BaseClasses:

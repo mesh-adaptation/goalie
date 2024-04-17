@@ -5,10 +5,10 @@ Olivier, Géraldine. Anisotropic metric-based mesh
 adaptation for unsteady CFD simulations involving
 moving geometries. Diss. 2011.
 """
+
 import firedrake
 from ufl import *
 from utility import uniform_mesh
-
 
 __all__ = ["bowl", "hyperbolic", "multiscale", "interweaved", "mesh_for_sensors"]
 

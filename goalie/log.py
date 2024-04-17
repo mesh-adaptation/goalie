@@ -4,10 +4,11 @@ Loggers for Goalie.
 Code mostly copied from `the Thetis project
 <https://thetisproject.org>`__.
 """
-import firedrake
-import logging
-from logging import DEBUG, WARNING, ERROR
 
+import logging
+from logging import DEBUG, ERROR, WARNING
+
+import firedrake
 
 __all__ = [
     "logger",

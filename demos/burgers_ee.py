@@ -25,6 +25,7 @@
 # Goalie. ::
 
 from firedrake import *
+
 from goalie_adjoint import *
 
 set_log_level(DEBUG)

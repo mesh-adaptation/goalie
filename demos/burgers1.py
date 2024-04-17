@@ -11,6 +11,7 @@
 # ::
 
 from firedrake import *
+
 from goalie_adjoint import *
 
 # For ease, the field list and functions for obtaining the

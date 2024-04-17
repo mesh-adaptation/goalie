@@ -2,20 +2,21 @@
 Sequences of meshes corresponding to a :class:`~.TimePartition`.
 """
 
+from collections.abc import Iterable
+
 import firedrake
+import numpy as np
+from animate.quality import QualityMeasure
 from firedrake.adjoint import pyadjoint
 from firedrake.adjoint_utils.solving import get_solve_blocks
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
+
 from .function_data import ForwardSolutionData
 from .interpolation import transfer
-from .log import pyrint, debug, warning, info, logger, DEBUG
+from .log import DEBUG, debug, info, logger, pyrint, warning
 from .options import AdaptParameters
-from animate.quality import QualityMeasure
 from .utility import AttrDict, Mesh
-from collections.abc import Iterable
-import numpy as np
-
 
 __all__ = ["MeshSeq"]
 
