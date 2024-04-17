@@ -6,9 +6,9 @@ name = "goalie"
 version = "0.2"
 dependencies = [
   "coverage",
-  "ruff",
   "parameterized",
   "pre-commit",
+  "ruff",
 ]
 authors = [
   {name = "Joseph G. Wallwork", email = "joe.wallwork@outlook.com"},
@@ -40,6 +40,8 @@ packages = ["goalie", "goalie_adjoint"]
 
 [tool.ruff]
 line-length = 88
+
+[tool.ruff.lint]
 select = [
 #  "B",  # flake8-bugbear  TODO: enable this  (#165)
 #  "C",  # mccabe complexity  TODO: enable this (#165)
@@ -55,8 +57,6 @@ ignore = [
   "F403",  # unable to detect undefined names
   "F405",  # name may be undefined, or defined from star imports
 ]
-include = [".pyi?$"]
-exclude = [".git"]
 
 [tool.pytest.ini_options]
 filterwarnings = [
