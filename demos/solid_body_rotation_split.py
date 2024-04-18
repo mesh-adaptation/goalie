@@ -80,7 +80,6 @@ mesh_seq = AdjointMeshSeq(
     get_function_spaces=get_function_spaces_split,
     get_initial_condition=get_initial_condition_split,
     get_form=get_form,
-    get_bcs=get_bcs,
     get_solver=get_solver_split,
     get_qoi=get_qoi_split,
     qoi_type="end_time",

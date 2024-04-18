@@ -98,19 +98,6 @@ def get_form(self):
     return form
 
 
-def get_bcs(self):
-    """
-    Zero Dirichlet condition on the
-    left-hand (inlet) boundary.
-    """
-
-    def bcs(i):
-        fs = self.function_spaces["tracer_3d"][i]
-        return DirichletBC(fs, 0, 1)
-
-    return bcs
-
-
 def get_solver(self):
     """
     Advection-diffusion equation
@@ -126,7 +113,9 @@ def get_solver(self):
 
         # Setup variational problem
         F = self.form(i, {"tracer_3d": (c, c)})
-        bc = self.bcs(i)
+
+        # Zero Dirichlet condition on the left-hand (inlet) boundary
+        bc = DirichletBC(fs, 0, 1)
 
         # Solve
         sp = {

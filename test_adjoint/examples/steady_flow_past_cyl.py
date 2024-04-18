@@ -55,22 +55,6 @@ def get_form(self):
     return form
 
 
-def get_bcs(self):
-    """
-    Inflow and no-slip conditions.
-    """
-
-    def bcs(i):
-        x, y = SpatialCoordinate(self[i])
-        u_inflow = as_vector([y * (10 - y) / 25.0, 0])
-        W = self.function_spaces["up"][i]
-        noslip = DirichletBC(W.sub(0), (0, 0), (3, 5))
-        inflow = DirichletBC(W.sub(0), assemble(interpolate(u_inflow, W.sub(0))), 1)
-        return [inflow, noslip, DirichletBC(W.sub(0), 0, 4)]
-
-    return bcs
-
-
 def get_solver(self):
     """
     Stokes problem solved using a
@@ -86,7 +70,13 @@ def get_solver(self):
 
         # Define variational problem
         F = self.form(i, {"up": (up, up)})
-        bcs = self.bcs(i)
+
+        # Define inflow and no-slip boundary conditions
+        y = SpatialCoordinate(self[i])[1]
+        u_inflow = as_vector([y * (10 - y) / 25.0, 0])
+        noslip = DirichletBC(W.sub(0), (0, 0), (3, 5))
+        inflow = DirichletBC(W.sub(0), assemble(interpolate(u_inflow, W.sub(0))), 1)
+        bcs = [inflow, noslip, DirichletBC(W.sub(0), 0, 4)]
 
         # Solve
         sp = {
