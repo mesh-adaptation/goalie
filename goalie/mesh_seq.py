@@ -42,7 +42,6 @@ class MeshSeq:
             :meth:`~.MeshSeq.get_initial_condition`
         :kwarg get_form: a function as described in :meth:`~.MeshSeq.get_form`
         :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
-        :kwarg get_bcs: a function as described in :meth:`~.MeshSeq.get_bcs`
         :kwarg transfer_method: the method to use for transferring fields between
             meshes. Options are "interpolate" (default) and "project"
         :type transfer_method: :class:`str`
@@ -63,7 +62,6 @@ class MeshSeq:
         self._get_initial_condition = kwargs.get("get_initial_condition")
         self._get_form = kwargs.get("get_form")
         self._get_solver = kwargs.get("get_solver")
-        self._get_bcs = kwargs.get("get_bcs")
         self._transfer_method = kwargs.get("transfer_method", "interpolate")
         self.params = kwargs.get("parameters")
         self.steady = time_partition.steady
@@ -315,25 +313,6 @@ class MeshSeq:
             raise NotImplementedError("'get_solver' needs implementing.")
         return self._get_solver(self)
 
-    def get_bcs(self):
-        """
-        Get the function mapping a subinterval index to a set of Dirichlet boundary
-        conditions.
-
-        Signature for the function to be returned:
-        ```
-        :arg index: the subinterval index
-        :type index: :class:`int`
-        :return: boundary conditions
-        :rtype: :class:`~.DirichletBC` or :class:`list` thereof
-        :rtype: see docstring above
-        ```
-
-        :returns: the function for obtaining the boundary conditions
-        """
-        if self._get_bcs is not None:
-            return self._get_bcs(self)
-
     def _transfer(self, source, target_space, **kwargs):
         """
         Transfer a field between meshes using the specified transfer method.
@@ -440,13 +419,6 @@ class MeshSeq:
         See :meth:`~.MeshSeq.get_solver`.
         """
         return self.get_solver()
-
-    @property
-    def bcs(self):
-        """
-        See :meth:`~.MeshSeq.get_bcs`.
-        """
-        return self.get_bcs()
 
     @PETSc.Log.EventDecorator()
     def get_checkpoints(self, solver_kwargs={}, run_final_subinterval=False):

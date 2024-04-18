@@ -68,7 +68,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             get_form=self._get_form,
             get_solver=self._get_solver,
             get_qoi=self._get_qoi,
-            get_bcs=self._get_bcs,
             qoi_type=self.qoi_type,
             parameters=self.params,
         )
