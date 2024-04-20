@@ -169,6 +169,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
         P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
         for i, mesh in enumerate(self):
+            time = self.get_time(i)
+
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
             enriched_spaces = {
@@ -201,11 +203,11 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     # Update fields
                     if timedep_const:
                         # recompile the form with updated time-dependent constants
-                        time = (
+                        time.assign(
                             tp.subintervals[i][0]
                             + (j + 1) * tp.timesteps[i] * tp.num_timesteps_per_export[i]
                         )
-                        forms = enriched_mesh_seq.form(i, mapping, err_ind_time=time)
+                        forms = enriched_mesh_seq.form(i, mapping)
                     transfer(self.solutions[f][FWD][i][j], u[f])
                     transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
                     transfer(self.solutions[f][ADJ][i][j], u_star[f])

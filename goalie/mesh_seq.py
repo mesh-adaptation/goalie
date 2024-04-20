@@ -11,6 +11,8 @@ from animate.quality import QualityMeasure
 from animate.utility import Mesh
 from firedrake.adjoint import pyadjoint
 from firedrake.adjoint_utils.solving import get_solve_blocks
+import firedrake.function as ffunc
+import firedrake.functionspace as ffs
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
 
@@ -169,7 +171,9 @@ class MeshSeq:
             :class:`firedrake.MeshGeometry`
         """
         # TODO #122: Refactor to use the set method
-        if not isinstance(meshes, Iterable):
+        if isinstance(meshes, map):
+            meshes = list(meshes)
+        elif not isinstance(meshes, Iterable):
             meshes = [Mesh(meshes) for subinterval in self.subintervals]
         self.meshes = meshes
         dim = np.array([mesh.topological_dimension() for mesh in meshes])
@@ -188,6 +192,23 @@ class MeshSeq:
                     f"{i}: {nc:7d} cells, {nv:7d} vertices,   max aspect ratio {mar:.2f}"
                 )
             debug(100 * "-")
+        self._time = [
+            ffunc.Function(ffs.FunctionSpace(mesh, "R", 0)) for mesh in meshes
+        ]
+
+    def get_time(self, subinterval):
+        """
+        Get the time :class:`~.Function` associated with a given subinterval,
+        initialised to the value at the start of the subinterval.
+
+        :arg subinterval: the subinterval index
+        :type subinterval: :class:`int`
+        :return: the associated $R$-space time Function
+        :rtype: :class:`~.Function`
+        """
+        start_time = self.time_partition[subinterval].start_time
+        self._time[subinterval].assign(start_time)
+        return self._time[subinterval]
 
     def plot(self, fig=None, axes=None, **kwargs):
         """
