@@ -218,19 +218,14 @@ def adaptor(mesh_seq, solutions, indicators):
     # Normalise the metrics in space and time
     space_time_normalise(metrics, mesh_seq.time_partition, mp)
 
-    complexities = np.zeros(len(mesh_seq))
-    for i, metric in enumerate(metrics):
-        complexities[i] = metric.complexity()
-        mesh_seq[i] = adapt(mesh_seq[i], metric)
-
+    # Apply mesh adaptation
+    mesh_seq.set_meshes(map(adapt, mesh_seq, metrics))
     num_dofs = mesh_seq.count_vertices()
     num_elem = mesh_seq.count_elements()
     pyrint(f"Fixed point iteration {iteration}:")
-    for i, (complexity, ndofs, nelem) in enumerate(
-        zip(complexities, num_dofs, num_elem)
-    ):
+    for i, (ndofs, nelem, metric) in enumerate(zip(num_dofs, num_elem, metrics)):
         pyrint(
-            f"  subinterval {i}, complexity: {complexity:4.0f}"
+            f"  subinterval {i}, complexity: {metric.complexity():4.0f}"
             f", dofs: {ndofs:4d}, elements: {nelem:4d}"
         )
 
