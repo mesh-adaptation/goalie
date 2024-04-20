@@ -56,6 +56,24 @@ class TestGeneric(unittest.TestCase):
         self.assertEqual(str(cm.exception), msg)
 
     @parameterized.expand(["get_function_spaces", "get_initial_condition", "get_form"])
+    def test_return_dict_error(self, method):
+        mesh = UnitSquareMesh(1, 1)
+        methods = ["get_function_spaces", "get_initial_condition", "get_form"]
+        values = [lambda _: 0, lambda _: 0, lambda _: lambda *_: 0]
+        methods_map = dict(zip(methods, values))
+        if method == "get_form":
+            kwargs = {method: value for method, value in methods_map.items()}
+            f_space = FunctionSpace(mesh, "CG", 1)
+            kwargs["get_function_spaces"] = lambda _: {"field": f_space}
+            kwargs["get_initial_condition"] = lambda _: {"field": Function(f_space)}
+        else:
+            kwargs = {method: methods_map[method]}
+        with self.assertRaises(AssertionError) as cm:
+            MeshSeq(self.time_interval, mesh, **kwargs)
+        msg = f"{method} should return a dict"
+        self.assertEqual(str(cm.exception), msg)
+
+    @parameterized.expand(["get_function_spaces", "get_initial_condition", "get_form"])
     def test_missing_field_error(self, method):
         mesh = UnitSquareMesh(1, 1)
         methods = ["get_function_spaces", "get_initial_condition", "get_form"]

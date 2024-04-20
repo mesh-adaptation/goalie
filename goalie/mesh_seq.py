@@ -358,16 +358,13 @@ class MeshSeq:
 
     def _outputs_consistent(self):
         """
-        Assert that the function spaces, initial condition, and form, are given in a
+        Assert that function spaces, initial conditions, and forms are given in a
         dictionary format with :attr:`MeshSeq.fields` as keys.
         """
         for method in ["get_function_spaces", "get_initial_condition", "get_form"]:
             if getattr(self, f"_{method}") is None:
-                # print(f"None {method}")
                 continue
-            # print(f"yes {method}")
             method_map = getattr(self, method)
-            # print(method_map)
             if method == "get_function_spaces":
                 method_map = method_map(self.meshes[0])
             elif method == "get_initial_condition":
