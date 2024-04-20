@@ -13,6 +13,7 @@ from firedrake import (
     UnitSquareMesh,
     UnitTriangleMesh,
 )
+from parameterized import parameterized
 from pyadjoint.block_variable import BlockVariable
 
 from goalie.mesh_seq import MeshSeq
@@ -43,26 +44,73 @@ class TestGeneric(unittest.TestCase):
         msg = "Meshes must all have the same topological dimension."
         self.assertEqual(str(cm.exception), msg)
 
-    def test_get_function_spaces_notimplemented_error(self):
-        meshes = [UnitSquareMesh(1, 1)]
-        mesh_seq = MeshSeq(self.time_interval, meshes)
-        with self.assertRaises(NotImplementedError) as cm:
-            mesh_seq.get_function_spaces(meshes[0])
-        msg = "'get_function_spaces' needs implementing."
-        self.assertEqual(str(cm.exception), msg)
-
-    def test_get_form_notimplemented_error(self):
+    @parameterized.expand(["get_function_spaces", "get_form", "get_solver"])
+    def test_notimplemented_error(self, function_name):
         mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)])
         with self.assertRaises(NotImplementedError) as cm:
-            mesh_seq.get_form()
-        msg = "'get_form' needs implementing."
+            if function_name == "get_function_spaces":
+                getattr(mesh_seq, function_name)(mesh_seq[0])
+            else:
+                getattr(mesh_seq, function_name)()
+        msg = f"'{function_name}' needs implementing."
         self.assertEqual(str(cm.exception), msg)
 
-    def test_get_solver_notimplemented_error(self):
-        mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)])
-        with self.assertRaises(NotImplementedError) as cm:
-            mesh_seq.get_solver()
-        msg = "'get_solver' needs implementing."
+    @parameterized.expand(["initial condition", "form"])
+    def test_missing_field_error(self, function_name):
+        mesh = UnitSquareMesh(1, 1)
+
+        if function_name == "initial condition":
+
+            def get_initial_condition(mesh_seq):
+                return {"new_field": 1.0}
+
+            mesh_seq = MeshSeq(
+                self.time_interval, mesh, get_initial_condition=get_initial_condition
+            )
+            with self.assertRaises(AssertionError) as cm:
+                mesh_seq.initial_condition()
+        elif function_name == "form":
+
+            def get_form(mesh_seq):
+                def form(index, solutions):
+                    return {"new_field": 1.0}
+
+                return form
+
+            mesh_seq = MeshSeq(self.time_interval, mesh, get_form=get_form)
+            with self.assertRaises(AssertionError) as cm:
+                mesh_seq.form(0, 0)
+
+        msg = "missing fields {'field'} in " + f"{function_name}"
+        self.assertEqual(str(cm.exception), msg)
+
+    @parameterized.expand(["initial condition", "form"])
+    def test_unexpected_field_error(self, function_name):
+        mesh = UnitSquareMesh(1, 1)
+
+        if function_name == "initial condition":
+
+            def get_initial_condition(mesh_seq):
+                return {"field": 1.0, "extra_field": 1.0}
+
+            mesh_seq = MeshSeq(
+                self.time_interval, mesh, get_initial_condition=get_initial_condition
+            )
+            with self.assertRaises(AssertionError) as cm:
+                mesh_seq.initial_condition()
+        elif function_name == "form":
+
+            def get_form(mesh_seq):
+                def form(index, solutions):
+                    return {"field": 1.0, "extra_field": 1.0}
+
+                return form
+
+            mesh_seq = MeshSeq(self.time_interval, mesh, get_form=get_form)
+            with self.assertRaises(AssertionError) as cm:
+                mesh_seq.form(0, 0)
+
+        msg = "unexpected fields {'extra_field'} in " + f"{function_name}"
         self.assertEqual(str(cm.exception), msg)
 
     def test_counting(self):
