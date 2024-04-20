@@ -269,6 +269,9 @@ if not test:
             for sol in sols["adjoint"][i]:
                 adj_outfile.write(sol)
 
+# In the `next demo <./gray_scott.py.html>`__, we increase the complexity by considering
+# two concentration fields in an advection-diffusion-reaction problem.
+#
 # This tutorial can be dowloaded as a
 # `Python script <solid_body_rotation.py>`__.
 #
