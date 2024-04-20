@@ -86,7 +86,7 @@ def get_solver(mesh_seq):
         nlvs = NonlinearVariationalSolver(nlvp, ad_block_tag="c")
 
         # Time integrate from t_start to t_end
-        while float(time) < t_end - 0.5 * dt:
+        while float(time) < t_end + 0.5 * dt:
             # Update the background velocity field at the current timestep
             u.interpolate(velocity_expression(x, y, time))
 
