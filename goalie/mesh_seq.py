@@ -199,7 +199,7 @@ class MeshSeq:
     def get_time(self, subinterval):
         """
         Get the time :class:`~.Function` associated with a given subinterval,
-        initialised to the value at the start of the subinterval.
+        initialised to the value at the start of the subinterval, plus one timestep.
 
         :arg subinterval: the subinterval index
         :type subinterval: :class:`int`
@@ -207,7 +207,8 @@ class MeshSeq:
         :rtype: :class:`~.Function`
         """
         start_time = self.time_partition[subinterval].start_time
-        self._time[subinterval].assign(start_time)
+        dt = self.time_partition.timesteps[subinterval]
+        self._time[subinterval].assign(start_time + dt)
         return self._time[subinterval]
 
     def plot(self, fig=None, axes=None, **kwargs):

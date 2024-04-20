@@ -87,17 +87,16 @@ def get_solver(mesh_seq):
 
         # Time integrate from t_start to t_end
         while float(time) < t_end - 0.5 * dt:
-            time += dt
-
-            # update the background velocity field at the current timestep
+            # Update the background velocity field at the current timestep
             u.interpolate(velocity_expression(x, y, time))
 
-            # solve the advection equation
+            # Solve the advection equation
             nlvs.solve()
 
-            # update the 'lagged' concentration and velocity field
+            # Update the 'lagged' concentration and velocity field
             c_.assign(c)
             u_.assign(u)
+            time += dt
 
         return {"c": c}
 
