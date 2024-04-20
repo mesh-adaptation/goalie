@@ -63,6 +63,7 @@ def get_solver(mesh_seq):
         tp = mesh_seq.time_partition
         t_start, t_end = tp.subintervals[index]
         dt = tp.timesteps[index]
+        time = mesh_seq.get_time(index)
 
         # Initialise the concentration fields
         Q = mesh_seq.function_spaces["c"][index]
@@ -76,7 +77,7 @@ def get_solver(mesh_seq):
 
         # Compute the velocity field at t_start and assign it to u_
         x, y = SpatialCoordinate(mesh_seq[index])
-        u_.interpolate(velocity_expression(x, y, t_start))
+        u_.interpolate(velocity_expression(x, y, time))
 
         # We pass both the concentration and velocity Functions to get_form
         form_fields = {"c": (c, c_), "u": (u, u_)}
@@ -85,10 +86,11 @@ def get_solver(mesh_seq):
         nlvs = NonlinearVariationalSolver(nlvp, ad_block_tag="c")
 
         # Time integrate from t_start to t_end
-        t = t_start + dt
-        while t < t_end + 0.5 * dt:
+        while float(time) < t_end - 0.5 * dt:
+            time += dt
+
             # update the background velocity field at the current timestep
-            u.interpolate(velocity_expression(x, y, t))
+            u.interpolate(velocity_expression(x, y, time))
 
             # solve the advection equation
             nlvs.solve()
@@ -96,7 +98,6 @@ def get_solver(mesh_seq):
             # update the 'lagged' concentration and velocity field
             c_.assign(c)
             u_.assign(u)
-            t += dt
 
         return {"c": c}
 
@@ -109,24 +110,25 @@ def get_solver(mesh_seq):
 # in the context of goal-oriented mesh adaptation,  the :meth:`get_form` method is
 # called from within :class:`GoalOrientedMeshSeq` while computing error indicators.
 # There, only those fields that are passed to :class:`GoalOrientedMeshSeq` are passed to
-# :meth:`get_form`. This means that the velocity field would not be updated in time. In
-# such a case, we will manually compute the velocity field using the current simulation
-# time, which will be passed automatically as an :arg:`err_ind_time` kwarg in
-# :meth:`GoalOrientedMeshSeq.indicate_errors`. ::
+# :meth:`get_form`. Currently, Goalie does not consider passing non-prognostic fields
+# to this method during the error-estimation step, so the velocity would not be updated
+# in time. To account for this, we need to add some code for updating the velocity
+# field when it is not present in the dictionary of fields passed. ::
 
 
 def get_form(mesh_seq):
-    def form(index, form_fields, err_ind_time=None):
+    def form(index, form_fields):
         Q = mesh_seq.function_spaces["c"][index]
         c, c_ = form_fields["c"]
+        time = mesh_seq.get_time(index)
 
         if "u" in form_fields:
             u, u_ = form_fields["u"]
         else:
             x, y = SpatialCoordinate(mesh_seq[index])
             V = VectorFunctionSpace(mesh_seq[index], "CG", 1)
-            u = Function(V).interpolate(velocity_expression(x, y, err_ind_time))
-            u_ = Function(V).interpolate(velocity_expression(x, y, err_ind_time))
+            u = Function(V).interpolate(velocity_expression(x, y, time))
+            u_ = Function(V).interpolate(velocity_expression(x, y, time))
 
         # The rest remains unchanged
 
