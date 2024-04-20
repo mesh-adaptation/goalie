@@ -164,6 +164,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         # check whether get_form contains a kwarg indicating time-dependent constants
         timedep_const = "err_ind_time" in signature(enriched_mesh_seq.form).parameters
 
+        tp = self.time_partition
+        # check whether get_form contains a kwarg indicating time-dependent constants
+        timedep_const = "err_ind_time" in signature(enriched_mesh_seq.form).parameters
+
         FWD, ADJ = "forward", "adjoint"
         FWD_OLD = "forward" if self.steady else "forward_old"
         ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
