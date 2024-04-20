@@ -46,7 +46,7 @@ class TestGeneric(unittest.TestCase):
 
     @parameterized.expand(["get_function_spaces", "get_form", "get_solver"])
     def test_notimplemented_error(self, function_name):
-        mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)])
+        mesh_seq = MeshSeq(self.time_interval, UnitSquareMesh(1, 1))
         with self.assertRaises(NotImplementedError) as cm:
             if function_name == "get_function_spaces":
                 getattr(mesh_seq, function_name)(mesh_seq[0])
@@ -55,62 +55,41 @@ class TestGeneric(unittest.TestCase):
         msg = f"'{function_name}' needs implementing."
         self.assertEqual(str(cm.exception), msg)
 
-    @parameterized.expand(["initial condition", "form"])
-    def test_missing_field_error(self, function_name):
+    @parameterized.expand(["get_function_spaces", "get_initial_condition", "get_form"])
+    def test_missing_field_error(self, method):
         mesh = UnitSquareMesh(1, 1)
-
-        if function_name == "initial condition":
-
-            def get_initial_condition(mesh_seq):
-                return {"new_field": 1.0}
-
-            mesh_seq = MeshSeq(
-                self.time_interval, mesh, get_initial_condition=get_initial_condition
-            )
-            with self.assertRaises(AssertionError) as cm:
-                mesh_seq.initial_condition()
-        elif function_name == "form":
-
-            def get_form(mesh_seq):
-                def form(index, solutions):
-                    return {"new_field": 1.0}
-
-                return form
-
-            mesh_seq = MeshSeq(self.time_interval, mesh, get_form=get_form)
-            with self.assertRaises(AssertionError) as cm:
-                mesh_seq.form(0, 0)
-
-        msg = "missing fields {'field'} in " + f"{function_name}"
+        methods = ["get_function_spaces", "get_initial_condition", "get_form"]
+        values = [lambda _: {}, lambda _: {}, lambda _: lambda *_: {}]
+        methods_map = dict(zip(methods, values))
+        if method == "get_form":
+            kwargs = {method: value for method, value in methods_map.items()}
+            f_space = FunctionSpace(mesh, "CG", 1)
+            kwargs["get_function_spaces"] = lambda _: {"field": f_space}
+            kwargs["get_initial_condition"] = lambda _: {"field": Function(f_space)}
+        else:
+            kwargs = {method: methods_map[method]}
+        with self.assertRaises(AssertionError) as cm:
+            MeshSeq(self.time_interval, mesh, **kwargs)
+        msg = "missing fields {'field'} in " + f"{method}"
         self.assertEqual(str(cm.exception), msg)
 
-    @parameterized.expand(["initial condition", "form"])
-    def test_unexpected_field_error(self, function_name):
+    @parameterized.expand(["get_function_spaces", "get_initial_condition", "get_form"])
+    def test_unexpected_field_error(self, method):
         mesh = UnitSquareMesh(1, 1)
-
-        if function_name == "initial condition":
-
-            def get_initial_condition(mesh_seq):
-                return {"field": 1.0, "extra_field": 1.0}
-
-            mesh_seq = MeshSeq(
-                self.time_interval, mesh, get_initial_condition=get_initial_condition
-            )
-            with self.assertRaises(AssertionError) as cm:
-                mesh_seq.initial_condition()
-        elif function_name == "form":
-
-            def get_form(mesh_seq):
-                def form(index, solutions):
-                    return {"field": 1.0, "extra_field": 1.0}
-
-                return form
-
-            mesh_seq = MeshSeq(self.time_interval, mesh, get_form=get_form)
-            with self.assertRaises(AssertionError) as cm:
-                mesh_seq.form(0, 0)
-
-        msg = "unexpected fields {'extra_field'} in " + f"{function_name}"
+        methods = ["get_function_spaces", "get_initial_condition", "get_form"]
+        out_dict = {"field": None, "extra_field": None}
+        values = [lambda _: out_dict, lambda _: out_dict, lambda _: lambda *_: out_dict]
+        methods_map = dict(zip(methods, values))
+        if method == "get_form":
+            kwargs = {method: value for method, value in methods_map.items()}
+            f_space = FunctionSpace(mesh, "CG", 1)
+            kwargs["get_function_spaces"] = lambda _: {"field": f_space}
+            kwargs["get_initial_condition"] = lambda _: {"field": Function(f_space)}
+        else:
+            kwargs = {method: methods_map[method]}
+        with self.assertRaises(AssertionError) as cm:
+            MeshSeq(self.time_interval, mesh, **kwargs)
+        msg = "unexpected fields {'extra_field'} in " + f"{method}"
         self.assertEqual(str(cm.exception), msg)
 
     def test_counting(self):
