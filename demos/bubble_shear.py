@@ -21,6 +21,7 @@
 # First, we import Firedrake and Goalie. ::
 
 from firedrake import *
+
 from goalie import *
 
 # We begin by definining the background velocity field :math:`\mathbf{u}(x, y, t)`.

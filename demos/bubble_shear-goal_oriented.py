@@ -11,11 +11,11 @@
 # time-dependent background velocity field which is not passed to
 # :class:`GoalOrientedMeshSeq`. ::
 
-from firedrake import *
-from goalie_adjoint import *
-from animate.metric import RiemannianMetric
 from animate.adapt import adapt
+from animate.metric import RiemannianMetric
+from firedrake import *
 
+from goalie_adjoint import *
 
 period = 6.0
 

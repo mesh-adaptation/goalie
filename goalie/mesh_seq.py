@@ -5,14 +5,14 @@ Sequences of meshes corresponding to a :class:`~.TimePartition`.
 from collections.abc import Iterable
 
 import firedrake
+import firedrake.function as ffunc
+import firedrake.functionspace as ffs
 import numpy as np
 from animate.interpolation import transfer
 from animate.quality import QualityMeasure
 from animate.utility import Mesh
 from firedrake.adjoint import pyadjoint
 from firedrake.adjoint_utils.solving import get_solve_blocks
-import firedrake.function as ffunc
-import firedrake.functionspace as ffs
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
 

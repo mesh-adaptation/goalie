@@ -3,18 +3,17 @@ Drivers for goal-oriented error estimation on sequences of meshes.
 """
 
 from collections.abc import Iterable
+from inspect import signature
 
 import numpy as np
 import ufl
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
 from firedrake.petsc import PETSc
-from inspect import signature
 
 from .adjoint import AdjointMeshSeq
 from .error_estimation import get_dwr_indicator
 from .function_data import IndicatorData
 from .log import pyrint
-
 
 __all__ = ["GoalOrientedMeshSeq"]
 
