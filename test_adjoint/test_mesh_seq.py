@@ -354,7 +354,7 @@ class TestErrorIndication(TrivialGoalOrientedBaseClass):
             qoi_type="steady",
         )
         mesh_seq._get_function_spaces = lambda _: {}
-        mesh_seq._get_form = lambda _: lambda *_: 0
+        mesh_seq._get_form = lambda _: lambda *_: {}
         mesh_seq._get_solver = lambda _: lambda *_: {}
         with self.assertRaises(TypeError) as cm:
             mesh_seq.fixed_point_iteration(lambda *_: [False])
