@@ -46,7 +46,7 @@ def get_form(self):
             + inner(dot(u, nabla_grad(u)), v) * dx
             + nu * inner(grad(u), grad(v)) * dx
         )
-        return F
+        return {"uv_2d": F}
 
     return form
 
@@ -68,7 +68,7 @@ def get_solver(self):
         u_.assign(ic["uv_2d"])
 
         # Setup variational problem
-        F = self.form(i, {"uv_2d": (u, u_)})
+        F = self.form(i, {"uv_2d": (u, u_)})["uv_2d"]
 
         # Time integrate from t_start to t_end
         t = t_start
