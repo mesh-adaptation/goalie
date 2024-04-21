@@ -9,6 +9,7 @@
 # equations differ in both the diffusion and reaction terms. ::
 
 from firedrake import *
+
 from goalie_adjoint import *
 
 # This time, we have two fields instead of one, as well as two function spaces. ::

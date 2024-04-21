@@ -9,12 +9,12 @@
 #
 # As before, we copy over what is now effectively boiler plate to set up our problem. ::
 
-from firedrake import *
+import matplotlib.pyplot as plt
 from animate.adapt import adapt
 from animate.metric import RiemannianMetric
-from goalie import *
-import matplotlib.pyplot as plt
+from firedrake import *
 
+from goalie import *
 
 fields = ["u"]
 
@@ -164,10 +164,8 @@ def adaptor(mesh_seq, solutions):
     space_time_normalise(metrics, mesh_seq.time_partition, mp)
 
     # Adapt each mesh w.r.t. the corresponding metric, provided it hasn't converged
-    for i, metric in enumerate(metrics):
-        if not mesh_seq.converged[i]:
-            mesh_seq[i] = adapt(mesh_seq[i], metric)
-        complexities.append(metric.complexity())
+    complexities = [metric.complexity() for metric in metrics]
+    mesh_seq.set_meshes(map(adapt, mesh_seq, metrics))
     num_dofs = mesh_seq.count_vertices()
     num_elem = mesh_seq.count_elements()
     pyrint(f"fixed point iteration {iteration + 1}:")

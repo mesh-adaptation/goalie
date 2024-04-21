@@ -18,7 +18,6 @@
 
 from solid_body_rotation import *
 
-
 fields = ["bell", "cone", "slot_cyl"]
 
 

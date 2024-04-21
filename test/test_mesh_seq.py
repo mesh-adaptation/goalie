@@ -1,13 +1,22 @@
 """
 Testing for the mesh sequence objects.
 """
-from goalie.mesh_seq import MeshSeq
-from goalie.time_partition import TimePartition, TimeInterval
-from firedrake import *
-from pyadjoint.block_variable import BlockVariable
+
 import re
 import unittest
 from unittest.mock import patch
+
+from firedrake import (
+    Function,
+    FunctionSpace,
+    UnitCubeMesh,
+    UnitSquareMesh,
+    UnitTriangleMesh,
+)
+from pyadjoint.block_variable import BlockVariable
+
+from goalie.mesh_seq import MeshSeq
+from goalie.time_partition import TimeInterval, TimePartition
 
 
 class TestGeneric(unittest.TestCase):

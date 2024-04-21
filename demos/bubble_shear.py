@@ -21,6 +21,7 @@
 # First, we import Firedrake and Goalie. ::
 
 from firedrake import *
+
 from goalie import *
 
 # We begin by definining the background velocity field :math:`\mathbf{u}(x, y, t)`.
@@ -137,6 +138,7 @@ def get_solver(mesh_seq):
         tp = mesh_seq.time_partition
         t_start, t_end = tp.subintervals[index]
         dt = tp.timesteps[index]
+        time = mesh_seq.get_time(index)
 
         # Initialise the concentration fields
         Q = mesh_seq.function_spaces["c"][index]
@@ -150,7 +152,7 @@ def get_solver(mesh_seq):
 
         # Compute the velocity field at t_start and assign it to u_
         x, y = SpatialCoordinate(mesh_seq[index])
-        u_.interpolate(velocity_expression(x, y, t_start))
+        u_.interpolate(velocity_expression(x, y, time))
 
         # We pass both the concentration and velocity Functions to get_form
         form_fields = {"c": (c, c_), "u": (u, u_)}
@@ -159,18 +161,17 @@ def get_solver(mesh_seq):
         nlvs = NonlinearVariationalSolver(nlvp, ad_block_tag="c")
 
         # Time integrate from t_start to t_end
-        t = t_start + dt
-        while t < t_end + 0.5 * dt:
-            # update the background velocity field at the current timestep
-            u.interpolate(velocity_expression(x, y, t))
+        while float(time) < t_end + 0.5 * dt:
+            # Update the background velocity field at the current timestep
+            u.interpolate(velocity_expression(x, y, time))
 
-            # solve the advection equation
+            # Solve the advection equation
             nlvs.solve()
 
-            # update the 'lagged' concentration and velocity field
+            # Update the 'lagged' concentration and velocity field
             c_.assign(c)
             u_.assign(u)
-            t += dt
+            time += dt
 
         return {"c": c}
 

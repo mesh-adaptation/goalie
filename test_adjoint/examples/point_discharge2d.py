@@ -15,10 +15,11 @@ computed.
     Paris: R&D, Electricite de France,
     p. 134 (2014).
 """
-from firedrake import *
-from goalie.math import bessk0
-import numpy as np
 
+import numpy as np
+from firedrake import *
+
+from goalie.math import bessk0
 
 # Problem setup
 n = 0

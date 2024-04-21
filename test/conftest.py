@@ -3,6 +3,7 @@ Global pytest configuration.
 
 **Disclaimer: some functions copied from firedrake/src/tests/conftest.py
 """
+
 from subprocess import check_call
 
 
@@ -81,8 +82,9 @@ def pytest_runtest_setup(item):
 
         if MPI.COMM_WORLD.size > 1:
             # Turn on source hash checking
-            from firedrake import parameters
             from functools import partial
+
+            from firedrake import parameters
 
             def _reset(check):
                 parameters["pyop2_options"]["check_src_hashes"] = check

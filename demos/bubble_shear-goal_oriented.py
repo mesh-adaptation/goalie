@@ -11,11 +11,11 @@
 # time-dependent background velocity field which is not passed to
 # :class:`GoalOrientedMeshSeq`. ::
 
-from firedrake import *
-from goalie_adjoint import *
-from animate.metric import RiemannianMetric
 from animate.adapt import adapt
+from animate.metric import RiemannianMetric
+from firedrake import *
 
+from goalie_adjoint import *
 
 period = 6.0
 
@@ -63,6 +63,7 @@ def get_solver(mesh_seq):
         tp = mesh_seq.time_partition
         t_start, t_end = tp.subintervals[index]
         dt = tp.timesteps[index]
+        time = mesh_seq.get_time(index)
 
         # Initialise the concentration fields
         Q = mesh_seq.function_spaces["c"][index]
@@ -76,7 +77,7 @@ def get_solver(mesh_seq):
 
         # Compute the velocity field at t_start and assign it to u_
         x, y = SpatialCoordinate(mesh_seq[index])
-        u_.interpolate(velocity_expression(x, y, t_start))
+        u_.interpolate(velocity_expression(x, y, time))
 
         # We pass both the concentration and velocity Functions to get_form
         form_fields = {"c": (c, c_), "u": (u, u_)}
@@ -85,18 +86,17 @@ def get_solver(mesh_seq):
         nlvs = NonlinearVariationalSolver(nlvp, ad_block_tag="c")
 
         # Time integrate from t_start to t_end
-        t = t_start + dt
-        while t < t_end + 0.5 * dt:
-            # update the background velocity field at the current timestep
-            u.interpolate(velocity_expression(x, y, t))
+        while float(time) < t_end + 0.5 * dt:
+            # Update the background velocity field at the current timestep
+            u.interpolate(velocity_expression(x, y, time))
 
-            # solve the advection equation
+            # Solve the advection equation
             nlvs.solve()
 
-            # update the 'lagged' concentration and velocity field
+            # Update the 'lagged' concentration and velocity field
             c_.assign(c)
             u_.assign(u)
-            t += dt
+            time += dt
 
         return {"c": c}
 
@@ -109,24 +109,25 @@ def get_solver(mesh_seq):
 # in the context of goal-oriented mesh adaptation,  the :meth:`get_form` method is
 # called from within :class:`GoalOrientedMeshSeq` while computing error indicators.
 # There, only those fields that are passed to :class:`GoalOrientedMeshSeq` are passed to
-# :meth:`get_form`. This means that the velocity field would not be updated in time. In
-# such a case, we will manually compute the velocity field using the current simulation
-# time, which will be passed automatically as an :arg:`err_ind_time` kwarg in
-# :meth:`GoalOrientedMeshSeq.indicate_errors`. ::
+# :meth:`get_form`. Currently, Goalie does not consider passing non-prognostic fields
+# to this method during the error-estimation step, so the velocity would not be updated
+# in time. To account for this, we need to add some code for updating the velocity
+# field when it is not present in the dictionary of fields passed. ::
 
 
 def get_form(mesh_seq):
-    def form(index, form_fields, err_ind_time=None):
+    def form(index, form_fields):
         Q = mesh_seq.function_spaces["c"][index]
         c, c_ = form_fields["c"]
+        time = mesh_seq.get_time(index)
 
         if "u" in form_fields:
             u, u_ = form_fields["u"]
         else:
             x, y = SpatialCoordinate(mesh_seq[index])
             V = VectorFunctionSpace(mesh_seq[index], "CG", 1)
-            u = Function(V).interpolate(velocity_expression(x, y, err_ind_time))
-            u_ = Function(V).interpolate(velocity_expression(x, y, err_ind_time))
+            u = Function(V).interpolate(velocity_expression(x, y, time))
+            u_ = Function(V).interpolate(velocity_expression(x, y, time))
 
         # The rest remains unchanged
 
@@ -216,19 +217,14 @@ def adaptor(mesh_seq, solutions, indicators):
     # Normalise the metrics in space and time
     space_time_normalise(metrics, mesh_seq.time_partition, mp)
 
-    complexities = np.zeros(len(mesh_seq))
-    for i, metric in enumerate(metrics):
-        complexities[i] = metric.complexity()
-        mesh_seq[i] = adapt(mesh_seq[i], metric)
-
+    # Apply mesh adaptation
+    mesh_seq.set_meshes(map(adapt, mesh_seq, metrics))
     num_dofs = mesh_seq.count_vertices()
     num_elem = mesh_seq.count_elements()
     pyrint(f"Fixed point iteration {iteration}:")
-    for i, (complexity, ndofs, nelem) in enumerate(
-        zip(complexities, num_dofs, num_elem)
-    ):
+    for i, (ndofs, nelem, metric) in enumerate(zip(num_dofs, num_elem, metrics)):
         pyrint(
-            f"  subinterval {i}, complexity: {complexity:4.0f}"
+            f"  subinterval {i}, complexity: {metric.complexity():4.0f}"
             f", dofs: {ndofs:4d}, elements: {nelem:4d}"
         )
 

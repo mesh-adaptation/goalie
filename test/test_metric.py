@@ -1,30 +1,66 @@
 """
 Test metric normalisation functionality.
 """
-from firedrake import *
-from goalie import *
-from animate.metric import RiemannianMetric
-from sensors import *
-from utility import uniform_mesh
-import numpy as np
-from parameterized import parameterized
-import pytest
+
 import unittest
 
+import numpy as np
+import pytest
+from animate.metric import RiemannianMetric
+from animate.utility import errornorm
+from firedrake import *
+from parameterized import parameterized
+from sensors import *
+from utility import uniform_mesh
 
-class TestMetricNormalisation(unittest.TestCase):
+from goalie import *
+
+
+class BaseClasses:
+    """
+    Base classes for unit testing.
+    """
+
+    class MetricTestCase(unittest.TestCase):
+        """
+        Base class for metric unit tests.
+        """
+
+        def setUp(self):
+            self.P1_ten = TensorFunctionSpace(uniform_mesh(2, 1), "CG", 1)
+
+        @property
+        def simple_metric(self):
+            return RiemannianMetric(self.P1_ten)
+
+
+class TestEnforceVariableConstraints(BaseClasses.MetricTestCase):
+    """
+    Unit tests for enforcing variable constraints.
+    """
+
+    def test_defaults(self):
+        enforce_variable_constraints(self.simple_metric)
+
+    def test_noniterable(self):
+        hmin, hmax, amax = 1.0e-05, 1.0, 1.0e05
+        iterable = enforce_variable_constraints(
+            [self.simple_metric], h_min=[hmin], h_max=[hmax], a_max=[amax]
+        )
+        noniterable = enforce_variable_constraints(
+            self.simple_metric, h_min=hmin, h_max=hmax, a_max=amax
+        )
+        self.assertAlmostEqual(errornorm(iterable[0], noniterable[0]), 0)
+
+
+class TestMetricNormalisation(BaseClasses.MetricTestCase):
     """
     Unit tests for metric normalisation.
     """
 
     def setUp(self):
+        super().setUp()
         self.time_partition = TimeInterval(1.0, 1.0, "u")
-
-    @property
-    def simple_metric(self):
-        mesh = uniform_mesh(2, 1)
-        P1_ten = TensorFunctionSpace(mesh, "CG", 1)
-        return RiemannianMetric(P1_ten)
 
     def test_time_partition_length_error(self):
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], "u")
@@ -132,3 +168,47 @@ class TestMetricNormalisation(unittest.TestCase):
 
         # Check that the metrics coincide
         self.assertAlmostEqual(errornorm(M, M_st), 0)
+
+
+class TestRampComplexity(unittest.TestCase):
+    """
+    Unit tests for :func:`ramp_complexity`.
+    """
+
+    def test_base_non_positive_error(self):
+        with self.assertRaises(ValueError) as cm:
+            ramp_complexity(0, 100, 1)
+        msg = "Base complexity must be positive, not 0."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_target_non_positive_error(self):
+        with self.assertRaises(ValueError) as cm:
+            ramp_complexity(100, 0, 1)
+        msg = "Target complexity must be positive, not 0."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_iteration_non_positive_error(self):
+        with self.assertRaises(ValueError) as cm:
+            ramp_complexity(100, 1000, -1)
+        msg = "Current iteration must be non-negative, not -1."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_num_iterations_non_positive_error(self):
+        with self.assertRaises(ValueError) as cm:
+            ramp_complexity(100, 1000, 0, num_iterations=-1)
+        msg = "Number of iterations must be non-negative, not -1."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_instant_ramp(self):
+        C = ramp_complexity(100, 1000, 0, num_iterations=0)
+        self.assertEqual(C, 1000)
+
+    def test_ramp(self):
+        base = 100
+        target = 1000
+        niter = 3
+        for i in range(niter):
+            C = ramp_complexity(base, target, i, num_iterations=niter)
+            self.assertAlmostEqual(C, base + i * (target - base) / niter)
+        C = ramp_complexity(base, target, niter, num_iterations=niter)
+        self.assertEqual(C, target)

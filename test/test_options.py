@@ -1,8 +1,10 @@
-from firedrake import TensorFunctionSpace
-from animate.adapt import RiemannianMetric
-from goalie.options import *
-from utility import uniform_mesh
 import unittest
+
+from animate.adapt import RiemannianMetric
+from firedrake import TensorFunctionSpace
+from utility import uniform_mesh
+
+from goalie.options import *
 
 
 class TestAdaptParameters(unittest.TestCase):

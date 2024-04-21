@@ -1,5 +1,6 @@
 import firedrake
 import firedrake.mesh as fmesh
+
 from .mesh_seq import MeshSeq
 
 __all__ = ["PointSeq"]
@@ -43,4 +44,4 @@ class PointSeq(MeshSeq):
         self.meshes = [mesh for _ in self.subintervals]
         self.dim = mesh.topological_dimension()
         assert self.dim == 0
-        self.reset_counts()
+        self._reset_counts()
