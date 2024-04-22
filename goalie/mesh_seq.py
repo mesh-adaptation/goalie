@@ -700,6 +700,61 @@ class MeshSeq:
         """
         self._solutions = ForwardSolutionData(self.time_partition, self.function_spaces)
 
+    def _extract_forward_solutions(self, field, i, return_blocks=False):
+        """
+        Extract forward solutions from the tape for a given subinterval.
+
+        :arg field: field to extract
+        :type field: :class:`str`
+        :arg i: subinterval index
+        :type i: :class:`int`
+        :kwarg return_blocks: if ``True``, returns solve blocks
+        :type return_blocks: :class:`bool`
+        """
+        stride = self.time_partition.num_timesteps_per_export[i]
+        num_exports = self.time_partition.num_exports_per_subinterval[i]
+
+        # # Loop over prognostic variables
+        # for field, fs in self.function_spaces.items():
+        fs = self.function_spaces[field]
+        # Get solve blocks
+        solve_blocks = self.get_solve_blocks(field, i)
+        num_solve_blocks = len(solve_blocks)
+        if num_solve_blocks == 0:
+            raise ValueError(
+                "Looks like no solves were written to tape!"
+                " Does the solution depend on the initial condition?"
+            )
+        if fs[0].ufl_element() != solve_blocks[0].function_space.ufl_element():
+            raise ValueError(
+                f"Solve block list for field '{field}' contains mismatching"
+                f" finite elements: ({fs[0].ufl_element()} vs. "
+                f" {solve_blocks[0].function_space.ufl_element()})"
+            )
+
+        # Extract solution data
+        if len(solve_blocks[::stride]) >= num_exports:
+            raise ValueError(
+                f"More solve blocks than expected"
+                f" ({len(solve_blocks[::stride])} > {num_exports-1})"
+            )
+
+        # Update solution data based on block dependencies and outputs
+        solutions = self.solutions.extract(layout="field")[field]
+        for j, block in enumerate(reversed(solve_blocks[::-stride])):
+            # Current solution is determined from outputs
+            out = self._output(field, i, block)
+            if out is not None:
+                solutions.forward[i][j].assign(out.saved_output)
+
+            # Lagged solution comes from dependencies
+            dep = self._dependency(field, i, block)
+            if not self.steady and dep is not None:
+                solutions.forward_old[i][j].assign(dep.saved_output)
+
+        if return_blocks:
+            return solve_blocks
+
     @property
     def solutions(self):
         """
@@ -725,8 +780,6 @@ class MeshSeq:
         :rtype: :class:`~.ForwardSolutionData`
         """
         num_subintervals = len(self)
-        P = self.time_partition
-        solver = self.solver
 
         # Reinitialise the solution data object
         self._create_solutions()
@@ -742,50 +795,14 @@ class MeshSeq:
         # Loop over the subintervals
         checkpoint = self.initial_condition
         for i in range(num_subintervals):
-            stride = P.num_timesteps_per_export[i]
-            num_exports = P.num_exports_per_subinterval[i]
-
             # Annotate tape on current subinterval
-            checkpoint = solver(i, checkpoint, **solver_kwargs)
+            checkpoint = self.solver(i, checkpoint, **solver_kwargs)
 
-            # Loop over prognostic variables
-            for field, fs in self.function_spaces.items():
-                # Get solve blocks
-                solve_blocks = self.get_solve_blocks(field, i)
-                num_solve_blocks = len(solve_blocks)
-                if num_solve_blocks == 0:
-                    raise ValueError(
-                        "Looks like no solves were written to tape!"
-                        " Does the solution depend on the initial condition?"
-                    )
-                if fs[0].ufl_element() != solve_blocks[0].function_space.ufl_element():
-                    raise ValueError(
-                        f"Solve block list for field '{field}' contains mismatching"
-                        f" finite elements: ({fs[0].ufl_element()} vs. "
-                        f" {solve_blocks[0].function_space.ufl_element()})"
-                    )
+            # Extract forward solutions from the tape
+            for field in self.fields:
+                self._extract_forward_solutions(field, i)
 
-                # Extract solution data
-                if len(solve_blocks[::stride]) >= num_exports:
-                    raise ValueError(
-                        f"More solve blocks than expected"
-                        f" ({len(solve_blocks[::stride])} > {num_exports-1})"
-                    )
-
-                # Update solution data based on block dependencies and outputs
-                solutions = self.solutions.extract(layout="field")[field]
-                for j, block in enumerate(reversed(solve_blocks[::-stride])):
-                    # Current solution is determined from outputs
-                    out = self._output(field, i, block)
-                    if out is not None:
-                        solutions.forward[i][j].assign(out.saved_output)
-
-                    # Lagged solution comes from dependencies
-                    dep = self._dependency(field, i, block)
-                    if not self.steady and dep is not None:
-                        solutions.forward_old[i][j].assign(dep.saved_output)
-
-            # Transfer the checkpoint between subintervals
+            # Transfer the checkpoint to the next subinterval
             if i < num_subintervals - 1:
                 checkpoint = AttrDict(
                     {

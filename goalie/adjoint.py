@@ -221,6 +221,78 @@ class AdjointMeshSeq(MeshSeq):
         """
         self._solutions = AdjointSolutionData(self.time_partition, self.function_spaces)
 
+    def _extract_adjoint_solutions(self, field, i, solve_blocks, get_adj_values=False):
+        """
+        Extract adjoint solutions from the tape for a given subinterval.
+
+        :arg i: subinterval index
+        :type i: :class:`int`
+        :kwarg get_adj_values: if ``True``, adjoint actions are also returned at exported
+            timesteps
+        :type get_adj_values: :class:`bool`
+        """
+        tp = self.time_partition
+        stride = tp.num_timesteps_per_export[i]
+
+        solutions = self.solutions.extract(layout="field")[field]
+        if get_adj_values and "adj_value" not in solutions:
+            self.solutions.extract(layout="field")[field]["adj_value"] = []
+            for i, fs in enumerate(self.function_spaces[field]):
+                self.solutions.extract(layout="field")[field]["adj_value"].append(
+                    [
+                        firedrake.Cofunction(fs.dual(), name=f"{field}_adj_value")
+                        for j in range(tp.num_exports_per_subinterval[i] - 1)
+                    ]
+                )
+
+        # # Loop over prognostic variables
+        # for field, fs in self.function_spaces.items():
+        fs = self.function_spaces[field]
+        solve_blocks = self.get_solve_blocks(field, i)
+        num_solve_blocks = len(solve_blocks)
+        # Update adjoint solution data based on block dependencies and outputs
+        for j, block in enumerate(reversed(solve_blocks[::-stride])):
+            # Current adjoint solution is determined from the adj_sol attribute
+            if block.adj_sol is not None:
+                solutions.adjoint[i][j].assign(block.adj_sol)
+
+            # Adjoint action comes from dependencies
+            dep = self._dependency(field, i, block)
+            if get_adj_values and dep is not None:
+                solutions.adj_value[i][j].assign(dep.adj_value)
+
+            # The adjoint solution at the 'next' timestep is determined from the
+            # adj_sol attribute of the next solve block
+            steady = self.steady or len(self) == num_solve_blocks == 1
+            if not steady:
+                if (j + 1) * stride < num_solve_blocks:
+                    if solve_blocks[(j + 1) * stride].adj_sol is not None:
+                        solutions.adjoint_next[i][j].assign(
+                            solve_blocks[(j + 1) * stride].adj_sol
+                        )
+                elif (j + 1) * stride > num_solve_blocks:
+                    raise IndexError(
+                        "Cannot extract solve block"
+                        f" {(j + 1) * stride} > {num_solve_blocks}."
+                    )
+
+        # The initial timestep of the current subinterval is the 'next' timestep
+        # after the final timestep of the previous subinterval
+        if i > 0 and solve_blocks[0].adj_sol is not None:
+            self._transfer(solve_blocks[0].adj_sol, solutions.adjoint_next[i - 1][-1])
+
+        # Check non-zero adjoint solution/value
+        if np.isclose(norm(solutions.adjoint[i][0]), 0.0):
+            self.warning(
+                f"Adjoint solution for field '{field}' on {self.th(i)}"
+                " subinterval is zero."
+            )
+        if get_adj_values and np.isclose(norm(solutions.adj_value[i][0]), 0.0):
+            self.warning(
+                f"Adjoint action for field '{field}' on {self.th(i)}"
+                " subinterval is zero."
+            )
+
     @PETSc.Log.EventDecorator()
     def solve_adjoint(
         self,
@@ -253,7 +325,6 @@ class AdjointMeshSeq(MeshSeq):
         """
         # TODO #125: Support get_adj_values in AdjointSolutionData
         # TODO #126: Separate out qoi_kwargs
-        P = self.time_partition
         num_subintervals = len(self)
         solver = self.solver
         qoi_kwargs = solver_kwargs.get("qoi_kwargs", {})
@@ -272,17 +343,6 @@ class AdjointMeshSeq(MeshSeq):
 
         # Reset the QoI to zero
         self.J = 0
-
-        if get_adj_values:
-            for field in self.fields:
-                self.solutions.extract(layout="field")[field]["adj_value"] = []
-                for i, fs in enumerate(self.function_spaces[field]):
-                    self.solutions.extract(layout="field")[field]["adj_value"].append(
-                        [
-                            firedrake.Cofunction(fs.dual(), name=f"{field}_adj_value")
-                            for j in range(P.num_exports_per_subinterval[i] - 1)
-                        ]
-                    )
 
         @PETSc.Log.EventDecorator("goalie.AdjointMeshSeq.solve_adjoint.evaluate_fwd")
         @wraps(solver)
@@ -311,9 +371,6 @@ class AdjointMeshSeq(MeshSeq):
         # Loop over subintervals in reverse
         seeds = {}
         for i in reversed(range(num_subintervals)):
-            stride = P.num_timesteps_per_export[i]
-            num_exports = P.num_exports_per_subinterval[i]
-
             # Clear tape and start annotation
             if not pyadjoint.annotate_tape():
                 pyadjoint.continue_annotation()
@@ -353,89 +410,14 @@ class AdjointMeshSeq(MeshSeq):
                     with tape.marked_nodes(m):
                         tape.evaluate_adj(markings=True)
 
-            # Loop over prognostic variables
-            for field, fs in self.function_spaces.items():
-                # Get solve blocks
-                solve_blocks = self.get_solve_blocks(field, i)
-                num_solve_blocks = len(solve_blocks)
-                if num_solve_blocks == 0:
-                    raise ValueError(
-                        "Looks like no solves were written to tape!"
-                        " Does the solution depend on the initial condition?"
-                    )
-                if fs[0].ufl_element() != solve_blocks[0].function_space.ufl_element():
-                    raise ValueError(
-                        f"Solve block list for field '{field}' contains mismatching"
-                        f" finite elements: ({fs[0].ufl_element()} vs. "
-                        f" {solve_blocks[0].function_space.ufl_element()})"
-                    )
-
-                # Detect whether we have a steady problem
-                steady = self.steady or num_subintervals == num_solve_blocks == 1
-                if steady and "adjoint_next" in checkpoint:
-                    checkpoint.pop("adjoint_next")
-
-                # Check that there are as many solve blocks as expected
-                if len(solve_blocks[::stride]) >= num_exports:
-                    self.warning(
-                        "More solve blocks than expected:"
-                        f" ({len(solve_blocks[::stride])} > {num_exports-1})."
-                    )
-
-                # Update forward and adjoint solution data based on block dependencies
-                # and outputs
-                solutions = self.solutions.extract(layout="field")[field]
-                for j, block in enumerate(reversed(solve_blocks[::-stride])):
-                    # Current forward solution is determined from outputs
-                    out = self._output(field, i, block)
-                    if out is not None:
-                        solutions.forward[i][j].assign(out.saved_output)
-
-                    # Current adjoint solution is determined from the adj_sol attribute
-                    if block.adj_sol is not None:
-                        solutions.adjoint[i][j].assign(block.adj_sol)
-
-                    # Lagged forward solution comes from dependencies
-                    dep = self._dependency(field, i, block)
-                    if not self.steady and dep is not None:
-                        solutions.forward_old[i][j].assign(dep.saved_output)
-
-                    # Adjoint action also comes from dependencies
-                    if get_adj_values and dep is not None:
-                        solutions.adj_value[i][j].assign(dep.adj_value)
-
-                    # The adjoint solution at the 'next' timestep is determined from the
-                    # adj_sol attribute of the next solve block
-                    if not steady:
-                        if (j + 1) * stride < num_solve_blocks:
-                            if solve_blocks[(j + 1) * stride].adj_sol is not None:
-                                solutions.adjoint_next[i][j].assign(
-                                    solve_blocks[(j + 1) * stride].adj_sol
-                                )
-                        elif (j + 1) * stride > num_solve_blocks:
-                            raise IndexError(
-                                "Cannot extract solve block"
-                                f" {(j + 1) * stride} > {num_solve_blocks}."
-                            )
-
-                # The initial timestep of the current subinterval is the 'next' timestep
-                # after the final timestep of the previous subinterval
-                if i > 0 and solve_blocks[0].adj_sol is not None:
-                    self._transfer(
-                        solve_blocks[0].adj_sol, solutions.adjoint_next[i - 1][-1]
-                    )
-
-                # Check non-zero adjoint solution/value
-                if np.isclose(norm(solutions.adjoint[i][0]), 0.0):
-                    self.warning(
-                        f"Adjoint solution for field '{field}' on {self.th(i)}"
-                        " subinterval is zero."
-                    )
-                if get_adj_values and np.isclose(norm(solutions.adj_value[i][0]), 0.0):
-                    self.warning(
-                        f"Adjoint action for field '{field}' on {self.th(i)}"
-                        " subinterval is zero."
-                    )
+            # Extract forward and adjoint solutions from tape
+            for field in self.fields:
+                solve_blocks = self._extract_forward_solutions(
+                    field, i, return_blocks=True
+                )
+                self._extract_adjoint_solutions(
+                    field, i, solve_blocks, get_adj_values=get_adj_values
+                )
 
             # Get adjoint action on each subinterval
             with pyadjoint.stop_annotating():
