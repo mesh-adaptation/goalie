@@ -231,11 +231,11 @@ class AdjointMeshSeq(MeshSeq):
             timesteps
         :type get_adj_values: :class:`bool`
         """
+        # TODO #125: Support get_adj_values in AdjointSolutionData
         tp = self.time_partition
-        stride = tp.num_timesteps_per_export[i]
-
         solutions = self.solutions.extract(layout="field")[field]
         if get_adj_values and "adj_value" not in solutions:
+            fs = self.function_spaces[field]
             self.solutions.extract(layout="field")[field]["adj_value"] = []
             for i, fs in enumerate(self.function_spaces[field]):
                 self.solutions.extract(layout="field")[field]["adj_value"].append(
@@ -245,12 +245,8 @@ class AdjointMeshSeq(MeshSeq):
                     ]
                 )
 
-        # # Loop over prognostic variables
-        # for field, fs in self.function_spaces.items():
-        fs = self.function_spaces[field]
-        solve_blocks = self.get_solve_blocks(field, i)
-        num_solve_blocks = len(solve_blocks)
         # Update adjoint solution data based on block dependencies and outputs
+        stride = tp.num_timesteps_per_export[i]
         for j, block in enumerate(reversed(solve_blocks[::-stride])):
             # Current adjoint solution is determined from the adj_sol attribute
             if block.adj_sol is not None:
@@ -263,6 +259,7 @@ class AdjointMeshSeq(MeshSeq):
 
             # The adjoint solution at the 'next' timestep is determined from the
             # adj_sol attribute of the next solve block
+            num_solve_blocks = len(solve_blocks)
             steady = self.steady or len(self) == num_solve_blocks == 1
             if not steady:
                 if (j + 1) * stride < num_solve_blocks:
@@ -323,7 +320,6 @@ class AdjointMeshSeq(MeshSeq):
         :returns: the solution data of the forward and adjoint solves
         :rtype: :class:`~.AdjointSolutionData`
         """
-        # TODO #125: Support get_adj_values in AdjointSolutionData
         # TODO #126: Separate out qoi_kwargs
         num_subintervals = len(self)
         solver = self.solver

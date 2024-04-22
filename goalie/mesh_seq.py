@@ -711,12 +711,6 @@ class MeshSeq:
         :kwarg return_blocks: if ``True``, returns solve blocks
         :type return_blocks: :class:`bool`
         """
-        stride = self.time_partition.num_timesteps_per_export[i]
-        num_exports = self.time_partition.num_exports_per_subinterval[i]
-
-        # # Loop over prognostic variables
-        # for field, fs in self.function_spaces.items():
-        fs = self.function_spaces[field]
         # Get solve blocks
         solve_blocks = self.get_solve_blocks(field, i)
         num_solve_blocks = len(solve_blocks)
@@ -725,14 +719,15 @@ class MeshSeq:
                 "Looks like no solves were written to tape!"
                 " Does the solution depend on the initial condition?"
             )
+        fs = self.function_spaces[field]
         if fs[0].ufl_element() != solve_blocks[0].function_space.ufl_element():
             raise ValueError(
                 f"Solve block list for field '{field}' contains mismatching"
                 f" finite elements: ({fs[0].ufl_element()} vs. "
                 f" {solve_blocks[0].function_space.ufl_element()})"
             )
-
-        # Extract solution data
+        stride = self.time_partition.num_timesteps_per_export[i]
+        num_exports = self.time_partition.num_exports_per_subinterval[i]
         if len(solve_blocks[::stride]) >= num_exports:
             raise ValueError(
                 f"More solve blocks than expected"
