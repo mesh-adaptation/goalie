@@ -6,7 +6,7 @@ run:
 	@echo "Done."
 
 clean:
-	@echo "Running test caches..."
+	@echo "Removing test caches..."
 	@rm -rf __pycache__
 	@echo "Done."
 	@echo "Removing test outputs..."

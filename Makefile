@@ -31,6 +31,7 @@ test: lint convert_demos
 	@echo "Running test suite..."
 	@cd test && make
 	@cd test_adjoint && make
+	@make clean
 	@echo "PASS"
 
 coverage: convert_demos
@@ -39,8 +40,7 @@ coverage: convert_demos
 	@python3 -m coverage run -a --source=goalie -m pytest -v test
 	@python3 -m coverage run -a --source=goalie -m pytest -v test_adjoint
 	@python3 -m coverage html
-	@cd test && make clean
-	@cd test_adjoint && make clean
+	@make clean
 	@echo "Done."
 
 demo:
@@ -52,5 +52,7 @@ tree:
 	@tree -d .
 
 clean:
+	@rm -f *.jpg *.pvd *.vtu
 	@cd demos && make clean
 	@cd test && make clean
+	@cd test_adjoint && make clean
