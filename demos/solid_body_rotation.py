@@ -10,9 +10,8 @@
 #
 # which is solved for a tracer concentration :math:`c`. The
 # velocity field :math:`\mathbf{u}` drives the transport.
-# A new piece of information in this demo is the approach to
-# strongly imposing Dirichlet boundary conditions in Goalie.
-# In particular, we impose
+# Furthermore, we strongly impose zero Dirichlet boundary
+# conditions:
 #
 # .. math::
 #    c|_{\partial\Omega}=0,
@@ -168,21 +167,7 @@ def get_form(mesh_seq):
     return form
 
 
-# To implement the boundary conditions, we simply create a list of
-# :class:`DirichletBC` objects for each field. Here, the list only
-# has one entry. ::
-
-
-def get_bcs(mesh_seq):
-    def bcs(index):
-        fs = mesh_seq.function_spaces["c"][index]
-        return [DirichletBC(fs, 0, "on_boundary")]
-
-    return bcs
-
-
-# The :func:`get_form` and :func:`get_bcs` functions are then used by
-# :func:`get_solver`. ::
+# The :func:`get_form` function is then used by :func:`get_solver`. ::
 
 
 def get_solver(mesh_seq):
@@ -196,7 +181,9 @@ def get_solver(mesh_seq):
 
         # Setup variational problem
         a, L = mesh_seq.form(index, {"c": (c, c_)})["c"]
-        bcs = mesh_seq.bcs(index)
+
+        # Zero Dirichlet condition on the boundary
+        bcs = DirichletBC(function_space, 0, "on_boundary")
 
         # Setup the solver object
         lvp = LinearVariationalProblem(a, L, c, bcs=bcs)
@@ -238,8 +225,7 @@ def get_qoi(mesh_seq, sols, index):
     return qoi
 
 
-# We are now ready to create an :class:`AdjointMeshSeq`. This
-# time, make sure to pass the ``get_bcs`` option, too. ::
+# We are now ready to create an :class:`AdjointMeshSeq`.
 
 mesh_seq = AdjointMeshSeq(
     time_partition,
@@ -247,7 +233,6 @@ mesh_seq = AdjointMeshSeq(
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_form=get_form,
-    get_bcs=get_bcs,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="end_time",
