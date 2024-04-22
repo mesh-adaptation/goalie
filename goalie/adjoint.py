@@ -225,6 +225,8 @@ class AdjointMeshSeq(MeshSeq):
         """
         Extract adjoint solutions from the tape for a given subinterval.
 
+        :arg field: field to extract
+        :type field: :class:`str`
         :arg i: subinterval index
         :type i: :class:`int`
         :kwarg get_adj_values: if ``True``, adjoint actions are also returned at exported
