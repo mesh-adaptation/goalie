@@ -19,8 +19,6 @@ from .log import DEBUG, debug, info, logger, pyrint, warning
 from .options import AdaptParameters
 from .utility import AttrDict
 
-comm = firedrake.COMM_WORLD
-
 __all__ = ["MeshSeq"]
 
 
@@ -143,6 +141,7 @@ class MeshSeq:
         :returns: list of element counts
         :rtype: :class:`list` of :class:`int`\s
         """
+        comm = firedrake.COMM_WORLD
         return [comm.allreduce(mesh.coordinates.cell_set.size) for mesh in self]
 
     def count_vertices(self):
@@ -152,6 +151,7 @@ class MeshSeq:
         :returns: list of vertex counts
         :rtype: :class:`list` of :class:`int`\s
         """
+        comm = firedrake.COMM_WORLD
         return [comm.allreduce(mesh.coordinates.node_set.size) for mesh in self]
 
     def _reset_counts(self):
