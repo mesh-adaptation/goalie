@@ -8,6 +8,7 @@ dependencies = [
   "coverage",
   "parameterized",
   "pre-commit",
+  "removestar",
   "ruff",
 ]
 authors = [

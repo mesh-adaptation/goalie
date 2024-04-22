@@ -4,6 +4,7 @@
 htmlcov*
 outputs/
 plots/
+test_adjoint/demos
 __pycache__/
 goalie.egg-info/
 

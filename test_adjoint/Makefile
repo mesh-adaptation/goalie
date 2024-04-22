@@ -10,6 +10,6 @@ clean:
 	@rm -rf __pycache__
 	@echo "Done."
 	@echo "Removing adjoint test outputs..."
-	@rm -rf *.jpg *.png
+	@rm -rf *.jpg *.png *.pvd *.vtu
 	@rm -rf outputs*
 	@echo "Done."
