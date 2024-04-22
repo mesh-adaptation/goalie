@@ -105,12 +105,7 @@ def get_solver(mesh_seq):
 # To cut down the cost of the regresssion tests, we just use three iterations
 # instead. ::
 
-params = MetricParameters(
-    {
-        "element_rtol": 0.005,
-        "maxiter": 35 if os.environ.get("GOALIE_REGRESSION_TEST") is None else 3,
-    }
-)
+params = MetricParameters({"element_rtol": 0.005, "maxiter": 35})
 
 mesh = RectangleMesh(50, 10, 50, 10)
 time_partition = TimeInstant(fields)

@@ -91,12 +91,8 @@ time_partition = TimePartition(
     num_timesteps_per_export=2,
 )
 
-params = MetricParameters(
-    {
-        "element_rtol": 0.001,
-        "maxiter": 35 if os.environ.get("GOALIE_REGRESSION_TEST") is None else 3,
-    }
-)
+params = MetricParameters({"element_rtol": 0.001, "maxiter": 35})
+
 mesh_seq = MeshSeq(
     time_partition,
     meshes,

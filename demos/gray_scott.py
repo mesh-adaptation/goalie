@@ -128,8 +128,7 @@ def get_qoi(mesh_seq, sols, index):
 # the timestep. This is straightforwardly done in Goalie using :class:`TimePartition`.
 # ::
 
-test = os.environ.get("GOALIE_REGRESSION_TEST") is not None
-end_time = 10.0 if test else 2000.0
+end_time = 2000.0
 dt = [0.0001, 0.001, 0.01, 0.1, (end_time - 1) / end_time]
 num_subintervals = 5
 dt_per_export = [10, 9, 9, 9, 10]
@@ -164,7 +163,7 @@ solutions = mesh_seq.solve_adjoint()
 
 # Finally, plot the outputs to be viewed in Paraview. ::
 
-if not test:
+if not os.environ.get("GOALIE_REGRESSION_TEST"):
     ic = mesh_seq.get_initial_condition()
     for field, sols in solutions.items():
         fwd_outfile = VTKFile(f"gray_scott/{field}_forward.pvd")
