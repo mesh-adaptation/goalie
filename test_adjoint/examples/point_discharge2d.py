@@ -80,7 +80,7 @@ def get_form(self):
             - dot(u, grad(c)) * psi * dx
             - inner(D * grad(c), grad(psi)) * dx
         )
-        return F
+        return {"tracer_2d": F}
 
     return form
 
@@ -99,7 +99,7 @@ def get_solver(self):
         c.assign(ic["tracer_2d"])
 
         # Setup variational problem
-        F = self.form(i, {"tracer_2d": (c, c)})
+        F = self.form(i, {"tracer_2d": (c, c)})["tracer_2d"]
 
         # Zero Dirichlet condition on the left-hand (inlet) boundary
         bc = DirichletBC(fs, 0, 1)

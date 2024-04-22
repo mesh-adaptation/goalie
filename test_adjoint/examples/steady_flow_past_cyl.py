@@ -50,7 +50,7 @@ def get_form(self):
             - inner(p, div(v)) * dx
             - inner(q, div(u)) * dx
         )
-        return F
+        return {"up": F}
 
     return form
 
@@ -69,7 +69,7 @@ def get_solver(self):
         up.assign(ic["up"])
 
         # Define variational problem
-        F = self.form(i, {"up": (up, up)})
+        F = self.form(i, {"up": (up, up)})["up"]
 
         # Define inflow and no-slip boundary conditions
         y = SpatialCoordinate(self[i])[1]

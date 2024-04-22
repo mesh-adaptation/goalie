@@ -72,6 +72,8 @@ class MeshSeq:
             self.params = AdaptParameters()
         self.sections = [{} for mesh in self]
 
+        self._outputs_consistent()
+
     def __str__(self):
         return f"{[str(mesh) for mesh in self.meshes]}"
 
@@ -333,6 +335,34 @@ class MeshSeq:
         """
         return transfer(source, target_space, self._transfer_method, **kwargs)
 
+    def _outputs_consistent(self):
+        """
+        Assert that function spaces, initial conditions, and forms are given in a
+        dictionary format with :attr:`MeshSeq.fields` as keys.
+        """
+        for method in ["get_function_spaces", "get_initial_condition", "get_form"]:
+            if getattr(self, f"_{method}") is None:
+                continue
+            method_map = getattr(self, method)
+            if method == "get_function_spaces":
+                method_map = method_map(self.meshes[0])
+            elif method == "get_initial_condition":
+                method_map = method_map()
+            elif method == "get_form":
+                solution_map = {}
+                u = {}
+                for f in self.fields:
+                    u[f] = firedrake.Function(self.function_spaces[f][0])
+                    solution_map[f] = (u[f], u[f])
+                method_map = method_map()(0, solution_map)
+            assert isinstance(method_map, dict), f"{method} should return a dict"
+            mesh_seq_fields = set(self.fields)
+            method_fields = set(method_map.keys())
+            diff = mesh_seq_fields.difference(method_fields)
+            assert len(diff) == 0, f"missing fields {diff} in {method}"
+            diff = method_fields.difference(mesh_seq_fields)
+            assert len(diff) == 0, f"unexpected fields {diff} in {method}"
+
     def _function_spaces_consistent(self):
         """
         Determine whether the mesh sequence's function spaces are consistent with its
@@ -392,19 +422,7 @@ class MeshSeq:
         :rtype: :class:`~.AttrDict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        initial_condition_map = self.get_initial_condition()
-        assert isinstance(
-            initial_condition_map, dict
-        ), "`get_initial_condition` should return a dict"
-        mesh_seq_fields = set(self.fields)
-        initial_condition_fields = set(initial_condition_map.keys())
-        assert mesh_seq_fields.issubset(
-            initial_condition_fields
-        ), "missing fields in initial condition"
-        assert initial_condition_fields.issubset(
-            mesh_seq_fields
-        ), "more initial conditions than fields"
-        return AttrDict(initial_condition_map)
+        return AttrDict(self.get_initial_condition())
 
     @property
     def form(self):
