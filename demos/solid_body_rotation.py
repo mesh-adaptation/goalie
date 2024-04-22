@@ -180,7 +180,7 @@ def get_solver(mesh_seq):
         c_.assign(ic["c"])
 
         # Setup variational problem
-        a, L = mesh_seq.form(index, {field: (c, c_)}, field=field)[field]
+        a, L = mesh_seq.form(index, {"c": (c, c_)})["c"]
 
         # Zero Dirichlet condition on the boundary
         bcs = DirichletBC(function_space, 0, "on_boundary")
