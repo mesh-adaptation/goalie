@@ -61,7 +61,7 @@ fields = ["solution"]
 # mode. This is specified using :func:`set_log_level`. ::
 
 set_log_level(DEBUG)
-P = TimePartition(end_time, num_subintervals, dt, fields)
+TimePartition(end_time, num_subintervals, dt, fields)
 
 # Notice that one of the things which is printed
 # out is ``num_timesteps_per_export``, which controls
@@ -81,7 +81,7 @@ P = TimePartition(end_time, num_subintervals, dt, fields)
 # than one subinterval. ::
 
 num_subintervals = 2
-P = TimePartition(end_time, num_subintervals, dt, fields, num_timesteps_per_export=2)
+TimePartition(end_time, num_subintervals, dt, fields, num_timesteps_per_export=2)
 
 # In some problems, the dynamics evolve such
 # that different timesteps are suitable during
@@ -90,16 +90,14 @@ P = TimePartition(end_time, num_subintervals, dt, fields, num_timesteps_per_expo
 # timesteps corresponding to each subinterval. ::
 
 dt = [0.125, 0.0625]
-P = TimePartition(end_time, num_subintervals, dt, fields, num_timesteps_per_export=2)
+TimePartition(end_time, num_subintervals, dt, fields, num_timesteps_per_export=2)
 
 # Note that this means that there are more
 # exports in the second subinterval than the first.
 # This can be remedied by also setting
 # ``num_timesteps_per_export`` as a list. ::
 
-P = TimePartition(
-    end_time, num_subintervals, dt, fields, num_timesteps_per_export=[2, 4]
-)
+TimePartition(end_time, num_subintervals, dt, fields, num_timesteps_per_export=[2, 4])
 
 # So far, we have assumed that the subintervals
 # are of uniform length. This need not be the case.
@@ -108,7 +106,7 @@ P = TimePartition(
 # to the constructor as a list of tuples. ::
 
 subintervals = [(0.0, 0.75), (0.75, 1.0)]
-P = TimePartition(
+TimePartition(
     end_time,
     num_subintervals,
     dt,
