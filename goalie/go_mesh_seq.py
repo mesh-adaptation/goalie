@@ -2,16 +2,17 @@
 Drivers for goal-oriented error estimation on sequences of meshes.
 """
 
+from collections.abc import Iterable
+
+import numpy as np
+import ufl
+from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
+from firedrake.petsc import PETSc
+
 from .adjoint import AdjointMeshSeq
 from .error_estimation import get_dwr_indicator
 from .function_data import IndicatorData
 from .log import pyrint
-from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager, project
-from firedrake.petsc import PETSc
-from collections.abc import Iterable
-import numpy as np
-import ufl
-
 
 __all__ = ["GoalOrientedMeshSeq"]
 
@@ -67,7 +68,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             get_form=self._get_form,
             get_solver=self._get_solver,
             get_qoi=self._get_qoi,
-            get_bcs=self._get_bcs,
             qoi_type=self.qoi_type,
             parameters=self.params,
         )
@@ -187,7 +187,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             # Loop over each strongly coupled field
             for f in self.fields:
                 # Loop over each timestep
-                for j in range(len(self.solutions[f]["forward"][i])):
+                solutions = self.solutions.extract(layout="field")
+                indicators = self.indicators.extract(layout="field")
+                for j in range(len(solutions[f]["forward"][i])):
                     # Update fields
                     transfer(self.solutions[f][FWD][i][j], u[f])
                     transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
@@ -208,10 +210,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     # Evaluate error indicator
                     indi_e = indicator_fn(forms[f], u_star_e[f])
 
-                    # Project back to the base space
-                    indi = project(indi_e, P0_spaces[i])
+                    # Transfer back to the base space
+                    indi = self._transfer(indi_e, P0_spaces[i])
                     indi.interpolate(abs(indi))
-                    self.indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
+                    indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
 
         return self.solutions, self.indicators
 

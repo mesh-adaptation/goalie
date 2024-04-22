@@ -13,11 +13,11 @@
 # adaptation functionality from Firedrake, which can be found in ``firedrake.meshadapt``.
 # ::
 
-from firedrake import *
 from animate.adapt import adapt
 from animate.metric import RiemannianMetric
-from goalie import *
+from firedrake import *
 
+from goalie import *
 
 # We again consider the "point discharge with diffusion" test case from the
 # `previous demo <./point_discharge2d.py.html>`__, approximating the tracer concentration
@@ -68,14 +68,6 @@ def get_form(mesh_seq):
     return form
 
 
-def get_bcs(mesh_seq):
-    def bcs(index):
-        function_space = mesh_seq.function_spaces["c"][index]
-        return DirichletBC(function_space, 0, 1)
-
-    return bcs
-
-
 def get_solver(mesh_seq):
     def solver(index, ic):
         function_space = mesh_seq.function_spaces["c"][index]
@@ -88,7 +80,7 @@ def get_solver(mesh_seq):
 
         # Setup variational problem
         F = mesh_seq.form(index, {"c": (c, c_)})["c"]
-        bc = mesh_seq.bcs(index)
+        bc = DirichletBC(function_space, 0, 1)
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
         return {"c": c}
@@ -119,7 +111,6 @@ mesh_seq = MeshSeq(
     mesh,
     get_function_spaces=get_function_spaces,
     get_form=get_form,
-    get_bcs=get_bcs,
     get_solver=get_solver,
     parameters=params,
 )

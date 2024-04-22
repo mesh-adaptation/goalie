@@ -1,8 +1,10 @@
-from firedrake import *
-from goalie_adjoint import *
-from goalie.adjoint import annotate_qoi
-import numpy as np
 import unittest
+
+import numpy as np
+from firedrake import *
+
+from goalie.adjoint import annotate_qoi
+from goalie_adjoint import *
 
 
 class TestAdjointUtils(unittest.TestCase):

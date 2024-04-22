@@ -42,8 +42,8 @@ plt.savefig("ode-analytical.jpg")
 # First, import from the namespaces of Firedrake and Goalie. ::
 
 from firedrake import *
-from goalie import *
 
+from goalie import *
 
 # Next, create a simple :class:`~.TimeInterval` object to hold information related to
 # the time discretisation. This is a simplified version of :class:`~.TimePartition`,
@@ -330,5 +330,8 @@ print(f"Crank-Nicolson: {crank_nicolson_trajectory[-1]:.9f}")
 #    Forward Euler:  2.488320000
 #    Backward Euler: 3.051757812
 #    Crank-Nicolson: 2.727412827
+#
+# In the `next demo <./burgers.py.html>`__, we move on to solve a *partial* differential
+# equation (PDE) using a :class:`MeshSeq`.
 #
 # This demo can also be accessed as a `Python script <ode.py>`__.

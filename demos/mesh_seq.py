@@ -12,6 +12,7 @@
 # of both Firedrake and Goalie. ::
 
 from firedrake import *
+
 from goalie import *
 
 # Again, turn debugging mode on to get verbose output. ::
@@ -57,7 +58,7 @@ fig.savefig("mesh_seq.jpg")
 #    :figwidth: 90%
 #    :align: center
 
-# In the `next demo <./burgers.py.html>`__, we actually solve a
-# PDE using a :class:`MeshSeq`.
+# In the `next demo <./ode.py.html>`__, we solve an ordinary differential equation (ODE)
+# using a special kind of :class:`MeshSeq`.
 #
 # This demo can also be accessed as a `Python script <mesh_seq.py>`__.

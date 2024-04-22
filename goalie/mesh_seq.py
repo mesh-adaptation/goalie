@@ -2,22 +2,24 @@
 Sequences of meshes corresponding to a :class:`~.TimePartition`.
 """
 
+from collections.abc import Iterable
+
 import firedrake
+import numpy as np
+from animate.interpolation import transfer
+from animate.quality import QualityMeasure
+from animate.utility import Mesh
 from firedrake.adjoint import pyadjoint
 from firedrake.adjoint_utils.solving import get_solve_blocks
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
+
 from .function_data import ForwardSolutionData
-from .interpolation import project
-from .log import pyrint, debug, warning, info, logger, DEBUG
+from .log import DEBUG, debug, info, logger, pyrint, warning
 from .options import AdaptParameters
-from animate.quality import QualityMeasure
-from .utility import AttrDict, Mesh
-from collections.abc import Iterable
-import numpy as np
+from .utility import AttrDict
 
 comm = firedrake.COMM_WORLD
-
 
 __all__ = ["MeshSeq"]
 
@@ -42,7 +44,9 @@ class MeshSeq:
             :meth:`~.MeshSeq.get_initial_condition`
         :kwarg get_form: a function as described in :meth:`~.MeshSeq.get_form`
         :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
-        :kwarg get_bcs: a function as described in :meth:`~.MeshSeq.get_bcs`
+        :kwarg transfer_method: the method to use for transferring fields between
+            meshes. Options are "interpolate" (default) and "project"
+        :type transfer_method: :class:`str`
         :kwarg parameters: parameters to apply to the mesh adaptation process
         :type parameters: :class:`~.AdaptParameters`
         """
@@ -60,7 +64,7 @@ class MeshSeq:
         self._get_initial_condition = kwargs.get("get_initial_condition")
         self._get_form = kwargs.get("get_form")
         self._get_solver = kwargs.get("get_solver")
-        self._get_bcs = kwargs.get("get_bcs")
+        self._transfer_method = kwargs.get("transfer_method", "interpolate")
         self.params = kwargs.get("parameters")
         self.steady = time_partition.steady
         self.check_convergence = np.array([True] * len(self), dtype=bool)
@@ -69,6 +73,8 @@ class MeshSeq:
         if self.params is None:
             self.params = AdaptParameters()
         self.sections = [{} for mesh in self]
+
+        self._outputs_consistent()
 
     def __str__(self):
         return f"{[str(mesh) for mesh in self.meshes]}"
@@ -311,24 +317,53 @@ class MeshSeq:
             raise NotImplementedError("'get_solver' needs implementing.")
         return self._get_solver(self)
 
-    def get_bcs(self):
+    def _transfer(self, source, target_space, **kwargs):
         """
-        Get the function mapping a subinterval index to a set of Dirichlet boundary
-        conditions.
+        Transfer a field between meshes using the specified transfer method.
 
-        Signature for the function to be returned:
-        ```
-        :arg index: the subinterval index
-        :type index: :class:`int`
-        :return: boundary conditions
-        :rtype: :class:`~.DirichletBC` or :class:`list` thereof
-        :rtype: see docstring above
-        ```
+        :arg source: the function to be transferred
+        :type source: :class:`firedrake.function.Function` or
+            :class:`firedrake.cofunction.Cofunction`
+        :arg target_space: the function space which we seek to transfer onto, or the
+            function or cofunction to use as the target
+        :type target_space: :class:`firedrake.functionspaceimpl.FunctionSpace`,
+            :class:`firedrake.function.Function`
+            or :class:`firedrake.cofunction.Cofunction`
+        :returns: the transferred function
+        :rtype: :class:`firedrake.function.Function` or
+            :class:`firedrake.cofunction.Cofunction`
 
-        :returns: the function for obtaining the boundary conditions
+        Extra keyword arguments are passed to :func:`goalie.interpolation.transfer`.
         """
-        if self._get_bcs is not None:
-            return self._get_bcs(self)
+        return transfer(source, target_space, self._transfer_method, **kwargs)
+
+    def _outputs_consistent(self):
+        """
+        Assert that function spaces, initial conditions, and forms are given in a
+        dictionary format with :attr:`MeshSeq.fields` as keys.
+        """
+        for method in ["get_function_spaces", "get_initial_condition", "get_form"]:
+            if getattr(self, f"_{method}") is None:
+                continue
+            method_map = getattr(self, method)
+            if method == "get_function_spaces":
+                method_map = method_map(self.meshes[0])
+            elif method == "get_initial_condition":
+                method_map = method_map()
+            elif method == "get_form":
+                solution_map = {}
+                u = {}
+                for f in self.fields:
+                    u[f] = firedrake.Function(self.function_spaces[f][0])
+                    solution_map[f] = (u[f], u[f])
+                method_map = method_map()(0, solution_map)
+            assert isinstance(method_map, dict), f"{method} should return a dict"
+            mesh_seq_fields = set(self.fields)
+            method_fields = set(method_map.keys())
+            diff = mesh_seq_fields.difference(method_fields)
+            assert len(diff) == 0, f"missing fields {diff} in {method}"
+            diff = method_fields.difference(mesh_seq_fields)
+            assert len(diff) == 0, f"unexpected fields {diff} in {method}"
 
     def _function_spaces_consistent(self):
         """
@@ -389,19 +424,7 @@ class MeshSeq:
         :rtype: :class:`~.AttrDict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        initial_condition_map = self.get_initial_condition()
-        assert isinstance(
-            initial_condition_map, dict
-        ), "`get_initial_condition` should return a dict"
-        mesh_seq_fields = set(self.fields)
-        initial_condition_fields = set(initial_condition_map.keys())
-        assert mesh_seq_fields.issubset(
-            initial_condition_fields
-        ), "missing fields in initial condition"
-        assert initial_condition_fields.issubset(
-            mesh_seq_fields
-        ), "more initial conditions than fields"
-        return AttrDict(initial_condition_map)
+        return AttrDict(self.get_initial_condition())
 
     @property
     def form(self):
@@ -416,13 +439,6 @@ class MeshSeq:
         See :meth:`~.MeshSeq.get_solver`.
         """
         return self.get_solver()
-
-    @property
-    def bcs(self):
-        """
-        See :meth:`~.MeshSeq.get_bcs`.
-        """
-        return self.get_bcs()
 
     @PETSc.Log.EventDecorator()
     def get_checkpoints(self, solver_kwargs={}, run_final_subinterval=False):
@@ -451,14 +467,14 @@ class MeshSeq:
         # Otherwise, solve each subsequent subinterval, in each case making use of the
         # previous checkpoint
         for i in range(N if run_final_subinterval else N - 1):
-            sols = self.solver(i, checkpoints[i], **solver_kwargs)
-            if not isinstance(sols, dict):
+            solutions = self.solver(i, checkpoints[i], **solver_kwargs)
+            if not isinstance(solutions, dict):
                 raise TypeError(
-                    f"Solver should return a dictionary, not '{type(sols)}'."
+                    f"Solver should return a dictionary, not '{type(solutions)}'."
                 )
 
             # Check that the output of the solver is as expected
-            fields = set(sols.keys())
+            fields = set(solutions.keys())
             if not set(self.fields).issubset(fields):
                 diff = set(self.fields).difference(fields)
                 raise ValueError(f"Fields are missing from the solver: {diff}.")
@@ -466,12 +482,12 @@ class MeshSeq:
                 diff = fields.difference(set(self.fields))
                 raise ValueError(f"Unexpected solver outputs: {diff}.")
 
-            # Transfer between meshes using conservative projection
+            # Transfer between meshes
             if i < N - 1:
                 checkpoints.append(
                     AttrDict(
                         {
-                            field: project(sols[field], fs[i + 1])
+                            field: self._transfer(solutions[field], fs[i + 1])
                             for field, fs in self._fs.items()
                         }
                     )
@@ -731,23 +747,23 @@ class MeshSeq:
                     )
 
                 # Update solution data based on block dependencies and outputs
-                sols = self.solutions[field]
+                solutions = self.solutions.extract(layout="field")[field]
                 for j, block in enumerate(reversed(solve_blocks[::-stride])):
                     # Current solution is determined from outputs
                     out = self._output(field, i, block)
                     if out is not None:
-                        sols.forward[i][j].assign(out.saved_output)
+                        solutions.forward[i][j].assign(out.saved_output)
 
                     # Lagged solution comes from dependencies
                     dep = self._dependency(field, i, block)
                     if not self.steady and dep is not None:
-                        sols.forward_old[i][j].assign(dep.saved_output)
+                        solutions.forward_old[i][j].assign(dep.saved_output)
 
             # Transfer the checkpoint between subintervals
             if i < num_subintervals - 1:
                 checkpoint = AttrDict(
                     {
-                        field: project(checkpoint[field], fs[i + 1])
+                        field: self._transfer(checkpoint[field], fs[i + 1])
                         for field, fs in self._fs.items()
                     }
                 )

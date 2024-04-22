@@ -26,6 +26,7 @@
 # As always, start by importing Firedrake and Goalie. ::
 
 from firedrake import *
+
 from goalie_adjoint import *
 
 # We solve the advection-diffusion problem in :math:`\mathbb P1` space. ::
@@ -102,18 +103,6 @@ def get_form(mesh_seq):
 # Note that the lagged solution ``c_`` is not actually used in
 # :func:`form`, since we have a steady-state problem.
 #
-# In addition, we need to strongly enforce boundary conditions on the
-# inflow, which is indexed by 1. ::
-
-
-def get_bcs(mesh_seq):
-    def bcs(index):
-        function_space = mesh_seq.function_spaces["c"][index]
-        return DirichletBC(function_space, 0, 1)
-
-    return bcs
-
-
 # With these ingredients, we can now define the :meth:`get_solver` method. Don't forget
 # to impose the correct names for the current and lagged solution fields, as well as
 # applying the corresponding `ad_block_tag` to the solve call. ::
@@ -131,7 +120,9 @@ def get_solver(mesh_seq):
 
         # Setup variational problem
         F = mesh_seq.form(index, {"c": (c, c_)})["c"]
-        bc = mesh_seq.bcs(index)
+
+        # Strongly enforce boundary conditions on the inflow, which is indexed by 1
+        bc = DirichletBC(function_space, 0, 1)
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
         return {"c": c}
@@ -181,7 +172,6 @@ mesh_seq = GoalOrientedMeshSeq(
     mesh,
     get_function_spaces=get_function_spaces,
     get_form=get_form,
-    get_bcs=get_bcs,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="steady",

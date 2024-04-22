@@ -10,6 +10,7 @@
 # diffusivities and react with one another nonlinearly. ::
 
 from firedrake import *
+
 from goalie_adjoint import *
 
 # The problem is defined on a doubly periodic mesh of squares. ::
