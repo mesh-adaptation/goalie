@@ -60,18 +60,11 @@ def get_function_spaces(mesh):
     return {"c": FunctionSpace(mesh, "CG", 1)}
 
 
-# We proceed similarly with prescribing initial and boundary conditions. At :math:`t=0`,
-# we initialise the tracer concentration :math:`c_0 = c(x, y, 0)` to be :math:`1` inside
+# We proceed similarly with prescribing initial conditions. At :math:`t=0`, we
+# initialise the tracer concentration :math:`c_0 = c(x, y, 0)` to be :math:`1` inside
 # a circular region of radius :math:`r_0=0.15` centred at :math:`(x_0, y_0)=(0.5, 0.65)`
 # and :math:`0` elsewhere in the domain. Note that this is a discontinuous function
 # which will not be represented well on a coarse uniform mesh. ::
-
-
-def get_bcs(mesh_seq):
-    def bcs(index):
-        return [DirichletBC(mesh_seq.function_spaces["c"][index], 0.0, "on_boundary")]
-
-    return bcs
 
 
 def ball_initial_condition(x, y):
@@ -136,7 +129,7 @@ def get_form(mesh_seq):
 def get_solver(mesh_seq):
     def solver(index, ic):
         tp = mesh_seq.time_partition
-        t_start, t_end = tp.subintervals[index]
+        t_end = tp.subintervals[index][1]
         dt = tp.timesteps[index]
         time = mesh_seq.get_time(index)
 
@@ -157,7 +150,8 @@ def get_solver(mesh_seq):
         # We pass both the concentration and velocity Functions to get_form
         form_fields = {"c": (c, c_), "u": (u, u_)}
         F = mesh_seq.form(index, form_fields)["c"]
-        nlvp = NonlinearVariationalProblem(F, c, bcs=mesh_seq.bcs(index))
+        bcs = DirichletBC(mesh_seq.function_spaces["c"][index], 0.0, "on_boundary")
+        nlvp = NonlinearVariationalProblem(F, c, bcs=bcs)
         nlvs = NonlinearVariationalSolver(nlvp, ad_block_tag="c")
 
         # Time integrate from t_start to t_end
@@ -203,7 +197,6 @@ msq = MeshSeq(
     meshes,
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
-    get_bcs=get_bcs,
     get_form=get_form,
     get_solver=get_solver,
 )

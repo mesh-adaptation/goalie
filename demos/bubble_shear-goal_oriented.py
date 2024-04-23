@@ -37,13 +37,6 @@ def get_function_spaces(mesh):
     return {"c": FunctionSpace(mesh, "CG", 1)}
 
 
-def get_bcs(mesh_seq):
-    def bcs(index):
-        return [DirichletBC(mesh_seq.function_spaces["c"][index], 0.0, "on_boundary")]
-
-    return bcs
-
-
 def ball_initial_condition(x, y):
     ball_r0, ball_x0, ball_y0 = 0.15, 0.5, 0.65
     r = sqrt(pow(x - ball_x0, 2) + pow(y - ball_y0, 2))
@@ -61,7 +54,7 @@ def get_initial_condition(mesh_seq):
 def get_solver(mesh_seq):
     def solver(index, ic):
         tp = mesh_seq.time_partition
-        t_start, t_end = tp.subintervals[index]
+        t_end = tp.subintervals[index][1]
         dt = tp.timesteps[index]
         time = mesh_seq.get_time(index)
 
@@ -82,7 +75,8 @@ def get_solver(mesh_seq):
         # We pass both the concentration and velocity Functions to get_form
         form_fields = {"c": (c, c_), "u": (u, u_)}
         F = mesh_seq.form(index, form_fields)["c"]
-        nlvp = NonlinearVariationalProblem(F, c, bcs=mesh_seq.bcs(index))
+        bcs = DirichletBC(mesh_seq.function_spaces["c"][index], 0.0, "on_boundary")
+        nlvp = NonlinearVariationalProblem(F, c, bcs=bcs)
         nlvs = NonlinearVariationalSolver(nlvp, ad_block_tag="c")
 
         # Time integrate from t_start to t_end
@@ -259,7 +253,6 @@ msq = GoalOrientedMeshSeq(
     meshes,
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
-    get_bcs=get_bcs,
     get_form=get_form,
     get_solver=get_solver,
     get_qoi=get_qoi,
