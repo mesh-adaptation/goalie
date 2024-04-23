@@ -141,7 +141,8 @@ class MeshSeq:
         :returns: list of element counts
         :rtype: :class:`list` of :class:`int`\s
         """
-        return [mesh.num_cells() for mesh in self]  # TODO #123: make parallel safe
+        comm = firedrake.COMM_WORLD
+        return [comm.allreduce(mesh.coordinates.cell_set.size) for mesh in self]
 
     def count_vertices(self):
         r"""
@@ -150,7 +151,8 @@ class MeshSeq:
         :returns: list of vertex counts
         :rtype: :class:`list` of :class:`int`\s
         """
-        return [mesh.num_vertices() for mesh in self]  # TODO #123: make parallel safe
+        comm = firedrake.COMM_WORLD
+        return [comm.allreduce(mesh.coordinates.node_set.size) for mesh in self]
 
     def _reset_counts(self):
         """
@@ -179,13 +181,13 @@ class MeshSeq:
         self._reset_counts()
         if logger.level == DEBUG:
             for i, mesh in enumerate(meshes):
-                nc = mesh.num_cells()
-                nv = mesh.num_vertices()
+                nc = self.element_counts[0][i]
+                nv = self.vertex_counts[0][i]
                 qm = QualityMeasure(mesh)
                 ar = qm("aspect_ratio")
                 mar = ar.vector().gather().max()
                 self.debug(
-                    f"{i}: {nc:7d} cells, {nv:7d} vertices,   max aspect ratio {mar:.2f}"
+                    f"{i}: {nc:7d} cells, {nv:7d} vertices,  max aspect ratio {mar:.2f}"
                 )
             debug(100 * "-")
 
@@ -838,8 +840,7 @@ class MeshSeq:
         :rtype: :class:`~.ForwardSolutionData`
         """
         # TODO #124: adaptor no longer needs solution data to be passed explicitly
-        self.element_counts = [self.count_elements()]
-        self.vertex_counts = [self.count_vertices()]
+        self._reset_counts()
         self.converged[:] = False
         self.check_convergence[:] = True
 

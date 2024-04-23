@@ -313,8 +313,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         """
         # TODO #124: adaptor no longer needs solution and indicator data to be passed
         #            explicitly
-        self.element_counts = [self.count_elements()]
-        self.vertex_counts = [self.count_vertices()]
+        self._reset_counts()
         self.qoi_values = []
         self.estimator_values = []
         self.converged[:] = False

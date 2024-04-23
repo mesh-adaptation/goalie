@@ -110,10 +110,15 @@ class TestGeneric(unittest.TestCase):
         msg = "unexpected fields {'extra_field'} in " + f"{method}"
         self.assertEqual(str(cm.exception), msg)
 
-    def test_counting(self):
+    def test_counting_2d(self):
         mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(3, 3)])
         self.assertEqual(mesh_seq.count_elements(), [18])
         self.assertEqual(mesh_seq.count_vertices(), [16])
+
+    def test_counting_3d(self):
+        mesh_seq = MeshSeq(self.time_interval, [UnitCubeMesh(3, 3, 3)])
+        self.assertEqual(mesh_seq.count_elements(), [162])
+        self.assertEqual(mesh_seq.count_vertices(), [64])
 
 
 class TestStringFormatting(unittest.TestCase):
