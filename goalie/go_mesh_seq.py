@@ -3,7 +3,6 @@ Drivers for goal-oriented error estimation on sequences of meshes.
 """
 
 from collections.abc import Iterable
-from inspect import signature
 
 import numpy as np
 import ufl
@@ -159,9 +158,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         enriched_mesh_seq.solve_adjoint(**solver_kwargs)
 
         tp = self.time_partition
-        # check whether get_form contains a kwarg indicating time-dependent constants
-        timedep_const = "err_ind_time" in signature(enriched_mesh_seq.form).parameters
-
         FWD, ADJ = "forward", "adjoint"
         FWD_OLD = "forward" if self.steady else "forward_old"
         ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
@@ -183,29 +179,19 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 u_star_next[f] = Function(fs_e)
                 u_star_e[f] = Function(fs_e)
 
-            # Get forms for each equation in enriched space
-            if not timedep_const:
-                forms = enriched_mesh_seq.form(i, mapping)
-                if not isinstance(forms, dict):
-                    raise TypeError(
-                        "The function defined by get_form should return a dictionary"
-                        f", not type '{type(forms)}'."
-                    )
-
             # Loop over each strongly coupled field
             for f in self.fields:
                 # Loop over each timestep
                 solutions = self.solutions.extract(layout="field")
                 indicators = self.indicators.extract(layout="field")
                 for j in range(len(solutions[f]["forward"][i])):
+                    # Recompile the form with updated time-dependent constants
+                    time.assign(
+                        tp.subintervals[i][0]
+                        + (j + 1) * tp.timesteps[i] * tp.num_timesteps_per_export[i]
+                    )
+                    forms = enriched_mesh_seq.form(i, mapping)
                     # Update fields
-                    if timedep_const:
-                        # recompile the form with updated time-dependent constants
-                        time.assign(
-                            tp.subintervals[i][0]
-                            + (j + 1) * tp.timesteps[i] * tp.num_timesteps_per_export[i]
-                        )
-                        forms = enriched_mesh_seq.form(i, mapping)
                     transfer(self.solutions[f][FWD][i][j], u[f])
                     transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
                     transfer(self.solutions[f][ADJ][i][j], u_star[f])
