@@ -40,6 +40,7 @@ jobs:
           python -m pip install -e .
       - name: Convert demos to integration tests
         run: |
+          . /home/firedrake/firedrake/bin/activate
           make convert_demos
       - name: Test Goalie
         run: |
