@@ -69,7 +69,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             get_form=self._get_form,
             get_solver=self._get_solver,
             get_qoi=self._get_qoi,
-            get_bcs=self._get_bcs,
             qoi_type=self.qoi_type,
             parameters=self.params,
         )
@@ -158,10 +157,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         # Solve the forward and adjoint problems on the MeshSeq and its enriched version
         self.solve_adjoint(**solver_kwargs)
         enriched_mesh_seq.solve_adjoint(**solver_kwargs)
-
-        tp = self.time_partition
-        # check whether get_form contains a kwarg indicating time-dependent constants
-        timedep_const = "err_ind_time" in signature(enriched_mesh_seq.form).parameters
 
         tp = self.time_partition
         # check whether get_form contains a kwarg indicating time-dependent constants
@@ -333,8 +328,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         """
         # TODO #124: adaptor no longer needs solution and indicator data to be passed
         #            explicitly
-        self.element_counts = [self.count_elements()]
-        self.vertex_counts = [self.count_vertices()]
+        self._reset_counts()
         self.qoi_values = []
         self.estimator_values = []
         self.converged[:] = False

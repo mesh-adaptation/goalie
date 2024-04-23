@@ -13,6 +13,7 @@ from firedrake import (
     UnitSquareMesh,
     UnitTriangleMesh,
 )
+from parameterized import parameterized
 from pyadjoint.block_variable import BlockVariable
 
 from goalie.mesh_seq import MeshSeq
@@ -43,32 +44,81 @@ class TestGeneric(unittest.TestCase):
         msg = "Meshes must all have the same topological dimension."
         self.assertEqual(str(cm.exception), msg)
 
-    def test_get_function_spaces_notimplemented_error(self):
-        meshes = [UnitSquareMesh(1, 1)]
-        mesh_seq = MeshSeq(self.time_interval, meshes)
+    @parameterized.expand(["get_function_spaces", "get_form", "get_solver"])
+    def test_notimplemented_error(self, function_name):
+        mesh_seq = MeshSeq(self.time_interval, UnitSquareMesh(1, 1))
         with self.assertRaises(NotImplementedError) as cm:
-            mesh_seq.get_function_spaces(meshes[0])
-        msg = "'get_function_spaces' needs implementing."
+            if function_name == "get_function_spaces":
+                getattr(mesh_seq, function_name)(mesh_seq[0])
+            else:
+                getattr(mesh_seq, function_name)()
+        msg = f"'{function_name}' needs implementing."
         self.assertEqual(str(cm.exception), msg)
 
-    def test_get_form_notimplemented_error(self):
-        mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)])
-        with self.assertRaises(NotImplementedError) as cm:
-            mesh_seq.get_form()
-        msg = "'get_form' needs implementing."
+    @parameterized.expand(["get_function_spaces", "get_initial_condition", "get_form"])
+    def test_return_dict_error(self, method):
+        mesh = UnitSquareMesh(1, 1)
+        methods = ["get_function_spaces", "get_initial_condition", "get_form"]
+        values = [lambda _: 0, lambda _: 0, lambda _: lambda *_: 0]
+        methods_map = dict(zip(methods, values))
+        if method == "get_form":
+            kwargs = {method: value for method, value in methods_map.items()}
+            f_space = FunctionSpace(mesh, "CG", 1)
+            kwargs["get_function_spaces"] = lambda _: {"field": f_space}
+            kwargs["get_initial_condition"] = lambda _: {"field": Function(f_space)}
+        else:
+            kwargs = {method: methods_map[method]}
+        with self.assertRaises(AssertionError) as cm:
+            MeshSeq(self.time_interval, mesh, **kwargs)
+        msg = f"{method} should return a dict"
         self.assertEqual(str(cm.exception), msg)
 
-    def test_get_solver_notimplemented_error(self):
-        mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)])
-        with self.assertRaises(NotImplementedError) as cm:
-            mesh_seq.get_solver()
-        msg = "'get_solver' needs implementing."
+    @parameterized.expand(["get_function_spaces", "get_initial_condition", "get_form"])
+    def test_missing_field_error(self, method):
+        mesh = UnitSquareMesh(1, 1)
+        methods = ["get_function_spaces", "get_initial_condition", "get_form"]
+        values = [lambda _: {}, lambda _: {}, lambda _: lambda *_: {}]
+        methods_map = dict(zip(methods, values))
+        if method == "get_form":
+            kwargs = {method: value for method, value in methods_map.items()}
+            f_space = FunctionSpace(mesh, "CG", 1)
+            kwargs["get_function_spaces"] = lambda _: {"field": f_space}
+            kwargs["get_initial_condition"] = lambda _: {"field": Function(f_space)}
+        else:
+            kwargs = {method: methods_map[method]}
+        with self.assertRaises(AssertionError) as cm:
+            MeshSeq(self.time_interval, mesh, **kwargs)
+        msg = "missing fields {'field'} in " + f"{method}"
         self.assertEqual(str(cm.exception), msg)
 
-    def test_counting(self):
+    @parameterized.expand(["get_function_spaces", "get_initial_condition", "get_form"])
+    def test_unexpected_field_error(self, method):
+        mesh = UnitSquareMesh(1, 1)
+        methods = ["get_function_spaces", "get_initial_condition", "get_form"]
+        out_dict = {"field": None, "extra_field": None}
+        values = [lambda _: out_dict, lambda _: out_dict, lambda _: lambda *_: out_dict]
+        methods_map = dict(zip(methods, values))
+        if method == "get_form":
+            kwargs = {method: value for method, value in methods_map.items()}
+            f_space = FunctionSpace(mesh, "CG", 1)
+            kwargs["get_function_spaces"] = lambda _: {"field": f_space}
+            kwargs["get_initial_condition"] = lambda _: {"field": Function(f_space)}
+        else:
+            kwargs = {method: methods_map[method]}
+        with self.assertRaises(AssertionError) as cm:
+            MeshSeq(self.time_interval, mesh, **kwargs)
+        msg = "unexpected fields {'extra_field'} in " + f"{method}"
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_counting_2d(self):
         mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(3, 3)])
         self.assertEqual(mesh_seq.count_elements(), [18])
         self.assertEqual(mesh_seq.count_vertices(), [16])
+
+    def test_counting_3d(self):
+        mesh_seq = MeshSeq(self.time_interval, [UnitCubeMesh(3, 3, 3)])
+        self.assertEqual(mesh_seq.count_elements(), [162])
+        self.assertEqual(mesh_seq.count_vertices(), [64])
 
 
 class TestStringFormatting(unittest.TestCase):
