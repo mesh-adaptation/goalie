@@ -699,77 +699,42 @@ class MeshSeq:
         :rtype: :class:`~.ForwardSolutionData`
         """
         num_subintervals = len(self)
-        P = self.time_partition
-        solver = self.solver
 
         # Reinitialise the solution data object
         self._create_solutions()
+        solutions = self.solutions.extract(layout="field")
 
-        # Start annotating
+        # Stop annotating
         if pyadjoint.annotate_tape():
             tape = pyadjoint.get_working_tape()
             if tape is not None:
                 tape.clear_tape()
         else:
-            pyadjoint.continue_annotation()
+            pyadjoint.pause_annotation()
 
         # Loop over the subintervals
         checkpoint = self.initial_condition
         for i in range(num_subintervals):
-            stride = P.num_timesteps_per_export[i]
-            num_exports = P.num_exports_per_subinterval[i]
+            solver = self.solver(i, checkpoint, **solver_kwargs)
+            stride = self.time_partition.num_timesteps_per_export[i]
+            num_exports = self.time_partition.num_exports_per_subinterval[i]
 
-            # Annotate tape on current subinterval
-            checkpoint = solver(i, checkpoint, **solver_kwargs)
-
-            # Loop over prognostic variables
-            for field, fs in self.function_spaces.items():
-                # Get solve blocks
-                solve_blocks = self.get_solve_blocks(field, i)
-                num_solve_blocks = len(solve_blocks)
-                if num_solve_blocks == 0:
-                    raise ValueError(
-                        "Looks like no solves were written to tape!"
-                        " Does the solution depend on the initial condition?"
-                    )
-                if fs[0].ufl_element() != solve_blocks[0].function_space.ufl_element():
-                    raise ValueError(
-                        f"Solve block list for field '{field}' contains mismatching"
-                        f" finite elements: ({fs[0].ufl_element()} vs. "
-                        f" {solve_blocks[0].function_space.ufl_element()})"
-                    )
-
-                # Extract solution data
-                if len(solve_blocks[::stride]) >= num_exports:
-                    raise ValueError(
-                        f"More solve blocks than expected"
-                        f" ({len(solve_blocks[::stride])} > {num_exports-1})"
-                    )
-
-                # Update solution data based on block dependencies and outputs
-                solutions = self.solutions.extract(layout="field")[field]
-                for j, block in enumerate(reversed(solve_blocks[::-stride])):
-                    # Current solution is determined from outputs
-                    out = self._output(field, i, block)
-                    if out is not None:
-                        solutions.forward[i][j].assign(out.saved_output)
-
-                    # Lagged solution comes from dependencies
-                    dep = self._dependency(field, i, block)
-                    if not self.steady and dep is not None:
-                        solutions.forward_old[i][j].assign(dep.saved_output)
+            # Update solution data
+            for j in range(num_exports - 1):
+                for _ in range(stride):
+                    sol_map = next(solver)
+                for field in self.fields:
+                    solutions[field].forward[i][j].assign(sol_map[field][0])
+                    solutions[field].forward_old[i][j].assign(sol_map[field][1])
 
             # Transfer the checkpoint between subintervals
             if i < num_subintervals - 1:
                 checkpoint = AttrDict(
                     {
-                        field: self._transfer(checkpoint[field], fs[i + 1])
+                        field: self._transfer(sol_map[field][0], fs[i + 1])
                         for field, fs in self._fs.items()
                     }
                 )
-
-            # Clear the tape to reduce the memory footprint
-            pyadjoint.get_working_tape().clear_tape()
 
         return self.solutions
 

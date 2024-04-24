@@ -101,19 +101,16 @@ def get_solver(mesh_seq):
         u_ = Function(function_space, name="u_old")
         u_.assign(ic["u"])
 
-        # Define form
-        F = mesh_seq.form(index, {"u": (u, u_)})["u"]
+        sol_map = {"u": (u, u_)}
 
-        # Time integrate from t_start to t_end
-        P = mesh_seq.time_partition
-        t_start, t_end = P.subintervals[index]
-        dt = P.timesteps[index]
-        t = t_start
-        while t < t_end - 1.0e-05:
+        # Define form
+        F = mesh_seq.form(index, sol_map)["u"]
+
+        num_timesteps = mesh_seq.time_partition.num_timesteps_per_subinterval[index]
+        for _ in range(num_timesteps):
             solve(F == 0, u, ad_block_tag="u")
             u_.assign(u)
-            t += dt
-        return {"u": u}
+            yield sol_map
 
     return solver
 
