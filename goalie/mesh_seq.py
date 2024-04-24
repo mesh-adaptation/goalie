@@ -441,61 +441,6 @@ class MeshSeq:
         return self.get_solver()
 
     @PETSc.Log.EventDecorator()
-    def get_checkpoints(self, solver_kwargs={}, run_final_subinterval=False):
-        r"""
-        Solve forward on the sequence of meshes, extracting checkpoints corresponding
-        to the starting fields on each subinterval.
-
-        :kwarg solver_kwargs: parameters for the forward solver
-        :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
-            take various types
-        :kwarg run_final_subinterval: if ``True``, the solver is run on the final
-            subinterval
-        :type run_final_subinterval: :class:`bool`
-        :returns: checkpoints for each subinterval
-        :rtype: :class:`list` of :class:`firedrake.function.Function`\s
-        """
-        N = len(self)
-
-        # The first checkpoint is the initial condition
-        checkpoints = [self.initial_condition]
-
-        # If there is only one subinterval then we are done
-        if N == 1 and not run_final_subinterval:
-            return checkpoints
-
-        # Otherwise, solve each subsequent subinterval, in each case making use of the
-        # previous checkpoint
-        for i in range(N if run_final_subinterval else N - 1):
-            solutions = self.solver(i, checkpoints[i], **solver_kwargs)
-            if not isinstance(solutions, dict):
-                raise TypeError(
-                    f"Solver should return a dictionary, not '{type(solutions)}'."
-                )
-
-            # Check that the output of the solver is as expected
-            fields = set(solutions.keys())
-            if not set(self.fields).issubset(fields):
-                diff = set(self.fields).difference(fields)
-                raise ValueError(f"Fields are missing from the solver: {diff}.")
-            if not fields.issubset(set(self.fields)):
-                diff = fields.difference(set(self.fields))
-                raise ValueError(f"Unexpected solver outputs: {diff}.")
-
-            # Transfer between meshes
-            if i < N - 1:
-                checkpoints.append(
-                    AttrDict(
-                        {
-                            field: self._transfer(solutions[field], fs[i + 1])
-                            for field, fs in self._fs.items()
-                        }
-                    )
-                )
-
-        return checkpoints
-
-    @PETSc.Log.EventDecorator()
     def get_solve_blocks(self, field, subinterval):
         r"""
         Get all blocks of the tape corresponding to solve steps for prognostic solution
@@ -685,6 +630,95 @@ class MeshSeq:
         return self._solutions
 
     @PETSc.Log.EventDecorator()
+    def _solve_forward(self, save_solutions=True, solver_kwargs={}):
+        r"""
+        Solve a forward problem on a sequence of subintervals. Yields the final solution
+        on each subinterval.
+
+        :kwarg save_solutions: if ``True``, updates the solution data
+        :type save_solutions: :class:`bool`
+        :kwarg solver_kwargs: parameters for the forward solver
+        :type solver_kwargs: :class:`dict` whose keys are :class:`str`\s and whose values
+            may take various types
+        :returns: the solution data of the forward solves
+        :rtype: :class:`~.ForwardSolutionData`
+        """
+        # TODO docstring tag for yield?
+        num_subintervals = len(self)
+        tp = self.time_partition
+
+        # Reinitialise the solution data object
+        self._create_solutions()
+        solutions = self.solutions.extract(layout="field")
+
+        # Stop annotating
+        if pyadjoint.annotate_tape():
+            tape = pyadjoint.get_working_tape()
+            if tape is not None:
+                tape.clear_tape()
+            pyadjoint.pause_annotation()
+
+        # Loop over the subintervals
+        checkpoint = self.initial_condition
+        for i in range(num_subintervals):
+            solver = self.solver(i, checkpoint, **solver_kwargs)
+
+            if save_solutions:
+                # Solve sequentially over the subinterval and update solution data
+                for j in range(tp.num_exports_per_subinterval[i] - 1):
+                    for _ in range(tp.num_timesteps_per_export[i]):
+                        sol_map = next(solver)
+                    for field in self.fields:
+                        f, f_old = sol_map[field]
+                        solutions[field].forward[i][j].assign(f)
+                        solutions[field].forward_old[i][j].assign(f_old)
+            else:
+                # Solve over the whole subinterval in one go
+                for _ in range(tp.num_timesteps_per_subinterval[i]):
+                    sol_map = next(solver)
+
+            # Transfer the checkpoint to the next subintervals
+            if i < num_subintervals - 1:
+                checkpoint = AttrDict(
+                    {
+                        field: self._transfer(sol_map[field][0], fs[i + 1])
+                        for field, fs in self._fs.items()
+                    }
+                )
+
+            yield checkpoint
+
+    @PETSc.Log.EventDecorator()
+    def get_checkpoints(self, run_final_subinterval=False, solver_kwargs={}):
+        r"""
+        Get checkpoints corresponding to the starting fields on each subinterval.
+
+        :kwarg run_final_subinterval: if ``True``, the solver is run on the final
+            subinterval
+        :type run_final_subinterval: :class:`bool`
+        :kwarg solver_kwargs: parameters for the forward solver
+        :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :returns: checkpoints for each subinterval
+        :rtype: :class:`list` of :class:`firedrake.function.Function`\s
+        """
+        N = len(self)
+
+        # The first checkpoint is the initial condition
+        checkpoints = [self.initial_condition]
+
+        # If there is only one subinterval then we are done
+        if N == 1 and not run_final_subinterval:
+            return checkpoints
+
+        # Otherwise, solve each subsequent subinterval and append the checkpoint
+        solver = self._solve_forward(save_solutions=False, solver_kwargs=solver_kwargs)
+        for _ in range(N if run_final_subinterval else N - 1):
+            checkpoints.append(next(solver))
+
+        return checkpoints
+
+    @PETSc.Log.EventDecorator()
     def solve_forward(self, solver_kwargs={}):
         r"""
         Solve a forward problem on a sequence of subintervals.
@@ -698,43 +732,9 @@ class MeshSeq:
         :returns: the solution data of the forward solves
         :rtype: :class:`~.ForwardSolutionData`
         """
-        num_subintervals = len(self)
-
-        # Reinitialise the solution data object
-        self._create_solutions()
-        solutions = self.solutions.extract(layout="field")
-
-        # Stop annotating
-        if pyadjoint.annotate_tape():
-            tape = pyadjoint.get_working_tape()
-            if tape is not None:
-                tape.clear_tape()
-        else:
-            pyadjoint.pause_annotation()
-
-        # Loop over the subintervals
-        checkpoint = self.initial_condition
-        for i in range(num_subintervals):
-            solver = self.solver(i, checkpoint, **solver_kwargs)
-            stride = self.time_partition.num_timesteps_per_export[i]
-            num_exports = self.time_partition.num_exports_per_subinterval[i]
-
-            # Update solution data
-            for j in range(num_exports - 1):
-                for _ in range(stride):
-                    sol_map = next(solver)
-                for field in self.fields:
-                    solutions[field].forward[i][j].assign(sol_map[field][0])
-                    solutions[field].forward_old[i][j].assign(sol_map[field][1])
-
-            # Transfer the checkpoint between subintervals
-            if i < num_subintervals - 1:
-                checkpoint = AttrDict(
-                    {
-                        field: self._transfer(sol_map[field][0], fs[i + 1])
-                        for field, fs in self._fs.items()
-                    }
-                )
+        solver = self._solve_forward(save_solutions=True, **solver_kwargs)
+        for _ in range(len(self)):
+            next(solver)
 
         return self.solutions
 
