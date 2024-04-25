@@ -483,9 +483,15 @@ class AdjointMeshSeq(MeshSeq):
             if tape is not None:
                 tape.clear_tape()
 
+            # Solver generator
+            solver_gen = wrapped_solver(i, checkpoints[i], **solver_kwargs)
+
             # Annotate tape on current subinterval
-            checkpoint = wrapped_solver(i, checkpoints[i], **solver_kwargs)
+            for _ in range(tp.num_timesteps_per_subinterval[i]):
+                next(solver_gen)
             pyadjoint.pause_annotation()
+
+            checkpoint = {field: sol for field, (sol, _) in self.fields.items()}
 
             # Get seed vector for reverse propagation
             if i == num_subintervals - 1:
