@@ -68,8 +68,8 @@ def get_form(self):
     stabilisation.
     """
 
-    def form(i, sols):
-        c, c_ = sols["tracer_3d"]
+    def form(i):
+        _, c = self.fields["tracer_3d"]
         fs = self.function_spaces["tracer_3d"][i]
         R = FunctionSpace(self[i], "R", 0)
         D = Function(R).assign(0.1)
@@ -104,15 +104,14 @@ def get_solver(self):
     solved using a direct method.
     """
 
-    def solver(i, ic):
+    def solver(i):
         fs = self.function_spaces["tracer_3d"][i]
 
-        # Ensure dependence on initial condition
-        c = Function(fs, name="tracer_3d_old")
-        c.assign(ic["tracer_3d"])
+        _, c = self.fields["tracer_3d"]
+        self.fields["tracer_3d"] = (c, c)
 
         # Setup variational problem
-        F = self.form(i, {"tracer_3d": (c, c)})["tracer_3d"]
+        F = self.form(i)["tracer_3d"]
 
         # Zero Dirichlet condition on the left-hand (inlet) boundary
         bc = DirichletBC(fs, 0, 1)
@@ -126,12 +125,12 @@ def get_solver(self):
             "pc_factor_mat_solver_type": "mumps",
         }
         solve(F == 0, c, bcs=bc, solver_parameters=sp, ad_block_tag="tracer_3d")
-        return {"tracer_3d": c}
+        yield
 
     return solver
 
 
-def get_qoi(self, sol, i):
+def get_qoi(self, i):
     """
     Quantity of interest which integrates
     the tracer concentration over an offset
@@ -139,7 +138,7 @@ def get_qoi(self, sol, i):
     """
 
     def steady_qoi():
-        c = sol["tracer_3d"]
+        c = self.fields["tracer_3d"][0]
         x, y, z = SpatialCoordinate(self[i])
         kernel = conditional(
             (x - rec_x) ** 2 + (y - rec_y) ** 2 + (z - rec_z) ** 2 < rec_r**2, 1, 0

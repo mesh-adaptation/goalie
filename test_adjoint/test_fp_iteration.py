@@ -8,7 +8,7 @@ from parameterized import parameterized
 from goalie_adjoint import *
 
 
-def constant_qoi(mesh_seq, solutions, index):
+def constant_qoi(mesh_seq, index):
     R = FunctionSpace(mesh_seq[index], "R", 0)
 
     def qoi():
@@ -17,7 +17,7 @@ def constant_qoi(mesh_seq, solutions, index):
     return qoi
 
 
-def oscillating_qoi(mesh_seq, solutions, index):
+def oscillating_qoi(mesh_seq, index):
     R = FunctionSpace(mesh_seq[index], "R", 0)
 
     def qoi():
@@ -75,7 +75,9 @@ class MeshSeqBaseClass:
         mesh_seq = self.seq(kw.pop("time_partition"), kw.pop("mesh"), **kw)
         mesh_seq._get_function_spaces = lambda _: {}
         mesh_seq._get_form = lambda _: lambda *_: {}
-        mesh_seq._get_solver = lambda _: lambda *_: {}
+        mesh_seq._get_solver = lambda _: lambda *_: (
+            yield from (None for _ in iter(int, 1))
+        )
         return mesh_seq
 
     def test_convergence_noop(self):
