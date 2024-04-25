@@ -48,7 +48,7 @@ class MeshSeq:
         :type parameters: :class:`~.AdaptParameters`
         """
         self.time_partition = time_partition
-        self.fields = time_partition.fields
+        self.fields = {field: None for field in time_partition.fields}
         self.field_types = {
             field: field_type
             for field, field_type in zip(self.fields, time_partition.field_types)
@@ -350,12 +350,8 @@ class MeshSeq:
             elif method == "get_initial_condition":
                 method_map = method_map()
             elif method == "get_form":
-                solution_map = {}
-                u = {}
-                for f in self.fields:
-                    u[f] = firedrake.Function(self.function_spaces[f][0])
-                    solution_map[f] = (u[f], u[f])
-                method_map = method_map()(0, solution_map)
+                self._reinitialise_fields(0, self.get_initial_condition())
+                method_map = method_map()(0)
             assert isinstance(method_map, dict), f"{method} should return a dict"
             mesh_seq_fields = set(self.fields)
             method_fields = set(method_map.keys())
@@ -455,8 +451,26 @@ class MeshSeq:
             self._create_solutions()
         return self._solutions
 
+    def _reinitialise_fields(self, subinterval, initial_conditions):
+        """
+        Reinitialise fields and assign initial conditions on the given subinterval.
+
+        :arg subinterval: the subinterval index
+        :type subinterval: :class:`int`
+        :arg initial_conditions: the initial conditions to assign
+        :type initial_conditions: :class:`dict` with :class:`str` keys and
+            :class:`firedrake.function.Function` values
+        """
+        for field in self.fields:
+            fs = self._fs[field][subinterval]
+            self.fields[field] = (
+                firedrake.Function(fs, name=field),
+                firedrake.Function(fs, name=f"{field}_old"),
+            )
+            self.fields[field][1].assign(initial_conditions[field])
+
     @PETSc.Log.EventDecorator()
-    def _solve_forward(self, save_solutions=True, solver_kwargs={}):
+    def _solve_forward(self, update_solutions=True, solver_kwargs={}):
         r"""
         Solve a forward problem on a sequence of subintervals. Yields the final solution
         on each subinterval.
@@ -487,27 +501,43 @@ class MeshSeq:
         # Loop over the subintervals
         checkpoint = self.initial_condition
         for i in range(num_subintervals):
-            solver = self.solver(i, checkpoint, **solver_kwargs)
+            solver_gen = self.solver(i, **solver_kwargs)
 
-            if save_solutions:
-                # Solve sequentially over the subinterval and update solution data
-                for j in range(tp.num_exports_per_subinterval[i] - 1):
-                    for _ in range(tp.num_timesteps_per_export[i]):
-                        sol_map = next(solver)
-                    for field in self.fields:
-                        f, f_old = sol_map[field]
-                        solutions[field].forward[i][j].assign(f)
-                        solutions[field].forward_old[i][j].assign(f_old)
-            else:
-                # Solve over the whole subinterval in one go
-                for _ in range(tp.num_timesteps_per_subinterval[i]):
-                    sol_map = next(solver)
+            # Reinitialise fields and assign initial conditions
+            self._reinitialise_fields(i, checkpoint)
+
+            try:
+                if update_solutions:
+                    # Solve sequentially between each export time
+                    for j in range(tp.num_exports_per_subinterval[i] - 1):
+                        for _ in range(tp.num_timesteps_per_export[i]):
+                            next(solver_gen)
+                        # Update the solution data
+                        for field, (f, f_) in self.fields.items():
+                            solutions[field].forward[i][j].assign(f)
+                            solutions[field].forward_old[i][j].assign(f_)
+                else:
+                    # Solve over the entire subinterval in one go
+                    for _ in range(tp.num_timesteps_per_subinterval[i]):
+                        next(solver_gen)
+            except TypeError as e:
+                if " object is not an iterator" in str(e):
+                    raise TypeError("The solver function must yield at every timestep.")
+                else:
+                    raise e
+
+            # Solver should yield before updating the lagged solution
+            if solutions[field].forward[i][-1] == solutions[field].forward_old[i][-1]:
+                self.warning(
+                    "Final lagged solution is the same as the final solution."
+                    " Has the lagged solution been updated after yielding?"
+                )
 
             # Transfer the checkpoint to the next subintervals
             if i < num_subintervals - 1:
                 checkpoint = AttrDict(
                     {
-                        field: self._transfer(sol_map[field][0], fs[i + 1])
+                        field: self._transfer(self.fields[field][0], fs[i + 1])
                         for field, fs in self._fs.items()
                     }
                 )
@@ -538,9 +568,11 @@ class MeshSeq:
             return checkpoints
 
         # Otherwise, solve each subsequent subinterval and append the checkpoint
-        solver = self._solve_forward(save_solutions=False, solver_kwargs=solver_kwargs)
+        solver_gen = self._solve_forward(
+            update_solutions=False, solver_kwargs=solver_kwargs
+        )
         for _ in range(N if run_final_subinterval else N - 1):
-            checkpoints.append(next(solver))
+            checkpoints.append(next(solver_gen))
 
         return checkpoints
 
@@ -558,9 +590,9 @@ class MeshSeq:
         :returns: the solution data of the forward solves
         :rtype: :class:`~.ForwardSolutionData`
         """
-        solver = self._solve_forward(save_solutions=True, **solver_kwargs)
+        solver_gen = self._solve_forward(update_solutions=True, **solver_kwargs)
         for _ in range(len(self)):
-            next(solver)
+            next(solver_gen)
 
         return self.solutions
 
