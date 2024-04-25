@@ -177,7 +177,7 @@ class AdjointMeshSeq(MeshSeq):
 
         # Account for end time QoI
         if self.qoi_type in ["end_time", "steady"] and run_final_subinterval:
-            self._reinitialise_fields(len(self) - 1, checkpoints[-1])
+            self._reinitialise_fields(checkpoints[-1])
             qoi = self.get_qoi(len(self) - 1)
             self.J = qoi(**solver_kwargs.get("qoi_kwargs", {}))
         return checkpoints
@@ -466,7 +466,7 @@ class AdjointMeshSeq(MeshSeq):
             self._controls = list(map(pyadjoint.Control, copy_map.values()))
 
             # Reinitialise fields and assign initial conditions
-            self._reinitialise_fields(i, copy_map)
+            self._reinitialise_fields(copy_map)
 
             return solver(subinterval, **kwargs)
 

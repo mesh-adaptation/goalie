@@ -350,7 +350,7 @@ class MeshSeq:
             elif method == "get_initial_condition":
                 method_map = method_map()
             elif method == "get_form":
-                self._reinitialise_fields(0, self.get_initial_condition())
+                self._reinitialise_fields(self.get_initial_condition())
                 method_map = method_map()(0)
             assert isinstance(method_map, dict), f"{method} should return a dict"
             mesh_seq_fields = set(self.fields)
@@ -451,7 +451,7 @@ class MeshSeq:
             self._create_solutions()
         return self._solutions
 
-    def _reinitialise_fields(self, subinterval, initial_conditions):
+    def _reinitialise_fields(self, initial_conditions):
         """
         Reinitialise fields and assign initial conditions on the given subinterval.
 
@@ -462,7 +462,7 @@ class MeshSeq:
             :class:`firedrake.function.Function` values
         """
         for field in self.fields:
-            fs = self._fs[field][subinterval]
+            fs = initial_conditions[field].function_space()
             self.fields[field] = (
                 firedrake.Function(fs, name=field),
                 firedrake.Function(fs, name=f"{field}_old"),
@@ -504,7 +504,7 @@ class MeshSeq:
             solver_gen = self.solver(i, **solver_kwargs)
 
             # Reinitialise fields and assign initial conditions
-            self._reinitialise_fields(i, checkpoint)
+            self._reinitialise_fields(checkpoint)
 
             try:
                 if update_solutions:
@@ -515,7 +515,8 @@ class MeshSeq:
                         # Update the solution data
                         for field, (f, f_) in self.fields.items():
                             solutions[field].forward[i][j].assign(f)
-                            solutions[field].forward_old[i][j].assign(f_)
+                            if not self.steady:
+                                solutions[field].forward_old[i][j].assign(f_)
                 else:
                     # Solve over the entire subinterval in one go
                     for _ in range(tp.num_timesteps_per_subinterval[i]):
@@ -525,13 +526,6 @@ class MeshSeq:
                     raise TypeError("The solver function must yield at every timestep.")
                 else:
                     raise e
-
-            # Solver should yield before updating the lagged solution
-            if solutions[field].forward[i][-1] == solutions[field].forward_old[i][-1]:
-                self.warning(
-                    "Final lagged solution is the same as the final solution."
-                    " Has the lagged solution been updated after yielding?"
-                )
 
             # Transfer the checkpoint to the next subintervals
             if i < num_subintervals - 1:
