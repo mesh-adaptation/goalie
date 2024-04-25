@@ -31,8 +31,8 @@ def annotate_qoi(get_qoi):
     """
 
     @wraps(get_qoi)
-    def wrap_get_qoi(mesh_seq, solution_map, i):
-        qoi = get_qoi(mesh_seq, solution_map, i)
+    def wrap_get_qoi(mesh_seq, i):
+        qoi = get_qoi(mesh_seq, i)
 
         # Count number of arguments
         num_kwargs = 0 if qoi.__defaults__ is None else len(qoi.__defaults__)
@@ -120,7 +120,7 @@ class AdjointMeshSeq(MeshSeq):
         return super().initial_condition
 
     @annotate_qoi
-    def get_qoi(self, solution_map, subinterval):
+    def get_qoi(self, subinterval):
         """
         Get the function for evaluating the QoI, which has either zero or one arguments,
         corresponding to either an end time or time integrated quantity of interest,
@@ -145,7 +145,7 @@ class AdjointMeshSeq(MeshSeq):
         """
         if self._get_qoi is None:
             raise NotImplementedError("'get_qoi' is not implemented.")
-        return self._get_qoi(self, solution_map, subinterval)
+        return self._get_qoi(self, subinterval)
 
     @pyadjoint.no_annotations
     @PETSc.Log.EventDecorator()
@@ -177,7 +177,8 @@ class AdjointMeshSeq(MeshSeq):
 
         # Account for end time QoI
         if self.qoi_type in ["end_time", "steady"] and run_final_subinterval:
-            qoi = self.get_qoi(checkpoints[-1], len(self) - 1)
+            self._reinitialise_fields(len(self) - 1, checkpoints[-1])
+            qoi = self.get_qoi(len(self) - 1)
             self.J = qoi(**solver_kwargs.get("qoi_kwargs", {}))
         return checkpoints
 
@@ -410,7 +411,7 @@ class AdjointMeshSeq(MeshSeq):
         """
         # TODO #125: Support get_adj_values in AdjointSolutionData
         # TODO #126: Separate out qoi_kwargs
-        P = self.time_partition
+        tp = self.time_partition
         num_subintervals = len(self)
         solver = self.solver
         qoi_kwargs = solver_kwargs.get("qoi_kwargs", {})
@@ -437,7 +438,7 @@ class AdjointMeshSeq(MeshSeq):
                     self.solutions.extract(layout="field")[field]["adj_value"].append(
                         [
                             firedrake.Cofunction(fs.dual(), name=f"{field}_adj_value")
-                            for j in range(P.num_exports_per_subinterval[i] - 1)
+                            for j in range(tp.num_exports_per_subinterval[i] - 1)
                         ]
                     )
 
@@ -463,13 +464,17 @@ class AdjointMeshSeq(MeshSeq):
                 }
             )
             self._controls = list(map(pyadjoint.Control, copy_map.values()))
-            return solver(subinterval, copy_map, **kwargs)
+
+            # Reinitialise fields and assign initial conditions
+            self._reinitialise_fields(i, copy_map)
+
+            return solver(subinterval, **kwargs)
 
         # Loop over subintervals in reverse
         seeds = {}
         for i in reversed(range(num_subintervals)):
-            stride = P.num_timesteps_per_export[i]
-            num_exports = P.num_exports_per_subinterval[i]
+            stride = tp.num_timesteps_per_export[i]
+            num_exports = tp.num_exports_per_subinterval[i]
 
             # Clear tape and start annotation
             if not pyadjoint.annotate_tape():
@@ -486,7 +491,7 @@ class AdjointMeshSeq(MeshSeq):
             if i == num_subintervals - 1:
                 if self.qoi_type in ["end_time", "steady"]:
                     pyadjoint.continue_annotation()
-                    qoi = self.get_qoi(checkpoint, i)
+                    qoi = self.get_qoi(i)
                     self.J = qoi(**qoi_kwargs)
                     if np.isclose(float(self.J), 0.0):
                         self.warning("Zero QoI. Is it implemented as intended?")
