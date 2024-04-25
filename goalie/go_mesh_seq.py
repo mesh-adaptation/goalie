@@ -177,12 +177,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 u_star_e[f] = Function(fs_e)
 
             # Get forms for each equation in enriched space
-            forms = enriched_mesh_seq.form(i, mapping)
-            if not isinstance(forms, dict):
-                raise TypeError(
-                    "The function defined by get_form should return a dictionary"
-                    f", not type '{type(forms)}'."
-                )
+            enriched_mesh_seq.fields = mapping
+            forms = enriched_mesh_seq.form(i)
 
             # Loop over each strongly coupled field
             for f in self.fields:
