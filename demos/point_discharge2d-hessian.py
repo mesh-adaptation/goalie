@@ -37,8 +37,8 @@ def source(mesh):
 
 
 def get_form(mesh_seq):
-    def form(index, sols):
-        c, c_ = sols["c"]
+    def form(index):
+        c, c_ = mesh_seq.fields["c"]
         function_space = mesh_seq.function_spaces["c"][index]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
@@ -69,21 +69,18 @@ def get_form(mesh_seq):
 
 
 def get_solver(mesh_seq):
-    def solver(index, ic):
+    def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
 
-        # Ensure dependence on the initial condition
-        c_ = Function(function_space, name="c_old")
-        c_.assign(ic["c"])
-        c = Function(function_space, name="c")
+        c, c_ = mesh_seq.fields["c"]
         c.assign(c_)
 
         # Setup variational problem
-        F = mesh_seq.form(index, {"c": (c, c_)})["c"]
+        F = mesh_seq.form(index)["c"]
         bc = DirichletBC(function_space, 0, 1)
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
-        return {"c": c}
+        yield
 
     return solver
 

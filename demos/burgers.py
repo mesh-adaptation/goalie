@@ -42,27 +42,27 @@ def get_function_spaces(mesh):
 
 # In order to solve PDEs using the finite element method, we
 # require a weak form. For this, Goalie requires a function
-# that maps the :class:`MeshSeq` index and a dictionary of
-# solution data to the form. For each field, the dictionary
-# should provide a tuple containing the solution :class:`Function`\s
-# from the current timestep and the previous one. The form should be
-# returned inside its own dictionary, with an entry for each equation
-# being solved for.
+# that maps the :class:`MeshSeq` index to the form. The form
+# should be returned inside its own dictionary, with an entry
+# for each equation being solved for.
 #
-# Timestepping information associated with a given subinterval
-# can be accessed via the :attr:`TimePartition` attribute of
+# The solution :class:`Function`\s are automatically built on the function
+# spaces given by the :func:`get_function_spaces` function and
+# are accessed via the :attr:`fields` attribute of the :class:`MeshSeq`.
+# The timestepping information associated with a given subinterval
+# can be accessed via the :attr:`time_partition` attribute of
 # the :class:`MeshSeq`. For technical reasons, we need to create a :class:`Function`
 # in the `'R'` space (of real numbers) to hold constants. ::
 
 
 def get_form(mesh_seq):
-    def form(index, solutions):
-        u, u_ = solutions["u"]
-        P = mesh_seq.time_partition
+    def form(index):
+        u, u_ = mesh_seq.fields["u"]
+        tp = mesh_seq.time_partition
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(P.timesteps[index])
+        dt = Function(R).assign(tp.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -77,48 +77,40 @@ def get_form(mesh_seq):
     return form
 
 
-# We have a weak form. In order to solve the PDE, we need to choose
-# a time integration routine and solver parameters for the underlying
-# linear and nonlinear systems. This is achieved using a function
-# whose inputs are the :class:`MeshSeq` index and a dictionary of
-# initialisation data. For the :math:`0^{th}` index, this will be
-# provided by the initial conditions, otherwise it will be transferred
-# from the previous mesh in the sequence.
+# We have a weak form. The dictionary usage may seem cumbersome when applied to such a
+# simple problem, but it comes in handy when solving adjoint problems associated with
+# coupled systems of equations.
 #
-# Note that it is important that the PDE solve is labelled
-# with an ``ad_block_tag`` which matches the corresponding
-# prognostic variable name. It is also important that the
-# lagged solution field be given a particular name: the field name,
-# appended by ``'_old'``. ::
+# In order to solve the PDE, we need to choose a time integration routine and solver
+# parameters for the underlying linear and nonlinear systems. This is achieved using a
+# function whose input is the :class:`MeshSeq` index. The function should return a
+# generator that yields the solution at each timestep, so that Goalie can efficiently
+# track the solution history. This is done by using the `yield` statement before
+# progressing to the next timestep. ::
 
 
 def get_solver(mesh_seq):
-    def solver(index, ic):
-        function_space = mesh_seq.function_spaces["u"][index]
-        u = Function(function_space, name="u")
-
-        # Initialise 'lagged' solution
-        u_ = Function(function_space, name="u_old")
-        u_.assign(ic["u"])
-
-        sol_map = {"u": (u, u_)}
+    def solver(index):
+        u, u_ = mesh_seq.fields["u"]
 
         # Define form
-        F = mesh_seq.form(index, sol_map)["u"]
+        F = mesh_seq.form(index)["u"]
 
-        num_timesteps = mesh_seq.time_partition.num_timesteps_per_subinterval[index]
-        for _ in range(num_timesteps):
-            solve(F == 0, u, ad_block_tag="u")
+        # Time integrate from t_start to t_end
+        tp = mesh_seq.time_partition
+        t_start, t_end = tp.subintervals[index]
+        dt = tp.timesteps[index]
+        t = t_start
+        while t < t_end - 1.0e-05:
+            solve(F == 0, u)
+            yield
+
             u_.assign(u)
-            yield sol_map
+            t += dt
 
     return solver
 
 
-# The dictionary usage may seem cumbersome when applied to such a
-# simple problem, but it comes in handy when solving adjoint
-# problems associated with coupled systems of equations.
-#
 # Goalie also requires a function for generating an initial
 # condition from the function space defined on the
 # :math:`0^{th}` mesh. ::

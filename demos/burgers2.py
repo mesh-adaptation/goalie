@@ -25,13 +25,13 @@ def get_function_spaces(mesh):
 
 
 def get_form(mesh_seq):
-    def form(index, solutions):
-        u, u_ = solutions["u"]
-        P = mesh_seq.time_partition
+    def form(index):
+        u, u_ = mesh_seq.fields["u"]
+        tp = mesh_seq.time_partition
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(P.timesteps[index])
+        dt = Function(R).assign(tp.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -47,40 +47,36 @@ def get_form(mesh_seq):
 
 
 def get_solver(mesh_seq):
-    def solver(index, ic):
-        function_space = mesh_seq.function_spaces["u"][index]
-        u = Function(function_space, name="u")
-
-        # Initialise 'lagged' solution
-        u_ = Function(function_space, name="u_old")
-        u_.assign(ic["u"])
+    def solver(index):
+        u, u_ = mesh_seq.fields["u"]
 
         # Define form
-        F = mesh_seq.form(index, {"u": (u, u_)})["u"]
+        F = mesh_seq.form(index)["u"]
 
         # Time integrate from t_start to t_end
-        P = mesh_seq.time_partition
-        t_start, t_end = P.subintervals[index]
-        dt = P.timesteps[index]
+        tp = mesh_seq.time_partition
+        t_start, t_end = tp.subintervals[index]
+        dt = tp.timesteps[index]
         t = t_start
         while t < t_end - 1.0e-05:
             solve(F == 0, u, ad_block_tag="u")
+            yield
+
             u_.assign(u)
             t += dt
-        return {"u": u}
 
     return solver
 
 
 def get_initial_condition(mesh_seq):
     fs = mesh_seq.function_spaces["u"][0]
-    x, y = SpatialCoordinate(mesh_seq[0])
+    x = SpatialCoordinate(mesh_seq[0])[0]
     return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
 
 
-def get_qoi(mesh_seq, solutions, i):
+def get_qoi(mesh_seq, i):
     def end_time_qoi():
-        u = solutions["u"]
+        u = mesh_seq.fields["u"][0]
         return inner(u, u) * ds(2)
 
     return end_time_qoi
