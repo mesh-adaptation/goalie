@@ -472,17 +472,16 @@ class MeshSeq:
         """
         Reinitialise fields and assign initial conditions on the given subinterval.
 
-        :arg initial_conditions: the initial conditions to assign
+        :arg initial_conditions: the initial conditions to assign to lagged solutions
         :type initial_conditions: :class:`dict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        for field in self.fields:
-            fs = initial_conditions[field].function_space()
+        for field, initial_condition in initial_conditions.items():
+            fs = initial_condition.function_space()
             self.fields[field] = (
                 firedrake.Function(fs, name=field),
-                firedrake.Function(fs, name=f"{field}_old"),
+                firedrake.Function(fs, name=f"{field}_old").assign(initial_condition),
             )
-            self.fields[field][1].assign(initial_conditions[field])
 
     @PETSc.Log.EventDecorator()
     def _solve_forward(self, update_solutions=True, solver_kwargs={}):
