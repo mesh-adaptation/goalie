@@ -472,8 +472,6 @@ class MeshSeq:
         """
         Reinitialise fields and assign initial conditions on the given subinterval.
 
-        :arg subinterval: the subinterval index
-        :type subinterval: :class:`int`
         :arg initial_conditions: the initial conditions to assign
         :type initial_conditions: :class:`dict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
@@ -492,8 +490,8 @@ class MeshSeq:
         Solve a forward problem on a sequence of subintervals. Yields the final solution
         on each subinterval.
 
-        :kwarg save_solutions: if ``True``, updates the solution data
-        :type save_solutions: :class:`bool`
+        :kwarg update_solutions: if ``True``, updates the solution data
+        :type update_solutions: :class:`bool`
         :kwarg solver_kwargs: parameters for the forward solver
         :type solver_kwargs: :class:`dict` whose keys are :class:`str`\s and whose values
             may take various types
