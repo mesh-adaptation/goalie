@@ -356,18 +356,19 @@ class MeshSeq:
                 self._reinitialise_fields(self.get_initial_condition())
                 solver_gen = method_map()(0)
                 assert hasattr(solver_gen, "__next__"), "solver should yield"
-                next(solver_gen)
-                try:
-                    f, f_ = self.fields[next(iter(self.fields.keys()))]
-                    if (f.dat.data != f_.dat.data).all():
-                        self.warning(
-                            "solution unchanged after first timestep."
-                            " Does the solver yield before updating lagged solutions?"
-                        )
-                except Exception:
-                    # TODO: extend above check to the case of mixed function spaces,
-                    # and empty self.fields (tests in test_fp_iteration.py)
-                    pass
+                if logger.level == DEBUG:
+                    next(solver_gen)
+                    try:
+                        f, f_ = self.fields[next(iter(self.fields))]
+                        if (f.dat.data != f_.dat.data).all():
+                            self.debug(
+                                "Current and lagged solutions are equal. Does the"
+                                " solver yield before updating lagged solutions?"
+                            )
+                    except Exception:
+                        # TODO: extend above check to the case of mixed function spaces,
+                        # and empty self.fields (tests in test_fp_iteration.py)
+                        pass
                 break
             assert isinstance(method_map, dict), f"get_{method} should return a dict"
             mesh_seq_fields = set(self.fields)
