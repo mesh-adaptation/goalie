@@ -356,6 +356,7 @@ class MeshSeq:
                 self._reinitialise_fields(self.get_initial_condition())
                 solver_gen = method_map()(0)
                 assert hasattr(solver_gen, "__next__"), "solver should yield"
+                next(solver_gen)
                 try:
                     f, f_ = self.fields[next(iter(self.fields.keys()))]
                     if (f.dat.data != f_.dat.data).all():
@@ -522,26 +523,20 @@ class MeshSeq:
             # Reinitialise fields and assign initial conditions
             self._reinitialise_fields(checkpoint)
 
-            try:
-                if update_solutions:
-                    # Solve sequentially between each export time
-                    for j in range(tp.num_exports_per_subinterval[i] - 1):
-                        for _ in range(tp.num_timesteps_per_export[i]):
-                            next(solver_gen)
-                        # Update the solution data
-                        for field, (f, f_) in self.fields.items():
-                            solutions[field].forward[i][j].assign(f)
-                            if not self.steady:
-                                solutions[field].forward_old[i][j].assign(f_)
-                else:
-                    # Solve over the entire subinterval in one go
-                    for _ in range(tp.num_timesteps_per_subinterval[i]):
+            if update_solutions:
+                # Solve sequentially between each export time
+                for j in range(tp.num_exports_per_subinterval[i] - 1):
+                    for _ in range(tp.num_timesteps_per_export[i]):
                         next(solver_gen)
-            except TypeError as e:
-                if " object is not an iterator" in str(e):
-                    raise TypeError("The solver function must yield at every timestep.")
-                else:
-                    raise e
+                    # Update the solution data
+                    for field, (f, f_) in self.fields.items():
+                        solutions[field].forward[i][j].assign(f)
+                        if not self.steady:
+                            solutions[field].forward_old[i][j].assign(f_)
+            else:
+                # Solve over the entire subinterval in one go
+                for _ in range(tp.num_timesteps_per_subinterval[i]):
+                    next(solver_gen)
 
             # Transfer the checkpoint to the next subintervals
             if i < num_subintervals - 1:

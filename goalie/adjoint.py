@@ -100,6 +100,8 @@ class AdjointMeshSeq(MeshSeq):
                 f"QoI type '{self.qoi_type}' not recognised."
                 " Choose from 'end_time', 'time_integrated', or 'steady'."
             )
+        self._get_qoi = kwargs.get("get_qoi")
+        self.J = 0
         super().__init__(time_partition, initial_meshes, **kwargs)
         if self.qoi_type == "steady" and not self.steady:
             raise ValueError(
@@ -109,8 +111,6 @@ class AdjointMeshSeq(MeshSeq):
             raise ValueError(
                 f"Time partition is steady but the QoI type is set to '{self.qoi_type}'."
             )
-        self._get_qoi = kwargs.get("get_qoi")
-        self.J = 0
         self._controls = None
         self.qoi_values = []
 
