@@ -150,7 +150,6 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     adj_values_expected = {}
     for field, fs in mesh_seq._fs.items():
         solve_blocks = mesh_seq.get_solve_blocks(field, 0)
-        firedrake.PETSc.Sys.Print(solve_blocks)
         adj_sols_expected[field] = solve_blocks[first_export_idx].adj_sol.copy(
             deepcopy=True
         )
