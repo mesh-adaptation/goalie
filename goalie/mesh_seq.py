@@ -341,24 +341,40 @@ class MeshSeq:
         Assert that function spaces, initial conditions, and forms are given in a
         dictionary format with :attr:`MeshSeq.fields` as keys.
         """
-        for method in ["get_function_spaces", "get_initial_condition", "get_form"]:
-            if getattr(self, f"_{method}") is None:
+        for method in ["function_spaces", "initial_condition", "form", "solver"]:
+            if getattr(self, f"_get_{method}") is None:
                 continue
-            method_map = getattr(self, method)
-            if method == "get_function_spaces":
+            method_map = getattr(self, f"get_{method}")
+            if method == "function_spaces":
                 method_map = method_map(self.meshes[0])
-            elif method == "get_initial_condition":
+            elif method == "initial_condition":
                 method_map = method_map()
-            elif method == "get_form":
+            elif method == "form":
                 self._reinitialise_fields(self.get_initial_condition())
                 method_map = method_map()(0)
-            assert isinstance(method_map, dict), f"{method} should return a dict"
+            elif method == "solver":
+                self._reinitialise_fields(self.get_initial_condition())
+                solver_gen = method_map()(0)
+                assert hasattr(solver_gen, "__next__"), "solver should yield"
+                try:
+                    f, f_ = self.fields[next(iter(self.fields.keys()))]
+                    if (f.dat.data != f_.dat.data).all():
+                        self.warning(
+                            "solution unchanged after first timestep."
+                            " Does the solver yield before updating lagged solutions?"
+                        )
+                except Exception:
+                    # TODO: extend above check to the case of mixed function spaces,
+                    # and empty self.fields (tests in test_fp_iteration.py)
+                    pass
+                break
+            assert isinstance(method_map, dict), f"get_{method} should return a dict"
             mesh_seq_fields = set(self.fields)
             method_fields = set(method_map.keys())
             diff = mesh_seq_fields.difference(method_fields)
-            assert len(diff) == 0, f"missing fields {diff} in {method}"
+            assert len(diff) == 0, f"missing fields {diff} in get_{method}"
             diff = method_fields.difference(mesh_seq_fields)
-            assert len(diff) == 0, f"unexpected fields {diff} in {method}"
+            assert len(diff) == 0, f"unexpected fields {diff} in get_{method}"
 
     def _function_spaces_consistent(self):
         """

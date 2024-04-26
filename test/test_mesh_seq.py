@@ -51,10 +51,10 @@ class TestGeneric(unittest.TestCase):
     def test_return_dict_error(self, method):
         mesh = UnitSquareMesh(1, 1)
         methods = ["get_function_spaces", "get_initial_condition", "get_form"]
-        values = [lambda _: 0, lambda _: 0, lambda _: lambda *_: 0]
-        methods_map = dict(zip(methods, values))
+        funcs = [lambda _: 0, lambda _: 0, lambda _: lambda *_: 0]
+        methods_map = dict(zip(methods, funcs))
         if method == "get_form":
-            kwargs = {method: value for method, value in methods_map.items()}
+            kwargs = {method: func for method, func in methods_map.items()}
             f_space = FunctionSpace(mesh, "CG", 1)
             kwargs["get_function_spaces"] = lambda _: {"field": f_space}
             kwargs["get_initial_condition"] = lambda _: {"field": Function(f_space)}
@@ -69,15 +69,14 @@ class TestGeneric(unittest.TestCase):
     def test_missing_field_error(self, method):
         mesh = UnitSquareMesh(1, 1)
         methods = ["get_function_spaces", "get_initial_condition", "get_form"]
-        values = [lambda _: {}, lambda _: {}, lambda _: lambda *_: {}]
-        methods_map = dict(zip(methods, values))
+        funcs = [lambda _: {}, lambda _: {}, lambda _: lambda *_: {}]
+        kwargs = dict(zip(methods, funcs))
         if method == "get_form":
-            kwargs = {method: value for method, value in methods_map.items()}
             f_space = FunctionSpace(mesh, "CG", 1)
             kwargs["get_function_spaces"] = lambda _: {"field": f_space}
             kwargs["get_initial_condition"] = lambda _: {"field": Function(f_space)}
         else:
-            kwargs = {method: methods_map[method]}
+            kwargs = {method: kwargs[method]}
         with self.assertRaises(AssertionError) as cm:
             MeshSeq(self.time_interval, mesh, **kwargs)
         msg = "missing fields {'field'} in " + f"{method}"
@@ -88,18 +87,31 @@ class TestGeneric(unittest.TestCase):
         mesh = UnitSquareMesh(1, 1)
         methods = ["get_function_spaces", "get_initial_condition", "get_form"]
         out_dict = {"field": None, "extra_field": None}
-        values = [lambda _: out_dict, lambda _: out_dict, lambda _: lambda *_: out_dict]
-        methods_map = dict(zip(methods, values))
+        funcs = [lambda _: out_dict, lambda _: out_dict, lambda _: lambda *_: out_dict]
+        kwargs = dict(zip(methods, funcs))
         if method == "get_form":
-            kwargs = {method: value for method, value in methods_map.items()}
             f_space = FunctionSpace(mesh, "CG", 1)
             kwargs["get_function_spaces"] = lambda _: {"field": f_space}
             kwargs["get_initial_condition"] = lambda _: {"field": Function(f_space)}
         else:
-            kwargs = {method: methods_map[method]}
+            kwargs = {method: kwargs[method]}
         with self.assertRaises(AssertionError) as cm:
             MeshSeq(self.time_interval, mesh, **kwargs)
         msg = "unexpected fields {'extra_field'} in " + f"{method}"
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_solver_generator_error(self):
+        mesh = UnitSquareMesh(1, 1)
+        f_space = FunctionSpace(mesh, "CG", 1)
+        kwargs = {
+            "get_function_spaces": lambda _: {"field": f_space},
+            "get_initial_condition": lambda _: {"field": Function(f_space)},
+            "get_form": lambda msq: lambda *_: {"field": msq.fields["field"][0]},
+            "get_solver": lambda _: lambda *_: {},
+        }
+        with self.assertRaises(AssertionError) as cm:
+            MeshSeq(self.time_interval, mesh, **kwargs)
+        msg = "solver should yield"
         self.assertEqual(str(cm.exception), msg)
 
     def test_counting_2d(self):
