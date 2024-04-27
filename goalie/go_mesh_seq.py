@@ -6,6 +6,7 @@ from collections.abc import Iterable
 
 import numpy as np
 import ufl
+from animate.interpolation import interpolate
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
 from firedrake.petsc import PETSc
 
@@ -102,7 +103,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         if enrichment_method == "h":
             return TransferManager().prolong
         else:
-            return lambda source, target: target.interpolate(source)
+            return interpolate
 
     def _create_indicators(self):
         """
