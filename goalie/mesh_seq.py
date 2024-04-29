@@ -43,8 +43,12 @@ class MeshSeq:
         :kwarg get_form: a function as described in :meth:`~.MeshSeq.get_form`
         :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
         :kwarg transfer_method: the method to use for transferring fields between
-            meshes. Options are "interpolate" (default) and "project"
+            meshes. Options are "interpolate" (default) and "project". See
+            :func:`animate.interpolation.transfer` for details
         :type transfer_method: :class:`str`
+        :kwarg transfer_kwargs: kwargs to pass to the chosen transfer method
+        :type transfer_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
         :kwarg parameters: parameters to apply to the mesh adaptation process
         :type parameters: :class:`~.AdaptParameters`
         """
@@ -63,6 +67,7 @@ class MeshSeq:
         self._get_form = kwargs.get("get_form")
         self._get_solver = kwargs.get("get_solver")
         self._transfer_method = kwargs.get("transfer_method", "interpolate")
+        self._transfer_kwargs = kwargs.get("transfer_kwargs", {})
         self.params = kwargs.get("parameters")
         self.steady = time_partition.steady
         self.check_convergence = np.array([True] * len(self), dtype=bool)
@@ -335,7 +340,10 @@ class MeshSeq:
 
         Extra keyword arguments are passed to :func:`goalie.interpolation.transfer`.
         """
-        return transfer(source, target_space, self._transfer_method, **kwargs)
+        # Update kwargs with those specified by the user
+        transfer_kwargs = kwargs.copy()
+        transfer_kwargs.update(self._transfer_kwargs)
+        return transfer(source, target_space, self._transfer_method, **transfer_kwargs)
 
     def _outputs_consistent(self):
         """
