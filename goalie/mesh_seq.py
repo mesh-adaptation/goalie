@@ -66,7 +66,7 @@ class MeshSeq:
         self._get_initial_condition = kwargs.get("get_initial_condition")
         self._get_form = kwargs.get("get_form")
         self._get_solver = kwargs.get("get_solver")
-        self._transfer_method = kwargs.get("transfer_method", "interpolate")
+        self._transfer_method = kwargs.get("transfer_method", "project")
         self._transfer_kwargs = kwargs.get("transfer_kwargs", {})
         self.params = kwargs.get("parameters")
         self.steady = time_partition.steady
