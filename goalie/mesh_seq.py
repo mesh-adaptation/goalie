@@ -43,7 +43,7 @@ class MeshSeq:
         :kwarg get_form: a function as described in :meth:`~.MeshSeq.get_form`
         :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
         :kwarg transfer_method: the method to use for transferring fields between
-            meshes. Options are "interpolate" (default) and "project". See
+            meshes. Options are "project" (default) and "interpolate". See
             :func:`animate.interpolation.transfer` for details
         :type transfer_method: :class:`str`
         :kwarg transfer_kwargs: kwargs to pass to the chosen transfer method
