@@ -172,6 +172,7 @@ point_seq = PointSeq(
 # with the first key specifying the field name and the second key specifying the type of
 # solution field. For the purposes of this demo, we have field ``"u"``, which is a
 # forward solution. The resulting solution trajectory is a list. ::
+
 solutions = point_seq.solve_forward()["u"]["forward"]
 
 # Note that the solution trajectory does not include the initial value, so we prepend it.
