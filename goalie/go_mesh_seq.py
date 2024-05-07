@@ -188,7 +188,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             # Loop over each timestep
             for j in range(self.time_partition.num_exports_per_subinterval[i] - 1):
                 # Loop over each strongly coupled field
-                for f in self.fields:
+                for f_idx, f in enumerate(self.fields):
                     # Transfer solutions associated with the current field f
                     transfer(self.solutions[f][FWD][i][j], u[f])
                     transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
@@ -200,7 +200,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     # solved for after the current field f. This assumes that the order
                     # of fields being solved for in get_solver is the same as their
                     # order in self.fields
-                    f_idx = self.fields.index(f)
                     if f_idx < len(self.fields) - 1:
                         for f_next in self.fields[f_idx + 1 :]:
                             transfer(self.solutions[f_next][FWD_OLD][i][j], u[f_next])
