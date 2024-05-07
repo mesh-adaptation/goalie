@@ -51,6 +51,7 @@ select = [
 ]
 ignore = [
   "E501",  # line too long
+  "E203",  # whitespace before ':'
   "E226",  # missing whitespace around arithmetic operator
   "E402",  # module level import not at top of file
   "E741",  # ambiguous variable name
