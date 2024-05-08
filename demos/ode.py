@@ -172,18 +172,21 @@ point_seq = PointSeq(
 # with the first key specifying the field name and the second key specifying the type of
 # solution field. For the purposes of this demo, we have field ``"u"``, which is a
 # forward solution. The resulting solution trajectory is a list. ::
+
 solutions = point_seq.solve_forward()["u"]["forward"]
 
 # Note that the solution trajectory does not include the initial value, so we prepend it.
 # We also convert the solution :class:`~.Function`\s to :class:`~.float`\s, for plotting
 # purposes. Whilst there is only one subinterval in this example, we show how to loop
 # over subintervals, as this is instructive for the general case. ::
+
 forward_euler_trajectory = [1]
 forward_euler_trajectory += [
     float(sol) for subinterval in solutions for sol in subinterval
 ]
 
 # Plot the trajectory and compare it against the analytical solution. ::
+
 fig, axes = plt.subplots()
 axes.plot(times, np.exp(times), "--x", label="Analytical solution")
 axes.plot(times, forward_euler_trajectory, "--+", label="Forward Euler")
