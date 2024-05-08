@@ -187,22 +187,21 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
             # Loop over each timestep
             for j in range(self.time_partition.num_exports_per_subinterval[i] - 1):
+                # In case of having multiple solution fields that are solved for one
+                # after another, the field that is solved for first uses the values of
+                # latter fields from the previous timestep. Therefore, we must transfer
+                # the lagged solution of latter fields as if they were the current
+                # timestep solutions. This assumes that the order of fields being solved
+                # for in get_solver is the same as their order in self.fields
+                for f_next in self.fields[1:]:
+                    transfer(self.solutions[f_next][FWD_OLD][i][j], u[f_next])
                 # Loop over each strongly coupled field
-                for f_idx, f in enumerate(self.fields):
+                for f in self.fields:
                     # Transfer solutions associated with the current field f
                     transfer(self.solutions[f][FWD][i][j], u[f])
                     transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
                     transfer(self.solutions[f][ADJ][i][j], u_star[f])
                     transfer(self.solutions[f][ADJ_NEXT][i][j], u_star_next[f])
-                    # In case of multiple solution fields, the field that is solved for
-                    # first used the values of other fields from the previous timestep.
-                    # Therefore, transfer the lagged solution of fields f_next that are
-                    # solved for after the current field f. This assumes that the order
-                    # of fields being solved for in get_solver is the same as their
-                    # order in self.fields
-                    if f_idx < len(self.fields) - 1:
-                        for f_next in self.fields[f_idx + 1 :]:
-                            transfer(self.solutions[f_next][FWD_OLD][i][j], u[f_next])
 
                     # Combine adjoint solutions as appropriate
                     u_star[f].assign(0.5 * (u_star[f] + u_star_next[f]))
