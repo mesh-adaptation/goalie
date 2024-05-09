@@ -185,13 +185,19 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     f", not type '{type(forms)}'."
                 )
 
-            # Loop over each strongly coupled field
-            for f in self.fields:
-                # Loop over each timestep
-                solutions = self.solutions.extract(layout="field")
-                indicators = self.indicators.extract(layout="field")
-                for j in range(len(solutions[f]["forward"][i])):
-                    # Update fields
+            # Loop over each timestep
+            for j in range(self.time_partition.num_exports_per_subinterval[i] - 1):
+                # In case of having multiple solution fields that are solved for one
+                # after another, the field that is solved for first uses the values of
+                # latter fields from the previous timestep. Therefore, we must transfer
+                # the lagged solution of latter fields as if they were the current
+                # timestep solutions. This assumes that the order of fields being solved
+                # for in get_solver is the same as their order in self.fields
+                for f_next in self.fields[1:]:
+                    transfer(self.solutions[f_next][FWD_OLD][i][j], u[f_next])
+                # Loop over each strongly coupled field
+                for f in self.fields:
+                    # Transfer solutions associated with the current field f
                     transfer(self.solutions[f][FWD][i][j], u[f])
                     transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
                     transfer(self.solutions[f][ADJ][i][j], u_star[f])
@@ -214,7 +220,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     # Transfer back to the base space
                     indi = self._transfer(indi_e, P0_spaces[i])
                     indi.interpolate(abs(indi))
-                    indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
+                    self.indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
 
         return self.solutions, self.indicators
 
