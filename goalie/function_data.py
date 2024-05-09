@@ -2,8 +2,6 @@ r"""
 Nested dictionaries of solution data :class:`~.Function`\s.
 """
 
-import abc
-
 import firedrake.function as ffunc
 import firedrake.functionspace as ffs
 
@@ -16,7 +14,7 @@ __all__ = [
 ]
 
 
-class FunctionData(abc.ABC):
+class FunctionData:
     """
     Abstract base class for classes holding field data.
     """
