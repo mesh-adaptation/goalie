@@ -123,7 +123,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
     @PETSc.Log.EventDecorator()
     def indicate_errors(
-        self, enrichment_kwargs={}, solver_kwargs={}, indicator_fn=get_dwr_indicator
+        self, enrichment_kwargs=None, solver_kwargs=None, indicator_fn=get_dwr_indicator
     ):
         """
         Compute goal-oriented error indicators for each subinterval based on solving the
@@ -146,8 +146,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :rtype1: :class:`~.AdjointSolutionData
         :rtype2: :class:`~.IndicatorData
         """
-        enrichment_kwargs.setdefault("enrichment_method", "p")
-        enrichment_kwargs.setdefault("num_enrichments", 1)
+        solver_kwargs = solver_kwargs or {}
+        enrichment_kwargs = dict(
+            {"enrichment_method": "p", "num_enrichments": 1}, **enrichment_kwargs
+        )
         enriched_mesh_seq = self.get_enriched_mesh_seq(**enrichment_kwargs)
         transfer = self._get_transfer_function(enrichment_kwargs["enrichment_method"])
 
@@ -162,7 +164,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         FWD_OLD = "forward" if self.steady else "forward_old"
         ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
         P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
-        for i, mesh in enumerate(self):
+        for i in range(len(self)):
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
             enriched_spaces = {
@@ -280,9 +282,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self,
         adaptor,
         update_params=None,
-        enrichment_kwargs={},
-        adaptor_kwargs={},
-        solver_kwargs={},
+        enrichment_kwargs=None,
+        adaptor_kwargs=None,
+        solver_kwargs=None,
         indicator_fn=get_dwr_indicator,
     ):
         r"""
@@ -314,13 +316,17 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         """
         # TODO #124: adaptor no longer needs solution and indicator data to be passed
         #            explicitly
+        enrichment_kwargs = enrichment_kwargs or {}
+        adaptor_kwargs = adaptor_kwargs or {}
+        solver_kwargs = solver_kwargs or {}
         self._reset_counts()
         self.qoi_values = []
         self.estimator_values = []
         self.converged[:] = False
         self.check_convergence[:] = True
 
-        for self.fp_iteration in range(self.params.maxiter):
+        for fp_iteration in range(self.params.maxiter):
+            self.fp_iteration = fp_iteration
             if update_params is not None:
                 update_params(self.params, self.fp_iteration)
 

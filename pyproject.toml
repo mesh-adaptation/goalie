@@ -43,7 +43,7 @@ line-length = 88
 
 [tool.ruff.lint]
 select = [
-#  "B",  # flake8-bugbear  TODO: enable this  (#165)
+  "B",  # flake8-bugbear
 #  "C",  # mccabe complexity  TODO: enable this (#165)
   "E", "W",  # Pycodestyle
   "F",  # Pyflakes

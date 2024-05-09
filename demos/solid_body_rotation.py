@@ -248,7 +248,7 @@ if not test:
     for field, sols in solutions.items():
         fwd_outfile = VTKFile(f"solid_body_rotation/{field}_forward.pvd")
         adj_outfile = VTKFile(f"solid_body_rotation/{field}_adjoint.pvd")
-        for i, mesh in enumerate(mesh_seq):
+        for i in range(len(mesh_seq)):
             for sol in sols["forward"][i]:
                 fwd_outfile.write(sol)
             for sol in sols["adjoint"][i]:

@@ -148,7 +148,7 @@ class AdjointMeshSeq(MeshSeq):
 
     @pyadjoint.no_annotations
     @PETSc.Log.EventDecorator()
-    def get_checkpoints(self, solver_kwargs={}, run_final_subinterval=False):
+    def get_checkpoints(self, solver_kwargs=None, run_final_subinterval=False):
         r"""
         Solve forward on the sequence of meshes, extracting checkpoints corresponding
         to the starting fields on each subinterval.
@@ -164,6 +164,7 @@ class AdjointMeshSeq(MeshSeq):
         :returns: checkpoints for each subinterval
         :rtype: :class:`list` of :class:`firedrake.function.Function`\s
         """
+        solver_kwargs = solver_kwargs or {}
 
         # In some cases we run over all subintervals to check the QoI that is computed
         if run_final_subinterval:
@@ -223,8 +224,8 @@ class AdjointMeshSeq(MeshSeq):
     @PETSc.Log.EventDecorator()
     def solve_adjoint(
         self,
-        solver_kwargs={},
-        adj_solver_kwargs={},
+        solver_kwargs=None,
+        adj_solver_kwargs=None,
         get_adj_values=False,
         test_checkpoint_qoi=False,
     ):
@@ -252,6 +253,8 @@ class AdjointMeshSeq(MeshSeq):
         """
         # TODO #125: Support get_adj_values in AdjointSolutionData
         # TODO #126: Separate out qoi_kwargs
+        solver_kwargs = solver_kwargs or {}
+        adj_solver_kwargs = adj_solver_kwargs or {}
         P = self.time_partition
         num_subintervals = len(self)
         solver = self.solver
