@@ -2,6 +2,8 @@ r"""
 Nested dictionaries of solution data :class:`~.Function`\s.
 """
 
+from abc import ABC, abstractmethod
+
 import firedrake.function as ffunc
 import firedrake.functionspace as ffs
 
@@ -14,11 +16,12 @@ __all__ = [
 ]
 
 
-class FunctionData:
+class FunctionData(ABC):
     """
     Abstract base class for classes holding field data.
     """
 
+    @abstractmethod
     def __init__(self, time_partition, function_spaces):
         r"""
         :arg time_partition: the :class:`~.TimePartition` used to discretise the problem
