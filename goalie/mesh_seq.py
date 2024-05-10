@@ -449,7 +449,7 @@ class MeshSeq:
         return self.get_solver()
 
     @PETSc.Log.EventDecorator()
-    def get_checkpoints(self, solver_kwargs={}, run_final_subinterval=False):
+    def get_checkpoints(self, solver_kwargs=None, run_final_subinterval=False):
         r"""
         Solve forward on the sequence of meshes, extracting checkpoints corresponding
         to the starting fields on each subinterval.
@@ -463,6 +463,7 @@ class MeshSeq:
         :returns: checkpoints for each subinterval
         :rtype: :class:`list` of :class:`firedrake.function.Function`\s
         """
+        solver_kwargs = solver_kwargs or {}
         N = len(self)
 
         # The first checkpoint is the initial condition
@@ -693,7 +694,7 @@ class MeshSeq:
         return self._solutions
 
     @PETSc.Log.EventDecorator()
-    def solve_forward(self, solver_kwargs={}):
+    def solve_forward(self, solver_kwargs=None):
         r"""
         Solve a forward problem on a sequence of subintervals.
 
@@ -706,6 +707,7 @@ class MeshSeq:
         :returns: the solution data of the forward solves
         :rtype: :class:`~.ForwardSolutionData`
         """
+        solver_kwargs = solver_kwargs or {}
         num_subintervals = len(self)
         P = self.time_partition
         solver = self.solver
@@ -826,7 +828,7 @@ class MeshSeq:
 
     @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
-        self, adaptor, update_params=None, solver_kwargs={}, adaptor_kwargs={}
+        self, adaptor, update_params=None, solver_kwargs=None, adaptor_kwargs=None
     ):
         r"""
         Apply mesh adaptation using a fixed point iteration loop approach.
@@ -848,11 +850,15 @@ class MeshSeq:
         :rtype: :class:`~.ForwardSolutionData`
         """
         # TODO #124: adaptor no longer needs solution data to be passed explicitly
+        solver_kwargs = solver_kwargs or {}
+        adaptor_kwargs = adaptor_kwargs or {}
+
         self._reset_counts()
         self.converged[:] = False
         self.check_convergence[:] = True
 
-        for self.fp_iteration in range(self.params.maxiter):
+        for fp_iteration in range(self.params.maxiter):
+            self.fp_iteration = fp_iteration
             if update_params is not None:
                 update_params(self.params, self.fp_iteration)
 

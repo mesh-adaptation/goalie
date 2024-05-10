@@ -139,10 +139,10 @@ class TimePartition:
         """
         try:
             val = self.__getattribute__(attr)
-        except AttributeError:
+        except AttributeError as e:
             raise AttributeError(
                 f"Attribute '{attr}' cannot be debugged because it doesn't exist."
-            )
+            ) from e
         label = " ".join(attr.split("_"))
         debug(f"TimePartition: {label:25s} {val}")
 
