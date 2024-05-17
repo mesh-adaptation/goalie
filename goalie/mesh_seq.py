@@ -53,7 +53,7 @@ class MeshSeq:
         :type parameters: :class:`~.AdaptParameters`
         """
         self.time_partition = time_partition
-        self.fields = time_partition.fields
+        self.fields = {field: None for field in time_partition.fields}
         self.field_types = {
             field: field_type
             for field, field_type in zip(self.fields, time_partition.field_types)
@@ -359,12 +359,8 @@ class MeshSeq:
             elif method == "get_initial_condition":
                 method_map = method_map()
             elif method == "get_form":
-                solution_map = {}
-                u = {}
-                for f in self.fields:
-                    u[f] = firedrake.Function(self.function_spaces[f][0])
-                    solution_map[f] = (u[f], u[f])
-                method_map = method_map()(0, solution_map)
+                self._reinitialise_fields(self.get_initial_condition())
+                method_map = method_map()(0)
             assert isinstance(method_map, dict), f"{method} should return a dict"
             mesh_seq_fields = set(self.fields)
             method_fields = set(method_map.keys())
@@ -448,6 +444,20 @@ class MeshSeq:
         """
         return self.get_solver()
 
+    def _reinitialise_fields(self, initial_conditions):
+        """
+        Reinitialise fields and assign initial conditions on the given subinterval.
+        :arg initial_conditions: the initial conditions to assign to lagged solutions
+        :type initial_conditions: :class:`dict` with :class:`str` keys and
+            :class:`firedrake.function.Function` values
+        """
+        for field, initial_condition in initial_conditions.items():
+            fs = initial_condition.function_space()
+            self.fields[field] = (
+                firedrake.Function(fs, name=field),
+                firedrake.Function(fs, name=f"{field}_old").assign(initial_condition),
+            )
+
     @PETSc.Log.EventDecorator()
     def get_checkpoints(self, solver_kwargs=None, run_final_subinterval=False):
         r"""
@@ -476,7 +486,9 @@ class MeshSeq:
         # Otherwise, solve each subsequent subinterval, in each case making use of the
         # previous checkpoint
         for i in range(N if run_final_subinterval else N - 1):
-            solutions = self.solver(i, checkpoints[i], **solver_kwargs)
+            self._reinitialise_fields(checkpoints[i])
+            self.solver(i, **solver_kwargs)
+            solutions = {field: sol for field, (sol, _) in self.fields.items()}
             if not isinstance(solutions, dict):
                 raise TypeError(
                     f"Solver should return a dictionary, not '{type(solutions)}'."
@@ -729,8 +741,12 @@ class MeshSeq:
             stride = P.num_timesteps_per_export[i]
             num_exports = P.num_exports_per_subinterval[i]
 
+            # Reinitialise fields and assign initial conditions
+            self._reinitialise_fields(checkpoint)
+
             # Annotate tape on current subinterval
-            checkpoint = solver(i, checkpoint, **solver_kwargs)
+            solver(i, **solver_kwargs)
+            checkpoint = {field: sol for field, (sol, _) in self.fields.items()}
 
             # Loop over prognostic variables
             for field, fs in self.function_spaces.items():

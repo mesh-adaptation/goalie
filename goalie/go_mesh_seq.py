@@ -180,7 +180,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 u_star_e[f] = Function(fs_e)
 
             # Get forms for each equation in enriched space
-            forms = enriched_mesh_seq.form(i, mapping)
+            enriched_mesh_seq.fields = mapping
+            forms = enriched_mesh_seq.form(i)
+
+            field_names = list(self.fields)
 
             # Loop over each timestep
             for j in range(self.time_partition.num_exports_per_subinterval[i] - 1):
@@ -190,7 +193,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 # the lagged solution of latter fields as if they were the current
                 # timestep solutions. This assumes that the order of fields being solved
                 # for in get_solver is the same as their order in self.fields
-                for f_next in self.fields[1:]:
+                for f_next in field_names[1:]:
                     transfer(self.solutions[f_next][FWD_OLD][i][j], u[f_next])
                 # Loop over each strongly coupled field
                 for f in self.fields:
