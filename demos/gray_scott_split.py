@@ -52,9 +52,9 @@ def get_initial_condition(mesh_seq):
 
 
 def get_form(mesh_seq):
-    def form(index, sols):
-        a, a_ = sols["a"]
-        b, b_ = sols["b"]
+    def form(index):
+        a, a_ = mesh_seq.fields["a"]
+        b, b_ = mesh_seq.fields["b"]
         psi_a = TestFunction(mesh_seq.function_spaces["a"][index])
         psi_b = TestFunction(mesh_seq.function_spaces["b"][index])
 
@@ -87,20 +87,12 @@ def get_form(mesh_seq):
 
 
 def get_solver(mesh_seq):
-    def solver(index, ics):
-        fs_a = mesh_seq.function_spaces["a"][index]
-        fs_b = mesh_seq.function_spaces["b"][index]
-        a = Function(fs_a, name="a")
-        b = Function(fs_b, name="b")
-
-        # Initialise 'lagged' solutions
-        a_ = Function(fs_a, name="a_old")
-        a_.assign(ics["a"])
-        b_ = Function(fs_b, name="b_old")
-        b_.assign(ics["b"])
+    def solver(index):
+        a, a_ = mesh_seq.fields["a"]
+        b, b_ = mesh_seq.fields["b"]
 
         # Setup solver objects
-        forms = mesh_seq.form(index, {"a": (a, a_), "b": (b, b_)})
+        forms = mesh_seq.form(index)
         F_a = forms["a"]
         F_b = forms["b"]
         nlvp_a = NonlinearVariationalProblem(F_a, a)
@@ -128,10 +120,10 @@ def get_solver(mesh_seq):
 # demo, so that the outputs can be straightforwardly compared. ::
 
 
-def get_qoi(mesh_seq, sols, index):
+def get_qoi(mesh_seq, index):
     def qoi():
-        a = sols["a"]
-        b = sols["b"]
+        a = mesh_seq.fields["a"][0]
+        b = mesh_seq.fields["b"][0]
         return a * b**2 * dx
 
     return qoi

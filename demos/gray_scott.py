@@ -51,8 +51,8 @@ def get_initial_condition(mesh_seq):
 
 
 def get_form(mesh_seq):
-    def form(index, sols):
-        ab, ab_ = sols["ab"]
+    def form(index):
+        ab, ab_ = mesh_seq.fields["ab"]
         a, b = split(ab)
         a_, b_ = split(ab_)
         psi_a, psi_b = TestFunctions(mesh_seq.function_spaces["ab"][index])
@@ -84,16 +84,11 @@ def get_form(mesh_seq):
 
 
 def get_solver(mesh_seq):
-    def solver(index, ics):
-        fs = mesh_seq.function_spaces["ab"][index]
-        ab = Function(fs, name="ab")
-
-        # Initialise 'lagged' solution
-        ab_ = Function(fs, name="ab_old")
-        ab_.assign(ics["ab"])
+    def solver(index):
+        ab, ab_ = mesh_seq.fields["ab"]
 
         # Setup solver objects
-        F = mesh_seq.form(index, {"ab": (ab, ab_)})["ab"]
+        F = mesh_seq.form(index)["ab"]
         nlvp = NonlinearVariationalProblem(F, ab)
         nlvs = NonlinearVariationalSolver(nlvp, ad_block_tag="ab")
 
@@ -106,7 +101,6 @@ def get_solver(mesh_seq):
             nlvs.solve()
             ab_.assign(ab)
             t += dt
-        return {"ab": ab}
 
     return solver
 
@@ -115,9 +109,9 @@ def get_solver(mesh_seq):
 # QoI :math:`\int a(x,T) * b(x,T) * dx` we consider sensitivities to this term. ::
 
 
-def get_qoi(mesh_seq, sols, index):
+def get_qoi(mesh_seq, index):
     def qoi():
-        ab = sols["ab"]
+        ab = mesh_seq.fields["ab"][0]
         a, b = split(ab)
         return a * b**2 * dx
 

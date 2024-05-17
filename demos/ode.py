@@ -105,10 +105,10 @@ def get_initial_condition(point_seq):
 
 
 def get_form_forward_euler(point_seq):
-    def form(index, solutions):
+    def form(index):
         R = point_seq.function_spaces["u"][index]
         v = TestFunction(R)
-        u, u_ = solutions["u"]
+        u, u_ = point_seq.fields["u"]
         dt = Function(R).assign(point_seq.time_partition.timesteps[index])
 
         # Setup variational problem
@@ -124,19 +124,14 @@ def get_form_forward_euler(point_seq):
 
 
 def get_solver(point_seq):
-    def solver(index, ic):
+    def solver(index):
         P = point_seq.time_partition
 
-        # Define Function to hold the approximation
-        function_space = point_seq.function_spaces["u"][index]
-        u = Function(function_space, name="u")
-
-        # Initialise 'lagged' solution
-        u_ = Function(function_space, name="u_old")
-        u_.assign(ic["u"])
+        # Get the current and lagged solutions
+        u, u_ = point_seq.fields["u"]
 
         # Define the (trivial) form
-        F = point_seq.form(index, {"u": (u, u_)})["u"]
+        F = point_seq.form(index)["u"]
 
         # Since the form is trivial, we can solve with a single application of a Jacobi
         # preconditioner
@@ -150,7 +145,6 @@ def get_solver(point_seq):
             solve(F == 0, u, ad_block_tag="u", solver_parameters=sp)
             u_.assign(u)
             t += dt
-        return {"u": u}
 
     return solver
 
@@ -218,10 +212,10 @@ plt.savefig("ode-forward_euler.jpg")
 
 
 def get_form_backward_euler(point_seq):
-    def form(index, solutions):
+    def form(index):
         R = point_seq.function_spaces["u"][index]
         v = TestFunction(R)
-        u, u_ = solutions["u"]
+        u, u_ = point_seq.fields["u"]
         dt = Function(R).assign(point_seq.time_partition.timesteps[index])
 
         # Setup variational problem
@@ -274,10 +268,10 @@ plt.savefig("ode-backward_euler.jpg")
 
 
 def get_form_crank_nicolson(point_seq):
-    def form(index, solutions):
+    def form(index):
         R = point_seq.function_spaces["u"][index]
         v = TestFunction(R)
-        u, u_ = solutions["u"]
+        u, u_ = point_seq.fields["u"]
         dt = Function(R).assign(point_seq.time_partition.timesteps[index])
         theta = Function(R).assign(0.5)
 

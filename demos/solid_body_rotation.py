@@ -144,8 +144,8 @@ plt.savefig("solid_body_rotation-init.jpg")
 
 
 def get_form(mesh_seq):
-    def form(index, sols):
-        c, c_ = sols["c"]
+    def form(index):
+        c, c_ = mesh_seq.fields["c"]
         V = mesh_seq.function_spaces["c"][index]
         mesh = mesh_seq[index]
 
@@ -171,16 +171,12 @@ def get_form(mesh_seq):
 
 
 def get_solver(mesh_seq):
-    def solver(index, ic):
+    def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
-        c = Function(function_space, name="c")
-
-        # Initialise 'lagged' solution
-        c_ = Function(function_space, name="c_old")
-        c_.assign(ic["c"])
+        c, c_ = mesh_seq.fields["c"]
 
         # Setup variational problem
-        a, L = mesh_seq.form(index, {"c": (c, c_)})["c"]
+        a, L = mesh_seq.form(index)["c"]
 
         # Zero Dirichlet condition on the boundary
         bcs = DirichletBC(function_space, 0, "on_boundary")
@@ -198,7 +194,6 @@ def get_solver(mesh_seq):
             lvs.solve()
             c_.assign(c)
             t += dt
-        return {"c": c}
 
     return solver
 
@@ -214,9 +209,9 @@ def get_solver(mesh_seq):
 # to be positioned at the end time. ::
 
 
-def get_qoi(mesh_seq, sols, index):
+def get_qoi(mesh_seq, index):
     def qoi():
-        c = sols["c"]
+        c = mesh_seq.fields["c"][0]
         x, y = SpatialCoordinate(mesh_seq[index])
         x0, y0, r0 = 0.0, 0.25, 0.15
         ball = conditional((x - x0) ** 2 + (y - y0) ** 2 < r0**2, 1.0, 0.0)

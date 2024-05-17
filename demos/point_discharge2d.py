@@ -69,8 +69,8 @@ def source(mesh):
 
 
 def get_form(mesh_seq):
-    def form(index, sols):
-        c, c_ = sols["c"]
+    def form(index):
+        c, c_ = mesh_seq.fields["c"]
         function_space = mesh_seq.function_spaces["c"][index]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
@@ -109,23 +109,19 @@ def get_form(mesh_seq):
 
 
 def get_solver(mesh_seq):
-    def solver(index, ic):
+    def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
 
-        # Ensure dependence on the initial condition
-        c_ = Function(function_space, name="c_old")
-        c_.assign(ic["c"])
-        c = Function(function_space, name="c")
+        c, c_ = mesh_seq.fields["c"]
         c.assign(c_)
 
         # Setup variational problem
-        F = mesh_seq.form(index, {"c": (c, c_)})["c"]
+        F = mesh_seq.form(index)["c"]
 
         # Strongly enforce boundary conditions on the inflow, which is indexed by 1
         bc = DirichletBC(function_space, 0, 1)
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
-        return {"c": c}
 
     return solver
 
@@ -147,9 +143,9 @@ def get_solver(mesh_seq):
 # there is no time dependence, the QoI looks just like an ``"end_time"`` type QoI. ::
 
 
-def get_qoi(mesh_seq, sol, index):
+def get_qoi(mesh_seq, index):
     def qoi():
-        c = sol["c"]
+        c = mesh_seq.fields["c"][0]
         x, y = SpatialCoordinate(mesh_seq[index])
         xr, yr, rr = 20, 7.5, 0.5
         kernel = conditional((x - xr) ** 2 + (y - yr) ** 2 < rr**2, 1, 0)
