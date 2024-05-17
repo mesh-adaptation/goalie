@@ -181,11 +181,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
             # Get forms for each equation in enriched space
             forms = enriched_mesh_seq.form(i, mapping)
-            if not isinstance(forms, dict):
-                raise TypeError(
-                    "The function defined by get_form should return a dictionary"
-                    f", not type '{type(forms)}'."
-                )
 
             # Loop over each timestep
             for j in range(self.time_partition.num_exports_per_subinterval[i] - 1):
