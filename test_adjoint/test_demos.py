@@ -10,6 +10,8 @@ from os.path import splitext
 
 import pytest
 
+from goalie.log import *
+
 cwd = os.path.abspath(os.path.dirname(__file__))
 demo_dir = os.path.abspath(os.path.join(cwd, "..", "demos"))
 all_demos = glob.glob(os.path.join(demo_dir, "*.py"))
@@ -89,13 +91,16 @@ def test_demos(demo_file, tmpdir, monkeypatch):
                 original, replacement, demo_contents, flags=re.DOTALL
             )
 
-    # Execute the modified demo as a standalone script
-    context = {
+    # Execute the modified demo as a standalone script in a clean namespace
+    exec_namespace = {
         "__file__": demo_file,
         "__name__": "__main__",
         "__package__": None,
     }
-    exec(demo_contents, context)
+    exec(demo_contents, exec_namespace)
+
+    # Reset log level
+    set_log_level(WARNING)
 
     # Clean up plots
     for ext in ("jpg", "pvd", "vtu"):
