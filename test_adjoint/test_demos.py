@@ -77,6 +77,16 @@ def demo_file(request):
     return os.path.abspath(request.param)
 
 
+def test_modifications_exist():
+    """
+    Check that all demos named in the modifications dictionary exist in the 'demos' dir.
+    """
+
+    for demo_name in modifications.keys():
+        demo_fpath = os.path.join(demo_dir, demo_name)
+        assert demo_fpath in all_demos, f"Demo '{demo_name}' not found."
+
+
 def test_demos(demo_file, tmpdir, monkeypatch):
     assert os.path.isfile(demo_file), f"Demo file '{demo_file}' not found."
 
