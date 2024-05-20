@@ -88,6 +88,21 @@ def test_modifications_demo_exists():
         assert demo_fpath in all_demos, f"Error: Demo '{demo_name}' not found."
 
 
+def test_modifications_original_exists():
+    """
+    Check that all 'original' code snippets in the modifications dictionary exist in the
+    corresponding demo scripts.
+    """
+    for demo_name, changes in modifications.items():
+        demo_path = os.path.join(demo_dir, demo_name)
+        with open(demo_path, "r") as file:
+            demo_content = file.read()
+            for original in changes.keys():
+                assert (
+                    original in demo_content
+                ), f"Error: '{original}' not found in '{demo_name}'."
+
+
 def test_demos(demo_file, tmpdir, monkeypatch):
     assert os.path.isfile(demo_file), f"Demo file '{demo_file}' not found."
 
