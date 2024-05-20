@@ -100,7 +100,7 @@ def get_solver(mesh_seq):
 params = MetricParameters(
     {
         "element_rtol": 0.005,
-        "maxiter": 35 if os.environ.get("GOALIE_REGRESSION_TEST") is None else 3,
+        "maxiter": 35,
     }
 )
 
