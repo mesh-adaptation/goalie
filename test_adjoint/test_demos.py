@@ -18,56 +18,58 @@ all_demos = glob.glob(os.path.join(demo_dir, "*.py"))
 # - Each value is a dictionary where:
 # -- The key is the original string or block of code to be replaced
 # -- The value is the replacement string (use "" to remove the original code)
+gray_scott_block = """
+ic = mesh_seq.get_initial_condition()
+for field, sols in solutions.items():
+    fwd_outfile = VTKFile(f"gray_scott/{field}_forward.pvd")
+    adj_outfile = VTKFile(f"gray_scott/{field}_adjoint.pvd")
+    fwd_outfile.write(*ic[field].subfunctions)
+    for i in range(num_subintervals):
+        for sol in sols["forward"][i]:
+            fwd_outfile.write(*sol.subfunctions)
+        for sol in sols["adjoint"][i]:
+            adj_outfile.write(*sol.subfunctions)
+    adj_end = Function(ic[field]).assign(0.0)
+    adj_outfile.write(*adj_end.subfunctions)
+"""
+gray_scott_split_block = """
+ic = mesh_seq.get_initial_condition()
+for field, sols in solutions.items():
+    fwd_outfile = VTKFile(f"gray_scott_split/{field}_forward.pvd")
+    adj_outfile = VTKFile(f"gray_scott_split/{field}_adjoint.pvd")
+    fwd_outfile.write(ic[field])
+    for i in range(num_subintervals):
+        for sol in sols["forward"][i]:
+            fwd_outfile.write(sol)
+        for sol in sols["adjoint"][i]:
+            adj_outfile.write(sol)
+    adj_outfile.write(Function(ic[field]).assign(0.0))
+"""
+solid_body_rotation_block = """
+for field, sols in solutions.items():
+    fwd_outfile = VTKFile(f"solid_body_rotation/{field}_forward.pvd")
+    adj_outfile = VTKFile(f"solid_body_rotation/{field}_adjoint.pvd")
+    for i in range(len(mesh_seq)):
+        for sol in sols["forward"][i]:
+            fwd_outfile.write(sol)
+        for sol in sols["adjoint"][i]:
+            adj_outfile.write(sol)
+"""
+
 modifications = {
-    "burgers-hessian.py": {"'maxiter': 35": "'maxiter': 3"},
+    "burgers-hessian.py": {""""maxiter": 35""": """"maxiter": 3"""},
     "gray_scott.py": {
         "end_time = 2000.0": "end_time = 10.0",
-        """
-        ic = mesh_seq.get_initial_condition()
-        for field, sols in solutions.items():
-            fwd_outfile = VTKFile(f"gray_scott/{field}_forward.pvd")
-            adj_outfile = VTKFile(f"gray_scott/{field}_adjoint.pvd")
-            fwd_outfile.write(*ic[field].subfunctions)
-            for i in range(num_subintervals):
-                for sol in sols["forward"][i]:
-                    fwd_outfile.write(*sol.subfunctions)
-                for sol in sols["adjoint"][i]:
-                    adj_outfile.write(*sol.subfunctions)
-            adj_end = Function(ic[field]).assign(0.0)
-            adj_outfile.write(*adj_end.subfunctions)
-        """: "",
+        gray_scott_block: "",
     },
     "gray_scott_split.py": {
         "end_time = 2000.0": "end_time = 10.0",
-        """
-        ic = mesh_seq.get_initial_condition()
-        for field, sols in solutions.items():
-            fwd_outfile = VTKFile(f"gray_scott/{field}_forward.pvd")
-            adj_outfile = VTKFile(f"gray_scott/{field}_adjoint.pvd")
-            fwd_outfile.write(*ic[field].subfunctions)
-            for i in range(num_subintervals):
-                for sol in sols["forward"][i]:
-                    fwd_outfile.write(*sol.subfunctions)
-                for sol in sols["adjoint"][i]:
-                    adj_outfile.write(*sol.subfunctions)
-            adj_end = Function(ic[field]).assign(0.0)
-            adj_outfile.write(*adj_end.subfunctions)
-        """: "",
+        gray_scott_split_block: "",
     },
-    "point_discharge2d-hessian.py": {"'maxiter': 35": "'maxiter': 3"},
-    "point_discharge2d-goal_oriented.py": {"'maxiter': 35": "'maxiter': 3"},
+    "point_discharge2d-hessian.py": {""""maxiter": 35""": """"maxiter": 3"""},
+    "point_discharge2d-goal_oriented.py": {""""maxiter": 35""": """"maxiter": 3"""},
     "solid_body_rotation.py": {
-        "end_time = 2 * pi": "end_time = pi / 4",
-        """
-        for field, sols in solutions.items():
-            fwd_outfile = VTKFile(f"solid_body_rotation/{field}_forward.pvd")
-            adj_outfile = VTKFile(f"solid_body_rotation/{field}_adjoint.pvd")
-            for i in range(len(mesh_seq)):
-                for sol in sols["forward"][i]:
-                    fwd_outfile.write(sol)
-                for sol in sols["adjoint"][i]:
-                    adj_outfile.write(sol)
-        """: "",
+        solid_body_rotation_block: "",
     },
 }
 
@@ -77,14 +79,13 @@ def demo_file(request):
     return os.path.abspath(request.param)
 
 
-def test_modifications_exist():
+def test_modifications_demo_exists():
     """
     Check that all demos named in the modifications dictionary exist in the 'demos' dir.
     """
-
     for demo_name in modifications.keys():
         demo_fpath = os.path.join(demo_dir, demo_name)
-        assert demo_fpath in all_demos, f"Demo '{demo_name}' not found."
+        assert demo_fpath in all_demos, f"Error: Demo '{demo_name}' not found."
 
 
 def test_demos(demo_file, tmpdir, monkeypatch):
