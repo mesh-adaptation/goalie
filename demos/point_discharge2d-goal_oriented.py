@@ -68,8 +68,8 @@ def get_solver(mesh_seq):
     def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
 
-        c, c_ = mesh_seq.fields["c"]
         # Assign initial condition
+        c, c_ = mesh_seq.fields["c"]
         c.assign(c_)
 
         # Setup variational problem

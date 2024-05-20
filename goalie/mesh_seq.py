@@ -447,6 +447,7 @@ class MeshSeq:
     def _reinitialise_fields(self, initial_conditions):
         """
         Reinitialise fields and assign initial conditions on the given subinterval.
+
         :arg initial_conditions: the initial conditions to assign to lagged solutions
         :type initial_conditions: :class:`dict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
