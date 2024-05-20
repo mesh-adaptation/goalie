@@ -104,7 +104,7 @@ params = GoalOrientedMetricParameters(
     {
         "element_rtol": 0.005,
         "qoi_rtol": 0.005,
-        "maxiter": 35 if os.environ.get("GOALIE_REGRESSION_TEST") is None else 3,
+        "maxiter": 35,
     }
 )
 
