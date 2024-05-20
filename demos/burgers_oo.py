@@ -31,8 +31,8 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
         return {"u": VectorFunctionSpace(mesh, "CG", 2)}
 
     def get_form(self):
-        def form(index, solutions):
-            u, u_ = solutions["u"]
+        def form(index):
+            u, u_ = self.fields["u"]
             P = self.time_partition
 
             # Define constants
@@ -52,30 +52,23 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
         return form
 
     def get_solver(self):
-        def solver(index, ic):
-            function_space = self.function_spaces["u"][index]
-            u = Function(function_space, name="u")
-            solution_map = {"u": u}
-
-            # Initialise 'lagged' solution
-            u_ = Function(function_space, name="u_old")
-            u_.assign(ic["u"])
+        def solver(index):
+            u, u_ = self.fields["u"]
 
             # Define form
-            F = self.form(index, {"u": (u, u_)})["u"]
+            F = self.form(index)["u"]
 
             # Time integrate from t_start to t_end
             t_start, t_end = self.subintervals[index]
             dt = self.time_partition.timesteps[index]
             t = t_start
-            qoi = self.get_qoi(solution_map, index)
+            qoi = self.get_qoi(index)
             while t < t_end - 1.0e-05:
                 solve(F == 0, u, ad_block_tag="u")
                 if self.qoi_type == "time_integrated":
                     self.J += qoi(t)
                 u_.assign(u)
                 t += dt
-            return solution_map
 
         return solver
 
@@ -85,16 +78,16 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
         return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
 
     @annotate_qoi
-    def get_qoi(self, solutions, i):
+    def get_qoi(self, i):
         R = FunctionSpace(self[i], "R", 0)
         dt = Function(R).assign(self.time_partition.timesteps[i])
 
         def end_time_qoi():
-            u = solutions["u"]
+            u = self.fields["u"][0]
             return inner(u, u) * ds(2)
 
         def time_integrated_qoi(t):
-            u = solutions["u"]
+            u = self.fields["u"][0]
             return dt * inner(u, u) * ds(2)
 
         if self.qoi_type == "end_time":

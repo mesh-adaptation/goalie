@@ -24,7 +24,7 @@ class TimePartition:
         end_time,
         num_subintervals,
         timesteps,
-        fields,
+        field_names,
         num_timesteps_per_export=1,
         start_time=0.0,
         subintervals=None,
@@ -38,8 +38,8 @@ class TimePartition:
         :arg timesteps: a list timesteps to be used on each subinterval, or a single
             timestep to use for all subintervals
         :type timesteps: :class:`list` of :class:`float`\s or :class:`float`
-        :arg fields: the list of field names to consider
-        :type fields: :class:`list` of :class:`str`\s or :class:`str`
+        :arg field_names: the list of field names to consider
+        :type field_names: :class:`list` of :class:`str`\s or :class:`str`
         :kwarg num_timesteps_per_export: a list of numbers of timesteps per export for
             each subinterval, or a single number to use for all subintervals
         :type num_timesteps_per_export: :class:`list` of :class`int`\s or :class:`int`
@@ -54,9 +54,9 @@ class TimePartition:
         :type field_types: :class:`list` of :class:`str`\s or :class:`str`
         """
         debug(100 * "-")
-        if isinstance(fields, str):
-            fields = [fields]
-        self.fields = fields
+        if isinstance(field_names, str):
+            field_names = [field_names]
+        self.field_names = field_names
         self.start_time = start_time
         self.end_time = end_time
         self.num_subintervals = int(np.round(num_subintervals))
@@ -123,7 +123,8 @@ class TimePartition:
 
         # Process field types
         if field_types is None:
-            field_types = ["steady" if self.steady else "unsteady"] * len(self.fields)
+            num_fields = len(self.field_names)
+            field_types = ["steady" if self.steady else "unsteady"] * num_fields
         elif isinstance(field_types, str):
             field_types = [field_types]
         self.field_types = field_types
@@ -151,13 +152,13 @@ class TimePartition:
 
     def __repr__(self):
         timesteps = ", ".join([str(dt) for dt in self.timesteps])
-        fields = ", ".join([f"'{field}'" for field in self.fields])
+        field_names = ", ".join([f"'{field_name}'" for field_name in self.field_names])
         return (
             f"TimePartition("
             f"end_time={self.end_time}, "
             f"num_subintervals={self.num_subintervals}, "
             f"timesteps=[{timesteps}], "
-            f"fields=[{fields}])"
+            f"field_names=[{field_names}])"
         )
 
     def __len__(self):
@@ -183,7 +184,7 @@ class TimePartition:
             end_time=self.subintervals[sl.stop - 1][1],
             num_subintervals=num_subintervals,
             timesteps=self.timesteps[sl],
-            fields=self.fields,
+            field_names=self.field_names,
             num_timesteps_per_export=self.num_timesteps_per_export[sl],
             start_time=self.subintervals[sl.start][0],
             field_types=self.field_types,
@@ -253,16 +254,16 @@ class TimePartition:
                 )
 
     def _check_field_types(self):
-        if len(self.fields) != len(self.field_types):
+        if len(self.field_names) != len(self.field_types):
             raise ValueError(
-                "Number of fields does not match number of field types:"
-                f" {len(self.fields)} != {len(self.field_types)}."
+                "Number of field names does not match number of field types:"
+                f" {len(self.field_names)} != {len(self.field_types)}."
             )
-        for field, field_type in zip(self.fields, self.field_types):
+        for field_name, field_type in zip(self.field_names, self.field_types):
             if field_type not in ("unsteady", "steady"):
                 raise ValueError(
-                    f"Expected field type for field '{field}' to be either 'unsteady'"
-                    f" or 'steady', but got '{field_type}'."
+                    f"Expected field type for field '{field_name}' to be either"
+                    f" 'unsteady' or 'steady', but got '{field_type}'."
                 )
 
     def __eq__(self, other):
@@ -274,7 +275,7 @@ class TimePartition:
             and np.allclose(
                 self.num_exports_per_subinterval, other.num_exports_per_subinterval
             )
-            and self.fields == other.fields
+            and self.field_names == other.field_names
             and self.field_types == other.field_types
         )
 
@@ -287,7 +288,7 @@ class TimePartition:
             or not np.allclose(
                 self.num_exports_per_subinterval, other.num_exports_per_subinterval
             )
-            or not self.fields == other.fields
+            or not self.field_names == other.field_names
             or not self.field_types == other.field_types
         )
 
@@ -305,15 +306,15 @@ class TimeInterval(TimePartition):
         else:
             end_time = args[0]
         timestep = args[1]
-        fields = args[2]
-        super().__init__(end_time, 1, timestep, fields, **kwargs)
+        field_names = args[2]
+        super().__init__(end_time, 1, timestep, field_names, **kwargs)
 
     def __repr__(self):
         return (
             f"TimeInterval("
             f"end_time={self.end_time}, "
             f"timestep={self.timestep}, "
-            f"fields={self.fields})"
+            f"field_names={self.field_names})"
         )
 
     @property
@@ -332,7 +333,7 @@ class TimeInstant(TimeInterval):
     Under the hood this means dividing :math:`[0,1)` into a single timestep.
     """
 
-    def __init__(self, fields, **kwargs):
+    def __init__(self, field_names, **kwargs):
         if "end_time" in kwargs:
             if "time" in kwargs:
                 raise ValueError("Both 'time' and 'end_time' are set.")
@@ -340,10 +341,12 @@ class TimeInstant(TimeInterval):
         else:
             time = kwargs.pop("time", 1.0)
         timestep = time
-        super().__init__(time, timestep, fields, **kwargs)
+        super().__init__(time, timestep, field_names, **kwargs)
 
     def __str__(self):
         return f"({self.end_time})"
 
     def __repr__(self):
-        return f"TimeInstant(" f"time={self.end_time}, " f"fields={self.fields})"
+        return (
+            f"TimeInstant(" f"time={self.end_time}, " f"field_names={self.field_names})"
+        )

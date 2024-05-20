@@ -26,9 +26,9 @@ from goalie import *
 
 # In this problem, we have a single prognostic variable,
 # :math:`\mathbf u`. Its name is recorded in a list of
-# fields. ::
+# field names. ::
 
-fields = ["u"]
+field_names = ["u"]
 
 # For each such field, we need to be able to specify how to
 # build a :class:`FunctionSpace`, given some mesh. Since there
@@ -43,21 +43,25 @@ def get_function_spaces(mesh):
 # In order to solve PDEs using the finite element method, we
 # require a weak form. For this, Goalie requires a function
 # that maps the :class:`MeshSeq` index and a dictionary of
-# solution data to the form. For each field, the dictionary
-# should provide a tuple containing the solution :class:`Function`\s
-# from the current timestep and the previous one. The form should be
+# solution data to the form. The form should be
 # returned inside its own dictionary, with an entry for each equation
 # being solved for.
 #
-# Timestepping information associated with a given subinterval
+# The solution :class:`Function`\s are automatically built on the function spaces given
+# by the :func:`get_function_spaces` function and are accessed via the :attr:`fields`
+# attribute of the :class:`MeshSeq`. This attribute provides a dictionary of tuples
+# containing the current and lagged solutions for each field.
+# Similarly, timestepping information associated with a given subinterval
 # can be accessed via the :attr:`TimePartition` attribute of
 # the :class:`MeshSeq`. For technical reasons, we need to create a :class:`Function`
 # in the `'R'` space (of real numbers) to hold constants. ::
 
 
 def get_form(mesh_seq):
-    def form(index, solutions):
-        u, u_ = solutions["u"]
+    def form(index):
+        # Get the current and lagged solutions
+        u, u_ = mesh_seq.fields["u"]
+
         P = mesh_seq.time_partition
 
         # Define constants
@@ -77,32 +81,32 @@ def get_form(mesh_seq):
     return form
 
 
-# We have a weak form. In order to solve the PDE, we need to choose
+# We have a weak form. The dictionary usage may seem cumbersome when applied to such a
+# simple problem, but it comes in handy when solving adjoint problems associated with
+# coupled systems of equations.
+
+# In order to solve the PDE, we need to choose
 # a time integration routine and solver parameters for the underlying
-# linear and nonlinear systems. This is achieved using a function
-# whose inputs are the :class:`MeshSeq` index and a dictionary of
-# initialisation data. For the :math:`0^{th}` index, this will be
-# provided by the initial conditions, otherwise it will be transferred
+# linear and nonlinear systems. This is achieved below by using a function
+# :func:`solver` whose input is the :class:`MeshSeq` index. As noted above, the solution
+# :class:`Function`\s are automatically initialised and accessed via the
+# :attr:`fields` attribute of the :class:`MeshSeq`. The lagged solution is assigned
+# the initial condition for the current subinterval index. For the :math:`0^{th}` index,
+# this will be provided by the initial conditions, otherwise it will be transferred
 # from the previous mesh in the sequence.
 #
 # Note that it is important that the PDE solve is labelled
 # with an ``ad_block_tag`` which matches the corresponding
-# prognostic variable name. It is also important that the
-# lagged solution field be given a particular name: the field name,
-# appended by ``'_old'``. ::
+# prognostic variable name.
 
 
 def get_solver(mesh_seq):
-    def solver(index, ic):
-        function_space = mesh_seq.function_spaces["u"][index]
-        u = Function(function_space, name="u")
-
-        # Initialise 'lagged' solution
-        u_ = Function(function_space, name="u_old")
-        u_.assign(ic["u"])
+    def solver(index):
+        # Get the current and lagged solutions
+        u, u_ = mesh_seq.fields["u"]
 
         # Define form
-        F = mesh_seq.form(index, {"u": (u, u_)})["u"]
+        F = mesh_seq.form(index)["u"]
 
         # Time integrate from t_start to t_end
         P = mesh_seq.time_partition
@@ -113,7 +117,6 @@ def get_solver(mesh_seq):
             solve(F == 0, u, ad_block_tag="u")
             u_.assign(u)
             t += dt
-        return {"u": u}
 
     return solver
 
@@ -153,7 +156,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=2,
 )
 
