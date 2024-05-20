@@ -19,7 +19,7 @@ all_demos = glob.glob(os.path.join(demo_dir, "*.py"))
 # -- The key is the original string or block of code to be replaced
 # -- The value is the replacement string (use "" to remove the original code)
 modifications = {
-    "burgers_hessian.py": {"'maxiter': 35": "'maxiter': 3"},
+    "burgers-hessian.py": {"'maxiter': 35": "'maxiter': 3"},
     "gray_scott.py": {
         "end_time = 2000.0": "end_time = 10.0",
         """
