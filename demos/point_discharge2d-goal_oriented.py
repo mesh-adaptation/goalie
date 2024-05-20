@@ -19,7 +19,7 @@ from matplotlib import ticker
 
 from goalie_adjoint import *
 
-fields = ["c"]
+field_names = ["c"]
 
 
 def get_function_spaces(mesh):
@@ -106,7 +106,7 @@ params = GoalOrientedMetricParameters(
 )
 
 mesh = RectangleMesh(50, 10, 50, 10)
-time_partition = TimeInstant(fields)
+time_partition = TimeInstant(field_names)
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     mesh,

@@ -53,7 +53,7 @@ class MeshSeq:
         :type parameters: :class:`~.AdaptParameters`
         """
         self.time_partition = time_partition
-        self.fields = {field: None for field in time_partition.fields}
+        self.fields = {field_name: None for field_name in time_partition.field_names}
         self.field_types = {
             field: field_type
             for field, field_type in zip(self.fields, time_partition.field_types)

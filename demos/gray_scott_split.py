@@ -14,7 +14,7 @@ from goalie_adjoint import *
 
 # This time, we have two fields instead of one, as well as two function spaces. ::
 
-fields = ["a", "b"]
+field_names = ["a", "b"]
 mesh = PeriodicSquareMesh(65, 65, 2.5, quadrilateral=True, direction="both")
 
 
@@ -138,7 +138,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=dt_per_export,
     subintervals=[
         (0.0, 0.001),

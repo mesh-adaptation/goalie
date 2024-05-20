@@ -14,10 +14,10 @@ from goalie_adjoint import *
 
 set_log_level(DEBUG)
 
-# Redefine the ``fields`` variable from the previous demo, as well as all the getter
-# functions. ::
+# Redefine the ``field_names`` variable from the previous demo, as well as all the
+# getter functions. ::
 
-fields = ["u"]
+field_names = ["u"]
 
 
 def get_function_spaces(mesh):
@@ -96,7 +96,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=2,
 )
 mesh_seq = AdjointMeshSeq(

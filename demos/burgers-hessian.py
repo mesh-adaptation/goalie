@@ -16,7 +16,7 @@ from firedrake import *
 
 from goalie import *
 
-fields = ["u"]
+field_names = ["u"]
 
 
 def get_function_spaces(mesh):
@@ -81,7 +81,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=2,
 )
 

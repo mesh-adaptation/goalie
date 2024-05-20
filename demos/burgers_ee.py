@@ -30,10 +30,10 @@ from goalie_adjoint import *
 
 set_log_level(DEBUG)
 
-# Redefine the ``fields`` variable and the getter functions as in the first
+# Redefine the ``field_names`` variable and the getter functions as in the first
 # adjoint Burgers demo. ::
 
-fields = ["u"]
+field_names = ["u"]
 
 
 def get_function_spaces(mesh):
@@ -107,7 +107,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=2,
 )
 

@@ -15,7 +15,7 @@ from goalie_adjoint import *
 
 # The problem is defined on a doubly periodic mesh of squares. ::
 
-fields = ["ab"]
+field_names = ["ab"]
 mesh = PeriodicSquareMesh(65, 65, 2.5, quadrilateral=True, direction="both")
 
 # We solve for the tracer species using a mixed formulation, with a :math:`\mathbb P1`
@@ -131,7 +131,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=dt_per_export,
     subintervals=[
         (0.0, 0.001),

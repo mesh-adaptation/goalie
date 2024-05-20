@@ -44,7 +44,7 @@ from goalie_adjoint import *
 # unit square, in this case shifted to have its centre at
 # the origin. ::
 
-fields = ["c"]
+field_names = ["c"]
 
 
 def get_function_spaces(mesh):
@@ -103,7 +103,7 @@ dt = pi / 300
 time_partition = TimeInterval(
     end_time,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=25,
 )
 

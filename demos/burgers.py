@@ -26,9 +26,9 @@ from goalie import *
 
 # In this problem, we have a single prognostic variable,
 # :math:`\mathbf u`. Its name is recorded in a list of
-# fields. ::
+# field names. ::
 
-fields = ["u"]
+field_names = ["u"]
 
 # For each such field, we need to be able to specify how to
 # build a :class:`FunctionSpace`, given some mesh. Since there
@@ -156,7 +156,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=2,
 )
 

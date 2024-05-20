@@ -14,11 +14,11 @@ from firedrake import *
 
 from goalie_adjoint import *
 
-# For ease, the field list and functions for obtaining the
+# For ease, the list of field names and functions for obtaining the
 # function spaces, forms, solvers, and initial conditions
 # are redefined as in the previous demo. ::
 
-fields = ["u"]
+field_names = ["u"]
 
 
 def get_function_spaces(mesh):
@@ -108,7 +108,7 @@ dt = 1 / n
 # single mesh, so the partition is trivial and we can use the
 # :class:`TimeInterval` constructor. ::
 
-time_partition = TimeInterval(end_time, dt, fields, num_timesteps_per_export=2)
+time_partition = TimeInterval(end_time, dt, field_names, num_timesteps_per_export=2)
 
 # Finally, we are able to construct an :class:`AdjointMeshSeq` and
 # thereby call its :meth:`solve_adjoint` method. This computes the QoI
