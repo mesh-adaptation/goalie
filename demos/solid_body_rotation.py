@@ -169,13 +169,13 @@ def get_form(mesh_seq):
 
 def get_solver(mesh_seq):
     def solver(index):
+        function_space = mesh_seq.function_spaces["c"][index]
         c, c_ = mesh_seq.fields["c"]
 
         # Setup variational problem
         a, L = mesh_seq.form(index)["c"]
 
         # Zero Dirichlet condition on the boundary
-        function_space = mesh_seq.function_spaces["c"][index]
         bcs = DirichletBC(function_space, 0, "on_boundary")
 
         # Setup the solver object
@@ -183,14 +183,12 @@ def get_solver(mesh_seq):
         lvs = LinearVariationalSolver(lvp, ad_block_tag="c")
 
         # Time integrate from t_start to t_end
-        tp = mesh_seq.time_partition
-        t_start, t_end = tp.subintervals[index]
-        dt = tp.timesteps[index]
+        P = mesh_seq.time_partition
+        t_start, t_end = P.subintervals[index]
+        dt = P.timesteps[index]
         t = t_start
         while t < t_end - 0.5 * dt:
             lvs.solve()
-            yield
-
             c_.assign(c)
             t += dt
 

@@ -93,14 +93,12 @@ def get_solver(mesh_seq):
         nlvs = NonlinearVariationalSolver(nlvp, ad_block_tag="ab")
 
         # Time integrate from t_start to t_end
-        tp = mesh_seq.time_partition
-        t_start, t_end = tp.subintervals[index]
-        dt = tp.timesteps[index]
+        P = mesh_seq.time_partition
+        t_start, t_end = P.subintervals[index]
+        dt = P.timesteps[index]
         t = t_start
         while t < t_end - 0.5 * dt:
             nlvs.solve()
-            yield
-
             ab_.assign(ab)
             t += dt
 

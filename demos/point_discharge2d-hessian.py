@@ -73,14 +73,12 @@ def get_solver(mesh_seq):
         function_space = mesh_seq.function_spaces["c"][index]
 
         c, c_ = mesh_seq.fields["c"]
-        c.assign(c_)
 
         # Setup variational problem
         F = mesh_seq.form(index)["c"]
         bc = DirichletBC(function_space, 0, 1)
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
-        yield
 
     return solver
 

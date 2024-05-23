@@ -108,11 +108,10 @@ def get_solver(mesh_seq):
         while t < t_end - 0.5 * dt:
             nlvs_a.solve()
             nlvs_b.solve()
-            yield
-
             a_.assign(a)
             b_.assign(b)
             t += dt
+        return {"a": a, "b": b}
 
     return solver
 

@@ -125,6 +125,8 @@ def get_form_forward_euler(point_seq):
 
 def get_solver(point_seq):
     def solver(index):
+        P = point_seq.time_partition
+
         # Get the current and lagged solutions
         u, u_ = point_seq.fields["u"]
 
@@ -136,14 +138,11 @@ def get_solver(point_seq):
         sp = {"ksp_type": "preonly", "pc_type": "jacobi"}
 
         # Time integrate from t_start to t_end
-        tp = point_seq.time_partition
-        dt = tp.timesteps[index]
-        t_start, t_end = tp.subintervals[index]
+        dt = P.timesteps[index]
+        t_start, t_end = P.subintervals[index]
         t = t_start
         while t < t_end - 1.0e-05:
             solve(F == 0, u, ad_block_tag="u", solver_parameters=sp)
-            yield
-
             u_.assign(u)
             t += dt
 

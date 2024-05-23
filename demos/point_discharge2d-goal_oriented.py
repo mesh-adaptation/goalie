@@ -77,7 +77,6 @@ def get_solver(mesh_seq):
         bc = DirichletBC(function_space, 0, 1)
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
-        yield
 
     return solver
 

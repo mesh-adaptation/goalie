@@ -33,10 +33,11 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
     def get_form(self):
         def form(index):
             u, u_ = self.fields["u"]
+            P = self.time_partition
 
             # Define constants
             R = FunctionSpace(self[index], "R", 0)
-            dt = Function(R).assign(self.time_partition.timesteps[index])
+            dt = Function(R).assign(P.timesteps[index])
             nu = Function(R).assign(0.0001)
 
             # Setup variational problem
@@ -66,8 +67,6 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
                 solve(F == 0, u, ad_block_tag="u")
                 if self.qoi_type == "time_integrated":
                     self.J += qoi(t)
-                yield
-
                 u_.assign(u)
                 t += dt
 
@@ -75,7 +74,7 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
 
     def get_initial_condition(self):
         fs = self.function_spaces["u"][0]
-        x = SpatialCoordinate(self[0])[0]
+        x, y = SpatialCoordinate(self[0])
         return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
 
     @annotate_qoi
