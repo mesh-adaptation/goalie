@@ -191,7 +191,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
 
         # Check adjoint solutions at first export time match
         first_export_time = test_case.dt * test_case.dt_per_export
-        for field in time_partition.fields:
+        for field in time_partition.field_names:
             adj_sol_expected = adj_sols_expected[field]
             expected_norm = norm(adj_sol_expected)
             if np.isclose(expected_norm, 0.0):
@@ -208,7 +208,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
 
         # Check adjoint actions at first export time match
         if not steady:
-            for field in time_partition.fields:
+            for field in time_partition.field_names:
                 adj_value_expected = adj_values_expected[field]
                 adj_value_computed = solutions[field].adj_value[0][0]
                 err = errornorm(adj_value_expected, adj_value_computed) / norm(
@@ -273,7 +273,7 @@ def plot_solutions(problem, qoi_type, debug=True):
     for label in outfiles:
         for k in range(time_partition.num_exports_per_subinterval[0] - 1):
             to_plot = []
-            for field in time_partition.fields:
+            for field in time_partition.field_names:
                 sol = solutions[field][label][0][k]
                 to_plot += (
                     [sol]

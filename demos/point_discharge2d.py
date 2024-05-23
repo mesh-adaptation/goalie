@@ -31,7 +31,7 @@ from goalie_adjoint import *
 
 # We solve the advection-diffusion problem in :math:`\mathbb P1` space. ::
 
-fields = ["c"]
+field_names = ["c"]
 
 
 def get_function_spaces(mesh):
@@ -111,8 +111,8 @@ def get_solver(mesh_seq):
     def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
 
-        c, c_ = mesh_seq.fields["c"]
         # Assign initial condition
+        c, c_ = mesh_seq.fields["c"]
         c.assign(c_)
 
         # Setup variational problem
@@ -159,7 +159,7 @@ def get_qoi(mesh_seq, index):
 # we use the subclass :class:`TimeInstant`, whose only input is the field list. ::
 
 mesh = RectangleMesh(200, 40, 50, 10)
-time_partition = TimeInstant(fields)
+time_partition = TimeInstant(field_names)
 
 # When creating the :class:`MeshSeq`, we need to set the ``"qoi_type"`` to
 # ``"steady"``. ::

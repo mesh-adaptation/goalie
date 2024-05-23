@@ -26,9 +26,9 @@ from goalie import *
 
 # In this problem, we have a single prognostic variable,
 # :math:`\mathbf u`. Its name is recorded in a list of
-# fields. ::
+# field names. ::
 
-fields = ["u"]
+field_names = ["u"]
 
 # For each such field, we need to be able to specify how to
 # build a :class:`FunctionSpace`, given some mesh. Since there
@@ -42,27 +42,29 @@ def get_function_spaces(mesh):
 
 # In order to solve PDEs using the finite element method, we
 # require a weak form. For this, Goalie requires a function
-# that maps the :class:`MeshSeq` index to the form. The form
-# should be returned inside its own dictionary, with an entry
-# for each equation being solved for.
+# that maps the :class:`MeshSeq` index and a dictionary of
+# solution data to the form. The form should be
+# returned inside its own dictionary, with an entry for each equation
+# being solved for.
 #
-# The solution :class:`Function`\s are automatically built on the function
-# spaces given by the :func:`get_function_spaces` function and
-# are accessed via the :attr:`fields` attribute of the :class:`MeshSeq`.
-# The timestepping information associated with a given subinterval
-# can be accessed via the :attr:`time_partition` attribute of
+# The solution :class:`Function`\s are automatically built on the function spaces given
+# by the :func:`get_function_spaces` function and are accessed via the :attr:`fields`
+# attribute of the :class:`MeshSeq`. This attribute provides a dictionary of tuples
+# containing the current and lagged solutions for each field.
+# Similarly, timestepping information associated with a given subinterval
+# can be accessed via the :attr:`TimePartition` attribute of
 # the :class:`MeshSeq`. For technical reasons, we need to create a :class:`Function`
 # in the `'R'` space (of real numbers) to hold constants. ::
 
 
 def get_form(mesh_seq):
     def form(index):
+        # Get the current and lagged solutions
         u, u_ = mesh_seq.fields["u"]
-        tp = mesh_seq.time_partition
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(tp.timesteps[index])
+        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -83,14 +85,21 @@ def get_form(mesh_seq):
 #
 # In order to solve the PDE, we need to choose a time integration routine and solver
 # parameters for the underlying linear and nonlinear systems. This is achieved using a
-# function whose input is the :class:`MeshSeq` index. The function should return a
-# generator that yields the solution at each timestep, so that Goalie can efficiently
-# track the solution history. This is done by using the `yield` statement before
-# progressing to the next timestep. ::
+# function whose input is the :class:`MeshSeq` index. As noted above, the solution
+# :class:`Function`\s are automatically initialised and accessed via the
+# :attr:`fields` attribute of the :class:`MeshSeq`. The lagged solution is assigned
+# the initial condition for the current subinterval index. For the :math:`0^{th}` index,
+# this will be provided by the initial conditions, otherwise it will be transferred
+# from the previous mesh in the sequence.
+#
+# The function should return a generator that yields the solution at each timestep, so
+# that Goalie can efficiently track the solution history. This is done by using the
+# `yield` statement before progressing to the next timestep. ::
 
 
 def get_solver(mesh_seq):
     def solver(index):
+        # Get the current and lagged solutions
         u, u_ = mesh_seq.fields["u"]
 
         # Define form
@@ -142,7 +151,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=2,
 )
 

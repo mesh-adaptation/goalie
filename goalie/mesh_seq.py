@@ -42,13 +42,17 @@ class MeshSeq:
         :kwarg get_form: a function as described in :meth:`~.MeshSeq.get_form`
         :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
         :kwarg transfer_method: the method to use for transferring fields between
-            meshes. Options are "interpolate" (default) and "project"
+            meshes. Options are "project" (default) and "interpolate". See
+            :func:`animate.interpolation.transfer` for details
         :type transfer_method: :class:`str`
+        :kwarg transfer_kwargs: kwargs to pass to the chosen transfer method
+        :type transfer_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
         :kwarg parameters: parameters to apply to the mesh adaptation process
         :type parameters: :class:`~.AdaptParameters`
         """
         self.time_partition = time_partition
-        self.fields = {field: None for field in time_partition.fields}
+        self.fields = {field_name: None for field_name in time_partition.field_names}
         self.field_types = {
             field: field_type
             for field, field_type in zip(self.fields, time_partition.field_types)
@@ -61,7 +65,8 @@ class MeshSeq:
         self._get_initial_condition = kwargs.get("get_initial_condition")
         self._get_form = kwargs.get("get_form")
         self._get_solver = kwargs.get("get_solver")
-        self._transfer_method = kwargs.get("transfer_method", "interpolate")
+        self._transfer_method = kwargs.get("transfer_method", "project")
+        self._transfer_kwargs = kwargs.get("transfer_kwargs", {})
         self.params = kwargs.get("parameters")
         self.steady = time_partition.steady
         self.check_convergence = np.array([True] * len(self), dtype=bool)
@@ -334,7 +339,10 @@ class MeshSeq:
 
         Extra keyword arguments are passed to :func:`goalie.interpolation.transfer`.
         """
-        return transfer(source, target_space, self._transfer_method, **kwargs)
+        # Update kwargs with those specified by the user
+        transfer_kwargs = kwargs.copy()
+        transfer_kwargs.update(self._transfer_kwargs)
+        return transfer(source, target_space, self._transfer_method, **transfer_kwargs)
 
     def _outputs_consistent(self):
         """
@@ -485,7 +493,7 @@ class MeshSeq:
             )
 
     @PETSc.Log.EventDecorator()
-    def _solve_forward(self, update_solutions=True, solver_kwargs={}):
+    def _solve_forward(self, update_solutions=True, solver_kwargs=None):
         r"""
         Solve a forward problem on a sequence of subintervals. Yields the final solution
         on each subinterval.
@@ -499,6 +507,7 @@ class MeshSeq:
         :rtype: :class:`~.ForwardSolutionData`
         """
         # TODO docstring tag for yield?
+        solver_kwargs = solver_kwargs or {}
         num_subintervals = len(self)
         tp = self.time_partition
 
@@ -548,7 +557,7 @@ class MeshSeq:
             yield checkpoint
 
     @PETSc.Log.EventDecorator()
-    def get_checkpoints(self, run_final_subinterval=False, solver_kwargs={}):
+    def get_checkpoints(self, run_final_subinterval=False, solver_kwargs=None):
         r"""
         Get checkpoints corresponding to the starting fields on each subinterval.
 
@@ -561,6 +570,7 @@ class MeshSeq:
         :returns: checkpoints for each subinterval
         :rtype: :class:`list` of :class:`firedrake.function.Function`\s
         """
+        solver_kwargs = solver_kwargs or {}
         N = len(self)
 
         # The first checkpoint is the initial condition
@@ -580,7 +590,7 @@ class MeshSeq:
         return checkpoints
 
     @PETSc.Log.EventDecorator()
-    def solve_forward(self, solver_kwargs={}):
+    def solve_forward(self, solver_kwargs=None):
         r"""
         Solve a forward problem on a sequence of subintervals.
 
@@ -593,6 +603,7 @@ class MeshSeq:
         :returns: the solution data of the forward solves
         :rtype: :class:`~.ForwardSolutionData`
         """
+        solver_kwargs = solver_kwargs or {}
         solver_gen = self._solve_forward(update_solutions=True, **solver_kwargs)
         for _ in range(len(self)):
             next(solver_gen)
@@ -644,7 +655,7 @@ class MeshSeq:
 
     @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
-        self, adaptor, update_params=None, solver_kwargs={}, adaptor_kwargs={}
+        self, adaptor, update_params=None, solver_kwargs=None, adaptor_kwargs=None
     ):
         r"""
         Apply mesh adaptation using a fixed point iteration loop approach.
@@ -666,11 +677,15 @@ class MeshSeq:
         :rtype: :class:`~.ForwardSolutionData`
         """
         # TODO #124: adaptor no longer needs solution data to be passed explicitly
+        solver_kwargs = solver_kwargs or {}
+        adaptor_kwargs = adaptor_kwargs or {}
+
         self._reset_counts()
         self.converged[:] = False
         self.check_convergence[:] = True
 
-        for self.fp_iteration in range(self.params.maxiter):
+        for fp_iteration in range(self.params.maxiter):
+            self.fp_iteration = fp_iteration
             if update_params is not None:
                 update_params(self.params, self.fp_iteration)
 

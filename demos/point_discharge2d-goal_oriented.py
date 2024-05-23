@@ -19,7 +19,7 @@ from matplotlib import ticker
 
 from goalie_adjoint import *
 
-fields = ["c"]
+field_names = ["c"]
 
 
 def get_function_spaces(mesh):
@@ -68,8 +68,8 @@ def get_solver(mesh_seq):
     def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
 
-        c, c_ = mesh_seq.fields["c"]
         # Assign initial condition
+        c, c_ = mesh_seq.fields["c"]
         c.assign(c_)
 
         # Setup variational problem
@@ -102,12 +102,12 @@ params = GoalOrientedMetricParameters(
     {
         "element_rtol": 0.005,
         "qoi_rtol": 0.005,
-        "maxiter": 35 if os.environ.get("GOALIE_REGRESSION_TEST") is None else 3,
+        "maxiter": 35,
     }
 )
 
 mesh = RectangleMesh(50, 10, 50, 10)
-time_partition = TimeInstant(fields)
+time_partition = TimeInstant(field_names)
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     mesh,

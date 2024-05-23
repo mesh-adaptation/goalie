@@ -23,7 +23,7 @@ from goalie import *
 # `previous demo <./point_discharge2d.py.html>`__, approximating the tracer concentration
 # :math:`c` in :math:`\mathbb P1` space. ::
 
-fields = ["c"]
+field_names = ["c"]
 
 
 def get_function_spaces(mesh):
@@ -97,12 +97,12 @@ def get_solver(mesh_seq):
 params = MetricParameters(
     {
         "element_rtol": 0.005,
-        "maxiter": 35 if os.environ.get("GOALIE_REGRESSION_TEST") is None else 3,
+        "maxiter": 35,
     }
 )
 
 mesh = RectangleMesh(50, 10, 50, 10)
-time_partition = TimeInstant(fields)
+time_partition = TimeInstant(field_names)
 mesh_seq = MeshSeq(
     time_partition,
     mesh,

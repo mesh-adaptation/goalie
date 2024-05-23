@@ -2,7 +2,7 @@ r"""
 Nested dictionaries of solution data :class:`~.Function`\s.
 """
 
-import abc
+from abc import ABC, abstractmethod
 
 import firedrake.function as ffunc
 import firedrake.functionspace as ffs
@@ -16,11 +16,12 @@ __all__ = [
 ]
 
 
-class FunctionData(abc.ABC):
+class FunctionData(ABC):
     """
     Abstract base class for classes holding field data.
     """
 
+    @abstractmethod
     def __init__(self, time_partition, function_spaces):
         r"""
         :arg time_partition: the :class:`~.TimePartition` used to discretise the problem
@@ -52,7 +53,7 @@ class FunctionData(abc.ABC):
                         for label in self._label_dict[field_type]
                     }
                 )
-                for field, field_type in zip(tp.fields, tp.field_types)
+                for field, field_type in zip(tp.field_names, tp.field_types)
             }
         )
 
@@ -86,7 +87,7 @@ class FunctionData(abc.ABC):
         return AttrDict(
             {
                 label: AttrDict(
-                    {field: self._data_by_field[field][label] for field in tp.fields}
+                    {f: self._data_by_field[f][label] for f in tp.field_names}
                 )
                 for label in self.labels
             }
@@ -111,7 +112,7 @@ class FunctionData(abc.ABC):
                             for label in self.labels
                         }
                     )
-                    for field in tp.fields
+                    for field in tp.field_names
                 }
             )
             for subinterval in range(tp.num_subintervals)
@@ -209,7 +210,7 @@ class IndicatorData(FunctionData):
             time_partition,
             {
                 key: [ffs.FunctionSpace(mesh, "DG", 0) for mesh in meshes]
-                for key in time_partition.fields
+                for key in time_partition.field_names
             },
         )
 
@@ -225,7 +226,7 @@ class IndicatorData(FunctionData):
         return AttrDict(
             {
                 field: self._data[field]["error_indicator"]
-                for field in self.time_partition.fields
+                for field in self.time_partition.field_names
             }
         )
 
@@ -246,8 +247,6 @@ class IndicatorData(FunctionData):
         """
         tp = self.time_partition
         return [
-            AttrDict(
-                {field: self._data_by_field[field][subinterval] for field in tp.fields}
-            )
+            AttrDict({f: self._data_by_field[f][subinterval] for f in tp.field_names})
             for subinterval in range(tp.num_subintervals)
         ]

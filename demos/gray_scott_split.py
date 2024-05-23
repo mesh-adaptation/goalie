@@ -14,7 +14,7 @@ from goalie_adjoint import *
 
 # This time, we have two fields instead of one, as well as two function spaces. ::
 
-fields = ["a", "b"]
+field_names = ["a", "b"]
 mesh = PeriodicSquareMesh(65, 65, 2.5, quadrilateral=True, direction="both")
 
 
@@ -130,8 +130,7 @@ def get_qoi(mesh_seq, index):
     return qoi
 
 
-test = os.environ.get("GOALIE_REGRESSION_TEST") is not None
-end_time = 10.0 if test else 2000.0
+end_time = 2000.0
 dt = [0.0001, 0.001, 0.01, 0.1, (end_time - 1) / end_time]
 num_subintervals = 5
 dt_per_export = [10, 9, 9, 9, 10]
@@ -139,7 +138,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=dt_per_export,
     subintervals=[
         (0.0, 0.001),
@@ -162,17 +161,16 @@ mesh_seq = AdjointMeshSeq(
 )
 solutions = mesh_seq.solve_adjoint()
 
-if not test:
-    ic = mesh_seq.get_initial_condition()
-    for field, sols in solutions.items():
-        fwd_outfile = VTKFile(f"gray_scott_split/{field}_forward.pvd")
-        adj_outfile = VTKFile(f"gray_scott_split/{field}_adjoint.pvd")
-        fwd_outfile.write(ic[field])
-        for i, mesh in enumerate(mesh_seq):
-            for sol in sols["forward"][i]:
-                fwd_outfile.write(sol)
-            for sol in sols["adjoint"][i]:
-                adj_outfile.write(sol)
-        adj_outfile.write(Function(ic[field]).assign(0.0))
+ic = mesh_seq.get_initial_condition()
+for field, sols in solutions.items():
+    fwd_outfile = VTKFile(f"gray_scott_split/{field}_forward.pvd")
+    adj_outfile = VTKFile(f"gray_scott_split/{field}_adjoint.pvd")
+    fwd_outfile.write(ic[field])
+    for i in range(num_subintervals):
+        for sol in sols["forward"][i]:
+            fwd_outfile.write(sol)
+        for sol in sols["adjoint"][i]:
+            adj_outfile.write(sol)
+    adj_outfile.write(Function(ic[field]).assign(0.0))
 
 # This tutorial can be dowloaded as a `Python script <gray_scott_split.py>`__.

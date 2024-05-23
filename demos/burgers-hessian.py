@@ -16,7 +16,7 @@ from firedrake import *
 
 from goalie import *
 
-fields = ["u"]
+field_names = ["u"]
 
 
 def get_function_spaces(mesh):
@@ -82,14 +82,14 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=2,
 )
 
 params = MetricParameters(
     {
         "element_rtol": 0.001,
-        "maxiter": 35 if os.environ.get("GOALIE_REGRESSION_TEST") is None else 3,
+        "maxiter": 35,
     }
 )
 mesh_seq = MeshSeq(

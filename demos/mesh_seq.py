@@ -22,14 +22,14 @@ set_log_level(DEBUG)
 # Consider the final subinterval from the previous demo. ::
 
 end_time = 1.0
-fields = ["solution"]
+field_names = ["solution"]
 dt = [0.125, 0.0625]
 subintervals = [(0.0, 0.75), (0.75, 1.0)]
 time_partition = TimePartition(
     end_time,
     len(subintervals),
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=[2, 4],
     subintervals=subintervals,
 )

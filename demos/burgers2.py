@@ -14,10 +14,10 @@ from goalie_adjoint import *
 
 set_log_level(DEBUG)
 
-# Redefine the ``fields`` variable from the previous demo, as well as all the getter
-# functions. ::
+# Redefine the ``field_names`` variable from the previous demo, as well as all the
+# getter functions. ::
 
-fields = ["u"]
+field_names = ["u"]
 
 
 def get_function_spaces(mesh):
@@ -27,11 +27,10 @@ def get_function_spaces(mesh):
 def get_form(mesh_seq):
     def form(index):
         u, u_ = mesh_seq.fields["u"]
-        tp = mesh_seq.time_partition
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(tp.timesteps[index])
+        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -98,7 +97,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=2,
 )
 mesh_seq = AdjointMeshSeq(
