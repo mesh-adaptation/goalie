@@ -511,9 +511,10 @@ class MeshSeq:
         num_subintervals = len(self)
         tp = self.time_partition
 
-        # Reinitialise the solution data object
-        self._create_solutions()
-        solutions = self.solutions.extract(layout="field")
+        if update_solutions:
+            # Reinitialise the solution data object
+            self._create_solutions()
+            solutions = self.solutions.extract(layout="field")
 
         # Stop annotating
         if pyadjoint.annotate_tape():
