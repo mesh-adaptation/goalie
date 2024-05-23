@@ -104,8 +104,7 @@ def get_form(mesh_seq):
 # :func:`form`, since we have a steady-state problem.
 #
 # With these ingredients, we can now define the :meth:`get_solver` method. Don't forget
-# to impose the correct names for the current and lagged solution fields, as well as
-# applying the corresponding `ad_block_tag` to the solve call. ::
+# to apply the corresponding `ad_block_tag` to the solve call. ::
 
 
 def get_solver(mesh_seq):
@@ -122,6 +121,7 @@ def get_solver(mesh_seq):
         bc = DirichletBC(function_space, 0, 1)
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
+        yield
 
     return solver
 

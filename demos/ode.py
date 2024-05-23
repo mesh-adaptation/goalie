@@ -143,6 +143,8 @@ def get_solver(point_seq):
         t = t_start
         while t < t_end - 1.0e-05:
             solve(F == 0, u, ad_block_tag="u", solver_parameters=sp)
+            yield
+
             u_.assign(u)
             t += dt
 

@@ -59,6 +59,7 @@ def get_solver(self):
     def solver(i):
         t_start, t_end = self.time_partition.subintervals[i]
         dt = self.time_partition.timesteps[i]
+
         u, u_ = self.fields["uv_2d"]
 
         # Setup variational problem
@@ -84,7 +85,7 @@ def get_initial_condition(self):
     Initial condition which is sinusoidal in the x-direction.
     """
     init_fs = self.function_spaces["uv_2d"][0]
-    x = SpatialCoordinate(self.meshes[0])[0]
+    x, y = SpatialCoordinate(self.meshes[0])
     return {"uv_2d": assemble(interpolate(as_vector([sin(pi * x), 0]), init_fs))}
 
 

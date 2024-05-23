@@ -73,6 +73,8 @@ def get_solver(mesh_seq):
         while t < t_end - 1.0e-05:
             solve(F == 0, u, ad_block_tag="u")
             mesh_seq.J += qoi(t)
+            yield
+
             u_.assign(u)
             t += dt
 
