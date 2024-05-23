@@ -142,7 +142,7 @@ def get_solver(point_seq):
         t_start, t_end = P.subintervals[index]
         t = t_start
         while t < t_end - 1.0e-05:
-            solve(F == 0, u, ad_block_tag="u", solver_parameters=sp)
+            solve(F == 0, u, solver_parameters=sp)
             yield
 
             u_.assign(u)
