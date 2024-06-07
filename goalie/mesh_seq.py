@@ -366,17 +366,12 @@ class MeshSeq:
                 assert hasattr(solver_gen, "__next__"), "solver should yield"
                 if logger.level == DEBUG:
                     next(solver_gen)
-                    try:
-                        f, f_ = self.fields[next(iter(self.fields))]
-                        if (f.dat.data != f_.dat.data).all():
-                            self.debug(
-                                "Current and lagged solutions are equal. Does the"
-                                " solver yield before updating lagged solutions?"
-                            )
-                    except Exception:
-                        # TODO: extend above check to the case of mixed function spaces,
-                        # and empty self.fields (tests in test_fp_iteration.py)
-                        pass
+                    f, f_ = self.fields[next(iter(self.fields))]
+                    if np.array_equal(f.vector().array(), f_.vector().array()):
+                        self.debug(
+                            "Current and lagged solutions are equal. Does the"
+                            " solver yield before updating lagged solutions?"
+                        )
                 break
             assert isinstance(method_map, dict), f"get_{method} should return a dict"
             mesh_seq_fields = set(self.fields)
@@ -503,10 +498,9 @@ class MeshSeq:
         :kwarg solver_kwargs: parameters for the forward solver
         :type solver_kwargs: :class:`dict` whose keys are :class:`str`\s and whose values
             may take various types
-        :returns: the solution data of the forward solves
-        :rtype: :class:`~.ForwardSolutionData`
+        :yields: the solution data of the forward solves
+        :ytype: :class:`~.ForwardSolutionData`
         """
-        # TODO docstring tag for yield?
         solver_kwargs = solver_kwargs or {}
         num_subintervals = len(self)
         tp = self.time_partition

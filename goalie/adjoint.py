@@ -486,7 +486,7 @@ class AdjointMeshSeq(MeshSeq):
             if tape is not None:
                 tape.clear_tape()
 
-            # Solver generator
+            # Initialise the solver generator
             solver_gen = wrapped_solver(i, checkpoints[i], **solver_kwargs)
 
             # Annotate tape on current subinterval
