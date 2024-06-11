@@ -844,6 +844,113 @@ class MeshSeq:
         return converged
 
     @PETSc.Log.EventDecorator()
+    def adapt_on_the_fly(self, adaptor, solver_kwargs=None, adaptor_kwargs=None):
+        r"""
+        Adapt the mesh sequence using the on-the-fly approach.
+
+        :arg adaptor: function for adapting the mesh sequence. Its arguments are the
+            mesh sequence and the solution data object.
+        :kwarg solver_kwargs: parameters to pass to the solver
+        :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :kwarg adaptor_kwargs: parameters to pass to the adaptor
+        :type adaptor_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :returns: solution data object
+        :rtype: :class:`~.ForwardSolutionData`
+        """
+        solver_kwargs = solver_kwargs or {}
+        adaptor_kwargs = adaptor_kwargs or {}
+
+        num_subintervals = len(self)
+        tp = self.time_partition
+        solver = self.solver
+
+        # Reinitialise the solution data object
+        self._create_solutions()
+
+        # Start annotating
+        if pyadjoint.annotate_tape():
+            tape = pyadjoint.get_working_tape()
+            if tape is not None:
+                tape.clear_tape()
+        else:
+            pyadjoint.continue_annotation()
+
+        pyadjoint.pause_annotation()
+
+        # Loop over the subintervals
+        checkpoint = self.initial_condition
+        for i in range(num_subintervals):
+            stride = tp.num_timesteps_per_export[i]
+            num_exports = tp.num_exports_per_subinterval[i]
+
+            # Adapt the mesh before solving
+            adaptor(self, i, **adaptor_kwargs)
+
+            # Update the function space of the current subinterval
+            self.solutions.update_single_fs(i, self.function_spaces)
+
+            # Transfer the checkpoint to the current subinterval
+            transferred_checkpoint = AttrDict(
+                {
+                    field: self._transfer(checkpoint[field], fs[i])
+                    for field, fs in self._fs.items()
+                }
+            )
+            self._reinitialise_fields(transferred_checkpoint)
+
+            pyadjoint.continue_annotation()
+            # Annotate tape on current subinterval
+            # next_checkpoint = solver(i, transferred_checkpoint, **solver_kwargs)
+            next_checkpoint = solver(i, **solver_kwargs)
+            pyadjoint.pause_annotation()
+
+            # Loop over prognostic variables
+            for field, fs in self.function_spaces.items():
+                # Get solve blocks
+                solve_blocks = self.get_solve_blocks(field, i)
+                num_solve_blocks = len(solve_blocks)
+                if num_solve_blocks == 0:
+                    raise ValueError(
+                        "Looks like no solves were written to tape!"
+                        " Does the solution depend on the initial condition?"
+                    )
+                if fs[0].ufl_element() != solve_blocks[0].function_space.ufl_element():
+                    raise ValueError(
+                        f"Solve block list for field '{field}' contains mismatching"
+                        f" finite elements: ({fs[0].ufl_element()} vs. "
+                        f" {solve_blocks[0].function_space.ufl_element()})"
+                    )
+
+                # Extract solution data
+                if len(solve_blocks[::stride]) >= num_exports:
+                    raise ValueError(
+                        f"More solve blocks than expected"
+                        f" ({len(solve_blocks[::stride])} > {num_exports-1})"
+                    )
+
+                # Update solution data based on block dependencies and outputs
+                solutions = self.solutions.extract(layout="field")[field]
+                for j, block in enumerate(reversed(solve_blocks[::-stride])):
+                    # Current solution is determined from outputs
+                    out = self._output(field, i, block)
+                    if out is not None:
+                        solutions.forward[i][j].assign(out.saved_output)
+
+                    # Lagged solution comes from dependencies
+                    dep = self._dependency(field, i, block)
+                    if not self.steady and dep is not None:
+                        solutions.forward_old[i][j].assign(dep.saved_output)
+
+            # Clear the tape to reduce the memory footprint
+            pyadjoint.get_working_tape().clear_tape()
+
+            checkpoint = next_checkpoint
+
+        return self.solutions
+
+    @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
         self, adaptor, update_params=None, solver_kwargs=None, adaptor_kwargs=None
     ):

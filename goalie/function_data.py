@@ -57,6 +57,27 @@ class FunctionData(ABC):
             }
         )
 
+    def update_single_fs(self, idx, fs):
+        r"""
+        Update the function space for a given subinterval index.
+
+        :arg idx: the subinterval index to be updated
+        :type idx: :class:`int`
+        :arg fs: the new :class:`~.FunctionSpace`\s
+        :type fs: :class:`list`
+        """
+        self.function_spaces = fs
+        if self._data is None:
+            self._create_data()
+        tp = self.time_partition
+        for field, field_type in zip(tp.field_names, tp.field_types):
+            for label in self._label_dict[field_type]:
+                fs_idx = self.function_spaces[field][idx]
+                self._data[field][label][idx] = [
+                    ffunc.Function(fs_idx, name=f"{field}_{label}")
+                    for _ in range(tp.num_exports_per_subinterval[idx] - 1)
+                ]
+
     @property
     def _data_by_field(self):
         """
