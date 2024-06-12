@@ -4,18 +4,168 @@ Testing for the mesh sequence objects.
 
 import logging
 import unittest
+from unittest.mock import patch
 
 import pyadjoint
 import pytest
 from animate.utility import norm
-from firedrake import *
+from firedrake import (
+    Function,
+    FunctionSpace,
+    SpatialCoordinate,
+    TestFunction,
+    TrialFunction,
+    UnitSquareMesh,
+    UnitTriangleMesh,
+    VectorFunctionSpace,
+    dx,
+    solve,
+)
 from parameterized import parameterized
+from pyadjoint.block_variable import BlockVariable
 
 from goalie.go_mesh_seq import GoalOrientedMeshSeq
 from goalie.log import *
-from goalie.mesh_seq import MeshSeq
 from goalie.time_partition import TimeInterval
 from goalie_adjoint import *
+
+
+class TestBlockLogic(unittest.TestCase):
+    """
+    Unit tests for :meth:`MeshSeq._dependency` and :meth:`MeshSeq._output`.
+    """
+
+    @staticmethod
+    def get_p0_spaces(mesh):
+        return {"field": FunctionSpace(mesh, "DG", 0)}
+
+    def setUp(self):
+        self.time_interval = TimeInterval(1.0, 0.5, "field")
+        self.mesh = UnitTriangleMesh()
+        self.mesh_seq = AdjointMeshSeq(
+            self.time_interval,
+            self.mesh,
+            get_function_spaces=self.get_p0_spaces,
+            qoi_type="end_time",
+        )
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_output_not_function(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        block_variable = BlockVariable(1)
+        solve_block._outputs = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._output("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no outputs."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_output_wrong_function_space(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        block_variable = BlockVariable(Function(FunctionSpace(self.mesh, "CG", 1)))
+        solve_block._outputs = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._output("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no outputs."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_output_wrong_name(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field2"))
+        solve_block._outputs = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._output("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no outputs."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_output_valid(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field"))
+        solve_block._outputs = [block_variable]
+        self.assertIsNotNone(self.mesh_seq._output("field", 0, solve_block))
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_output_multiple_valid_error(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field"))
+        solve_block._outputs = [block_variable, block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._output("field", 0, solve_block)
+        msg = (
+            "Cannot determine a unique output index for the solution associated with"
+            " field 'field' out of 2 candidates."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_dependency_not_function(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        block_variable = BlockVariable(1)
+        solve_block._dependencies = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._dependency("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_dependency_wrong_function_space(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        block_variable = BlockVariable(Function(FunctionSpace(self.mesh, "CG", 1)))
+        solve_block._dependencies = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._dependency("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_dependency_wrong_name(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field_new"))
+        solve_block._dependencies = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._dependency("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_dependency_valid(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field_old"))
+        solve_block._dependencies = [block_variable]
+        self.assertIsNotNone(self.mesh_seq._dependency("field", 0, solve_block))
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_dependency_multiple_valid_error(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field_old"))
+        solve_block._dependencies = [block_variable, block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._dependency("field", 0, solve_block)
+        msg = (
+            "Cannot determine a unique dependency index for the lagged solution"
+            " associated with field 'field' out of 2 candidates."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_dependency_steady(self, MockSolveBlock):
+        time_interval = TimeInterval(1.0, 0.5, "field", field_types="steady")
+        mesh_seq = AdjointMeshSeq(
+            time_interval,
+            self.mesh,
+            get_function_spaces=self.get_p0_spaces,
+            qoi_type="end_time",
+        )
+        solve_block = MockSolveBlock()
+        self.assertIsNone(mesh_seq._dependency("field", 0, solve_block))
 
 
 class TestGetSolveBlocks(unittest.TestCase):
@@ -29,10 +179,11 @@ class TestGetSolveBlocks(unittest.TestCase):
 
     def setUp(self):
         time_interval = TimeInterval(1.0, [1.0], ["field"])
-        self.mesh_seq = MeshSeq(
+        self.mesh_seq = AdjointMeshSeq(
             time_interval,
             [UnitSquareMesh(1, 1)],
             get_function_spaces=self.get_function_spaces,
+            qoi_type="steady",
         )
         if not pyadjoint.annotate_tape():
             pyadjoint.continue_annotation()
@@ -98,10 +249,11 @@ class TestGetSolveBlocks(unittest.TestCase):
 
     def test_too_many_timesteps(self):
         time_interval = TimeInterval(1.0, [0.5], ["field"])
-        mesh_seq = MeshSeq(
+        mesh_seq = AdjointMeshSeq(
             time_interval,
             [UnitSquareMesh(1, 1)],
             get_function_spaces=self.get_function_spaces,
+            qoi_type="end_time",
         )
         fs = mesh_seq.function_spaces["field"][0]
         u = Function(fs, name="field")
@@ -116,10 +268,11 @@ class TestGetSolveBlocks(unittest.TestCase):
 
     def test_incompatible_timesteps(self):
         time_interval = TimeInterval(1.0, [0.5], ["field"])
-        mesh_seq = MeshSeq(
+        mesh_seq = AdjointMeshSeq(
             time_interval,
             [UnitSquareMesh(1, 1)],
             get_function_spaces=self.get_function_spaces,
+            qoi_type="end_time",
         )
         fs = mesh_seq.function_spaces["field"][0]
         u = Function(fs, name="field")

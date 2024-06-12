@@ -93,6 +93,7 @@ def get_solver(self):
             solver_parameters=sp,
             ad_block_tag="up",
         )
+        yield
 
     return solver
 

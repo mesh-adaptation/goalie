@@ -72,6 +72,8 @@ def get_solver(self):
             solve(F == 0, u, ad_block_tag="uv_2d")
             if self.qoi_type == "time_integrated":
                 self.J += qoi(t)
+            yield
+
             u_.assign(u)
             t += dt
 

@@ -16,7 +16,11 @@ from goalie_adjoint import *
 
 # For ease, the list of field names and functions for obtaining the
 # function spaces, forms, solvers, and initial conditions
-# are redefined as in the previous demo. ::
+# are redefined as in the previous demo. The only difference
+# is that now we are solving the adjoint problem, which
+# requires that the PDE solve is labelled with an
+# ``ad_block_tag`` that matches the corresponding prognostic
+# variable name. ::
 
 field_names = ["u"]
 
@@ -60,7 +64,9 @@ def get_solver(mesh_seq):
         dt = P.timesteps[index]
         t = t_start
         while t < t_end - 1.0e-05:
-            solve(F == 0, u, ad_block_tag="u")
+            solve(F == 0, u, ad_block_tag="u")  # Note the ad_block_tag
+            yield
+
             u_.assign(u)
             t += dt
 

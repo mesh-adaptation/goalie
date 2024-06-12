@@ -75,7 +75,9 @@ class MeshSeqBaseClass:
         mesh_seq = self.seq(kw.pop("time_partition"), kw.pop("mesh"), **kw)
         mesh_seq._get_function_spaces = lambda _: {}
         mesh_seq._get_form = lambda _: lambda *_: {}
-        mesh_seq._get_solver = lambda _: lambda *_: {}
+        mesh_seq._get_solver = lambda _: lambda *_: (
+            yield from (None for _ in iter(int, 1))
+        )
         return mesh_seq
 
     def test_convergence_noop(self):

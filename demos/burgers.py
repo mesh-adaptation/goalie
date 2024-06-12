@@ -95,9 +95,9 @@ def get_form(mesh_seq):
 # this will be provided by the initial conditions, otherwise it will be transferred
 # from the previous mesh in the sequence.
 #
-# Note that it is important that the PDE solve is labelled
-# with an ``ad_block_tag`` which matches the corresponding
-# prognostic variable name.
+# The function should return a generator that yields the solution at each timestep, so
+# that Goalie can efficiently track the solution history. This is done by using the
+# `yield` statement before progressing to the next timestep. ::
 
 
 def get_solver(mesh_seq):
@@ -114,17 +114,15 @@ def get_solver(mesh_seq):
         dt = P.timesteps[index]
         t = t_start
         while t < t_end - 1.0e-05:
-            solve(F == 0, u, ad_block_tag="u")
+            solve(F == 0, u)
+            yield
+
             u_.assign(u)
             t += dt
 
     return solver
 
 
-# The dictionary usage may seem cumbersome when applied to such a
-# simple problem, but it comes in handy when solving adjoint
-# problems associated with coupled systems of equations.
-#
 # Goalie also requires a function for generating an initial
 # condition from the function space defined on the
 # :math:`0^{th}` mesh. ::

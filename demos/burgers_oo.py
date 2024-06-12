@@ -67,6 +67,8 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
                 solve(F == 0, u, ad_block_tag="u")
                 if self.qoi_type == "time_integrated":
                     self.J += qoi(t)
+                yield
+
                 u_.assign(u)
                 t += dt
 

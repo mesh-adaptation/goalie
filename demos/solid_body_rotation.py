@@ -189,6 +189,8 @@ def get_solver(mesh_seq):
         t = t_start
         while t < t_end - 0.5 * dt:
             lvs.solve()
+            yield
+
             c_.assign(c)
             t += dt
 

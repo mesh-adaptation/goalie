@@ -129,7 +129,10 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     ic = mesh_seq.initial_condition
     controls = [pyadjoint.Control(value) for key, value in ic.items()]
     mesh_seq._reinitialise_fields(ic)
-    mesh_seq.solver(0)
+    solver = mesh_seq.solver(0)
+    for i in range(len(mesh_seq)):
+        for _ in range(mesh_seq.time_partition.num_timesteps_per_subinterval[i]):
+            next(solver)
     qoi = mesh_seq.get_qoi(0)
     J = mesh_seq.J if qoi_type == "time_integrated" else qoi()
     m = pyadjoint.enlisting.Enlist(controls)

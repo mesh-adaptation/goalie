@@ -99,6 +99,8 @@ def get_solver(mesh_seq):
         t = t_start
         while t < t_end - 0.5 * dt:
             nlvs.solve()
+            yield
+
             ab_.assign(ab)
             t += dt
 
