@@ -70,7 +70,7 @@ def source(mesh):
 
 def get_form(mesh_seq):
     def form(index):
-        c, c_ = mesh_seq.fields["c"]
+        c = mesh_seq.fields["c"]
         function_space = mesh_seq.function_spaces["c"][index]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
@@ -100,9 +100,6 @@ def get_form(mesh_seq):
     return form
 
 
-# Note that the lagged solution ``c_`` is not actually used in
-# :func:`form`, since we have a steady-state problem.
-#
 # With these ingredients, we can now define the :meth:`get_solver` method. Don't forget
 # to apply the corresponding `ad_block_tag` to the solve call. ::
 
@@ -111,8 +108,7 @@ def get_solver(mesh_seq):
     def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
 
-        c, c_ = mesh_seq.fields["c"]
-        c.assign(c_)
+        c = mesh_seq.fields["c"]
 
         # Setup variational problem
         F = mesh_seq.form(index)["c"]
@@ -126,14 +122,6 @@ def get_solver(mesh_seq):
     return solver
 
 
-# The fact that we create a lagged solution :class:`Function`, assign it to
-# some initial conditions and then use the value for a solution :class:`Function`
-# that will immediately get over-written may seem odd. It works this way because
-# Goalie is primarily geared up for time-dependent problems, where initialisation
-# is important. Even for linear, steady-state problems, we need to maintain a
-# programatic dependence on the initial condition so that it is possible to
-# automatically differentiate the QoI with respect to this as an input.
-#
 # For steady-state problems, we do not need to specify :func:`get_initial_condition`
 # if the equation is linear. If the equation is nonlinear then this would provide
 # an initial guess. By default, all components are initialised to zero.
@@ -145,7 +133,7 @@ def get_solver(mesh_seq):
 
 def get_qoi(mesh_seq, index):
     def qoi():
-        c = mesh_seq.fields["c"][0]
+        c = mesh_seq.fields["c"]
         x, y = SpatialCoordinate(mesh_seq[index])
         xr, yr, rr = 20, 7.5, 0.5
         kernel = conditional((x - xr) ** 2 + (y - yr) ** 2 < rr**2, 1, 0)

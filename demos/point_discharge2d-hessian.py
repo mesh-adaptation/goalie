@@ -38,7 +38,7 @@ def source(mesh):
 
 def get_form(mesh_seq):
     def form(index):
-        c, c_ = mesh_seq.fields["c"]
+        c = mesh_seq.fields["c"]
         function_space = mesh_seq.function_spaces["c"][index]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
@@ -71,9 +71,7 @@ def get_form(mesh_seq):
 def get_solver(mesh_seq):
     def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
-
-        c, c_ = mesh_seq.fields["c"]
-        c.assign(c_)
+        c = mesh_seq.fields["c"]
 
         # Setup variational problem
         F = mesh_seq.form(index)["c"]

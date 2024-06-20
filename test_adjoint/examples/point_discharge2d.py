@@ -57,7 +57,7 @@ def get_form(self):
     """
 
     def form(i):
-        _, c = self.fields["tracer_2d"]
+        c = self.fields["tracer_2d"]
         fs = self.function_spaces["tracer_2d"][i]
         R = FunctionSpace(self[i], "R", 0)
         D = Function(R).assign(0.1)
@@ -93,9 +93,7 @@ def get_solver(self):
 
     def solver(i):
         fs = self.function_spaces["tracer_2d"][i]
-
-        _, c = self.fields["tracer_2d"]
-        self.fields["tracer_2d"] = (c, c)
+        c = self.fields["tracer_2d"]
 
         # Setup variational problem
         F = self.form(i)["tracer_2d"]
@@ -125,7 +123,7 @@ def get_qoi(self, i):
     """
 
     def steady_qoi():
-        c = self.fields["tracer_2d"][0]
+        c = self.fields["tracer_2d"]
         x, y = SpatialCoordinate(self[i])
         kernel = conditional((x - rec_x) ** 2 + (y - rec_y) ** 2 < rec_r**2, 1, 0)
         area = assemble(kernel * dx)
