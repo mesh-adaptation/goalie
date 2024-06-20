@@ -480,18 +480,14 @@ class MeshSeq:
         :type initial_conditions: :class:`dict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        for field, initial_condition in initial_conditions.items():
-            fs = initial_condition.function_space()
+        for field, ic in initial_conditions.items():
+            fs = ic.function_space()
             if self.field_types[field] == "steady":
-                self.fields[field] = firedrake.Function(fs, name=f"{field}").assign(
-                    initial_condition
-                )
+                self.fields[field] = firedrake.Function(fs, name=f"{field}").assign(ic)
             else:
                 self.fields[field] = (
                     firedrake.Function(fs, name=field),
-                    firedrake.Function(fs, name=f"{field}_old").assign(
-                        initial_condition
-                    ),
+                    firedrake.Function(fs, name=f"{field}_old").assign(ic),
                 )
 
     @PETSc.Log.EventDecorator()
