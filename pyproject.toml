@@ -5,6 +5,7 @@ requires = ["setuptools"]
 name = "goalie"
 version = "0.2"
 dependencies = [
+  "cffconvert",
   "coverage",
   "parameterized",
   "pre-commit",
@@ -43,7 +44,7 @@ line-length = 88
 
 [tool.ruff.lint]
 select = [
-#  "B",  # flake8-bugbear  TODO: enable this  (#165)
+  "B",  # flake8-bugbear
 #  "C",  # mccabe complexity  TODO: enable this (#165)
   "E", "W",  # Pycodestyle
   "F",  # Pyflakes
@@ -51,6 +52,7 @@ select = [
 ]
 ignore = [
   "E501",  # line too long
+  "E203",  # whitespace before ':'
   "E226",  # missing whitespace around arithmetic operator
   "E402",  # module level import not at top of file
   "E741",  # ambiguous variable name

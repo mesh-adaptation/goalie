@@ -37,8 +37,8 @@ def get_form(self):
     Weak form for Stokes equation.
     """
 
-    def form(i, sols):
-        up, up_ = sols["up"]
+    def form(i):
+        up = self.fields["up"]
         W = self.function_spaces["up"][i]
         R = FunctionSpace(self[i], "R", 0)
         nu = Function(R).assign(1.0)
@@ -61,15 +61,12 @@ def get_solver(self):
     direct method.
     """
 
-    def solver(i, ic):
+    def solver(i):
         W = self.function_spaces["up"][i]
-
-        # Assign initial condition
-        up = Function(W, name="up_old")
-        up.assign(ic["up"])
+        up = self.fields["up"]
 
         # Define variational problem
-        F = self.form(i, {"up": (up, up)})["up"]
+        F = self.form(i)["up"]
 
         # Define inflow and no-slip boundary conditions
         y = SpatialCoordinate(self[i])[1]
@@ -94,7 +91,7 @@ def get_solver(self):
             solver_parameters=sp,
             ad_block_tag="up",
         )
-        return {"up": up}
+        yield
 
     return solver
 
@@ -113,14 +110,14 @@ def get_initial_condition(self):
     return {"up": up}
 
 
-def get_qoi(self, sol, i):
+def get_qoi(self, i):
     """
     Quantity of interest which integrates
     pressure over the boundary of the hole.
     """
 
     def steady_qoi():
-        u, p = split(sol["up"])
+        u, p = split(self.fields["up"])
         return p * ds(4)
 
     return steady_qoi

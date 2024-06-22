@@ -44,7 +44,7 @@ from goalie_adjoint import *
 # unit square, in this case shifted to have its centre at
 # the origin. ::
 
-fields = ["c"]
+field_names = ["c"]
 
 
 def get_function_spaces(mesh):
@@ -93,17 +93,14 @@ def get_initial_condition(mesh_seq):
     return {"c": assemble(interpolate(bell + cone + slot_cyl, fs))}
 
 
-# Now let's set up the time interval of interest. The `"GOALIE_REGRESSION_TEST"` flag
-# can be ignored here and in subsequent demos; it is used to cut down the runtime in
-# Goalie's continuous integration suite. ::
+# Now let's set up the time interval of interest. ::
 
-test = os.environ.get("GOALIE_REGRESSION_TEST") is not None
-end_time = pi / 4 if test else 2 * pi
+end_time = 2 * pi
 dt = pi / 300
 time_partition = TimeInterval(
     end_time,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=25,
 )
 
@@ -144,8 +141,8 @@ plt.savefig("solid_body_rotation-init.jpg")
 
 
 def get_form(mesh_seq):
-    def form(index, sols):
-        c, c_ = sols["c"]
+    def form(index):
+        c, c_ = mesh_seq.fields["c"]
         V = mesh_seq.function_spaces["c"][index]
         mesh = mesh_seq[index]
 
@@ -171,16 +168,12 @@ def get_form(mesh_seq):
 
 
 def get_solver(mesh_seq):
-    def solver(index, ic):
+    def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
-        c = Function(function_space, name="c")
-
-        # Initialise 'lagged' solution
-        c_ = Function(function_space, name="c_old")
-        c_.assign(ic["c"])
+        c, c_ = mesh_seq.fields["c"]
 
         # Setup variational problem
-        a, L = mesh_seq.form(index, {"c": (c, c_)})["c"]
+        a, L = mesh_seq.form(index)["c"]
 
         # Zero Dirichlet condition on the boundary
         bcs = DirichletBC(function_space, 0, "on_boundary")
@@ -196,9 +189,10 @@ def get_solver(mesh_seq):
         t = t_start
         while t < t_end - 0.5 * dt:
             lvs.solve()
+            yield
+
             c_.assign(c)
             t += dt
-        return {"c": c}
 
     return solver
 
@@ -214,9 +208,9 @@ def get_solver(mesh_seq):
 # to be positioned at the end time. ::
 
 
-def get_qoi(mesh_seq, sols, index):
+def get_qoi(mesh_seq, index):
     def qoi():
-        c = sols["c"]
+        c = mesh_seq.fields["c"][0]
         x, y = SpatialCoordinate(mesh_seq[index])
         x0, y0, r0 = 0.0, 0.25, 0.15
         ball = conditional((x - x0) ** 2 + (y - y0) ** 2 < r0**2, 1.0, 0.0)
@@ -241,18 +235,16 @@ solutions = mesh_seq.solve_adjoint()
 
 # So far, we have visualised outputs using `Matplotlib`. In many cases, it is better to
 # use Paraview. To save all adjoint solution components in Paraview format, use the
-# following. The `if` statement is used here to check whether this demo is being run as
-# part of Goalie's continuous integration testing and can be ignored. ::
+# following. ::
 
-if not test:
-    for field, sols in solutions.items():
-        fwd_outfile = VTKFile(f"solid_body_rotation/{field}_forward.pvd")
-        adj_outfile = VTKFile(f"solid_body_rotation/{field}_adjoint.pvd")
-        for i, mesh in enumerate(mesh_seq):
-            for sol in sols["forward"][i]:
-                fwd_outfile.write(sol)
-            for sol in sols["adjoint"][i]:
-                adj_outfile.write(sol)
+for field, sols in solutions.items():
+    fwd_outfile = VTKFile(f"solid_body_rotation/{field}_forward.pvd")
+    adj_outfile = VTKFile(f"solid_body_rotation/{field}_adjoint.pvd")
+    for i in range(len(mesh_seq)):
+        for sol in sols["forward"][i]:
+            fwd_outfile.write(sol)
+        for sol in sols["adjoint"][i]:
+            adj_outfile.write(sol)
 
 # In the `next demo <./gray_scott.py.html>`__, we increase the complexity by considering
 # two concentration fields in an advection-diffusion-reaction problem.

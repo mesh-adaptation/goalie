@@ -21,8 +21,8 @@ def get_function_spaces(mesh):
 
 
 def get_form(mesh_seq):
-    def form(index, solutions):
-        u, u_ = solutions["u"]
+    def form(index):
+        u, u_ = mesh_seq.fields["u"]
         P = mesh_seq.time_partition
 
         # Define constants
@@ -59,29 +59,24 @@ def get_initial_condition(mesh_seq):
 
 
 def get_solver(mesh_seq):
-    def solver(index, ic):
-        function_space = mesh_seq.function_spaces["u"][index]
-        u = Function(function_space, name="u")
-        solution_map = {"u": u}
-
-        # Initialise 'lagged' solution
-        u_ = Function(function_space, name="u_old")
-        u_.assign(ic["u"])
+    def solver(index):
+        u, u_ = mesh_seq.fields["u"]
 
         # Define form
-        F = mesh_seq.form(index, {"u": (u, u_)})["u"]
+        F = mesh_seq.form(index)["u"]
 
         # Time integrate from t_start to t_end
         t_start, t_end = mesh_seq.subintervals[index]
         dt = mesh_seq.time_partition.timesteps[index]
         t = t_start
-        qoi = mesh_seq.get_qoi(solution_map, index)
+        qoi = mesh_seq.get_qoi(index)
         while t < t_end - 1.0e-05:
             solve(F == 0, u, ad_block_tag="u")
             mesh_seq.J += qoi(t)
+            yield
+
             u_.assign(u)
             t += dt
-        return solution_map
 
     return solver
 
@@ -99,12 +94,12 @@ def get_solver(mesh_seq):
 # recompilation if the value is changed. ::
 
 
-def get_qoi(mesh_seq, solutions, i):
+def get_qoi(mesh_seq, i):
     R = FunctionSpace(mesh_seq[i], "R", 0)
     dt = Function(R).assign(mesh_seq.time_partition.timesteps[i])
 
     def time_integrated_qoi(t):
-        u = solutions["u"]
+        u = mesh_seq.fields["u"][0]
         return dt * inner(u, u) * ds(2)
 
     return time_integrated_qoi

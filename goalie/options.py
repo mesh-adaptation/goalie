@@ -16,12 +16,14 @@ class AdaptParameters(AttrDict):
     loops.
     """
 
-    def __init__(self, parameters={}):
+    def __init__(self, parameters=None):
         """
         :arg parameters: parameters to set
         :type parameters: :class:`dict` with :class:`str` keys and values which may take
             various types
         """
+        parameters = parameters or {}
+
         self["miniter"] = 3  # Minimum iteration count
         self["maxiter"] = 35  # Maximum iteration count
         self["element_rtol"] = 0.001  # Relative tolerance for element count
@@ -32,7 +34,7 @@ class AdaptParameters(AttrDict):
                 "Expected 'parameters' keyword argument to be a dictionary, not of"
                 f" type '{parameters.__class__.__name__}'."
             )
-        for key, value in parameters.items():
+        for key in parameters:
             if key not in self:
                 raise AttributeError(
                     f"{self.__class__.__name__} does not have '{key}' attribute."
@@ -91,12 +93,14 @@ class MetricParameters(AdaptParameters):
     metric-based adaptive mesh fixed point iteration loops.
     """
 
-    def __init__(self, parameters={}):
+    def __init__(self, parameters=None):
         """
         :arg parameters: parameters to set
         :type parameters: :class:`dict` with :class:`str` keys and values which may take
             various types
         """
+        parameters = parameters or {}
+
         self["num_ramp_iterations"] = 3  # Number of iterations to ramp over
         self["verbosity"] = -1  # -1 = silent, 10 = maximum
 
@@ -179,12 +183,14 @@ class GoalOrientedParameters(AdaptParameters):
     loops.
     """
 
-    def __init__(self, parameters={}):
+    def __init__(self, parameters=None):
         """
         :arg parameters: parameters to set
         :type parameters: :class:`dict` with :class:`str` keys and values which may take
             various types
         """
+        parameters = parameters or {}
+
         self["qoi_rtol"] = 0.001  # Relative tolerance for QoI
         self["estimator_rtol"] = 0.001  # Relative tolerance for estimator
         self["convergence_criteria"] = "any"  # Mode for convergence checking

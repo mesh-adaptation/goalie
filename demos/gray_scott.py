@@ -15,7 +15,7 @@ from goalie_adjoint import *
 
 # The problem is defined on a doubly periodic mesh of squares. ::
 
-fields = ["ab"]
+field_names = ["ab"]
 mesh = PeriodicSquareMesh(65, 65, 2.5, quadrilateral=True, direction="both")
 
 # We solve for the tracer species using a mixed formulation, with a :math:`\mathbb P1`
@@ -51,8 +51,8 @@ def get_initial_condition(mesh_seq):
 
 
 def get_form(mesh_seq):
-    def form(index, sols):
-        ab, ab_ = sols["ab"]
+    def form(index):
+        ab, ab_ = mesh_seq.fields["ab"]
         a, b = split(ab)
         a_, b_ = split(ab_)
         psi_a, psi_b = TestFunctions(mesh_seq.function_spaces["ab"][index])
@@ -84,16 +84,11 @@ def get_form(mesh_seq):
 
 
 def get_solver(mesh_seq):
-    def solver(index, ics):
-        fs = mesh_seq.function_spaces["ab"][index]
-        ab = Function(fs, name="ab")
-
-        # Initialise 'lagged' solution
-        ab_ = Function(fs, name="ab_old")
-        ab_.assign(ics["ab"])
+    def solver(index):
+        ab, ab_ = mesh_seq.fields["ab"]
 
         # Setup solver objects
-        F = mesh_seq.form(index, {"ab": (ab, ab_)})["ab"]
+        F = mesh_seq.form(index)["ab"]
         nlvp = NonlinearVariationalProblem(F, ab)
         nlvs = NonlinearVariationalSolver(nlvp, ad_block_tag="ab")
 
@@ -104,9 +99,10 @@ def get_solver(mesh_seq):
         t = t_start
         while t < t_end - 0.5 * dt:
             nlvs.solve()
+            yield
+
             ab_.assign(ab)
             t += dt
-        return {"ab": ab}
 
     return solver
 
@@ -115,9 +111,9 @@ def get_solver(mesh_seq):
 # QoI :math:`\int a(x,T) * b(x,T) * dx` we consider sensitivities to this term. ::
 
 
-def get_qoi(mesh_seq, sols, index):
+def get_qoi(mesh_seq, index):
     def qoi():
-        ab = sols["ab"]
+        ab = mesh_seq.fields["ab"][0]
         a, b = split(ab)
         return a * b**2 * dx
 
@@ -128,8 +124,7 @@ def get_qoi(mesh_seq, sols, index):
 # the timestep. This is straightforwardly done in Goalie using :class:`TimePartition`.
 # ::
 
-test = os.environ.get("GOALIE_REGRESSION_TEST") is not None
-end_time = 10.0 if test else 2000.0
+end_time = 2000.0
 dt = [0.0001, 0.001, 0.01, 0.1, (end_time - 1) / end_time]
 num_subintervals = 5
 dt_per_export = [10, 9, 9, 9, 10]
@@ -137,7 +132,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=dt_per_export,
     subintervals=[
         (0.0, 0.001),
@@ -164,19 +159,18 @@ solutions = mesh_seq.solve_adjoint()
 
 # Finally, plot the outputs to be viewed in Paraview. ::
 
-if not test:
-    ic = mesh_seq.get_initial_condition()
-    for field, sols in solutions.items():
-        fwd_outfile = VTKFile(f"gray_scott/{field}_forward.pvd")
-        adj_outfile = VTKFile(f"gray_scott/{field}_adjoint.pvd")
-        fwd_outfile.write(*ic[field].subfunctions)
-        for i, mesh in enumerate(mesh_seq):
-            for sol in sols["forward"][i]:
-                fwd_outfile.write(*sol.subfunctions)
-            for sol in sols["adjoint"][i]:
-                adj_outfile.write(*sol.subfunctions)
-        adj_end = Function(ic[field]).assign(0.0)
-        adj_outfile.write(*adj_end.subfunctions)
+ic = mesh_seq.get_initial_condition()
+for field, sols in solutions.items():
+    fwd_outfile = VTKFile(f"gray_scott/{field}_forward.pvd")
+    adj_outfile = VTKFile(f"gray_scott/{field}_adjoint.pvd")
+    fwd_outfile.write(*ic[field].subfunctions)
+    for i in range(num_subintervals):
+        for sol in sols["forward"][i]:
+            fwd_outfile.write(*sol.subfunctions)
+        for sol in sols["adjoint"][i]:
+            adj_outfile.write(*sol.subfunctions)
+    adj_end = Function(ic[field]).assign(0.0)
+    adj_outfile.write(*adj_end.subfunctions)
 
 # In the `next demo <./gray_scott_split.py.html>`__, we consider solving the same
 # problem, but splitting the solution field into multiple components.

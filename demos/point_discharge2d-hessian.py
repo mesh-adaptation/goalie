@@ -23,7 +23,7 @@ from goalie import *
 # `previous demo <./point_discharge2d.py.html>`__, approximating the tracer concentration
 # :math:`c` in :math:`\mathbb P1` space. ::
 
-fields = ["c"]
+field_names = ["c"]
 
 
 def get_function_spaces(mesh):
@@ -37,8 +37,8 @@ def source(mesh):
 
 
 def get_form(mesh_seq):
-    def form(index, sols):
-        c, c_ = sols["c"]
+    def form(index):
+        c = mesh_seq.fields["c"]
         function_space = mesh_seq.function_spaces["c"][index]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
@@ -69,21 +69,16 @@ def get_form(mesh_seq):
 
 
 def get_solver(mesh_seq):
-    def solver(index, ic):
+    def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
-
-        # Ensure dependence on the initial condition
-        c_ = Function(function_space, name="c_old")
-        c_.assign(ic["c"])
-        c = Function(function_space, name="c")
-        c.assign(c_)
+        c = mesh_seq.fields["c"]
 
         # Setup variational problem
-        F = mesh_seq.form(index, {"c": (c, c_)})["c"]
+        F = mesh_seq.form(index)["c"]
         bc = DirichletBC(function_space, 0, 1)
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
-        return {"c": c}
+        yield
 
     return solver
 
@@ -100,12 +95,12 @@ def get_solver(mesh_seq):
 params = MetricParameters(
     {
         "element_rtol": 0.005,
-        "maxiter": 35 if os.environ.get("GOALIE_REGRESSION_TEST") is None else 3,
+        "maxiter": 35,
     }
 )
 
 mesh = RectangleMesh(50, 10, 50, 10)
-time_partition = TimeInstant(fields)
+time_partition = TimeInstant(field_names)
 mesh_seq = MeshSeq(
     time_partition,
     mesh,

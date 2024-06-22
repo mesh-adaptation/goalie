@@ -73,9 +73,11 @@ def test_create_directory():
     # Remove the directory
     try:
         pathlib.Path(fpath).rmdir()
-    except OSError:
+    except OSError as e:
         ls = ", ".join(os.listdir(fpath))
-        raise OSError(f"Can't remove {fpath} because it isn't empty. Contents: {ls}.")
+        raise OSError(
+            f"Can't remove {fpath} because it isn't empty. Contents: {ls}."
+        ) from e
 
 
 if __name__ == "__main__":
