@@ -174,7 +174,11 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             for f, fs_e in enriched_spaces.items():
                 u[f] = Function(fs_e)
                 u_[f] = Function(fs_e)
-                mapping[f] = (u[f], u_[f])
+                mapping[f] = (
+                    (u[f], u_[f])
+                    if enriched_mesh_seq.field_types[f] == "unsteady"
+                    else u[f]
+                )
                 u_star[f] = Function(fs_e)
                 u_star_next[f] = Function(fs_e)
                 u_star_e[f] = Function(fs_e)

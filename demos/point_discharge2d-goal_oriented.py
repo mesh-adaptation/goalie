@@ -34,7 +34,7 @@ def source(mesh):
 
 def get_form(mesh_seq):
     def form(index):
-        c, c_ = mesh_seq.fields["c"]
+        c = mesh_seq.fields["c"]
         function_space = mesh_seq.function_spaces["c"][index]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
@@ -67,10 +67,7 @@ def get_form(mesh_seq):
 def get_solver(mesh_seq):
     def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
-
-        # Assign initial condition
-        c, c_ = mesh_seq.fields["c"]
-        c.assign(c_)
+        c = mesh_seq.fields["c"]
 
         # Setup variational problem
         F = mesh_seq.form(index)["c"]
@@ -84,7 +81,7 @@ def get_solver(mesh_seq):
 
 def get_qoi(mesh_seq, index):
     def qoi():
-        c = mesh_seq.fields["c"][0]
+        c = mesh_seq.fields["c"]
         x, y = SpatialCoordinate(mesh_seq[index])
         xr, yr, rr = 20, 7.5, 0.5
         kernel = conditional((x - xr) ** 2 + (y - yr) ** 2 < rr**2, 1, 0)

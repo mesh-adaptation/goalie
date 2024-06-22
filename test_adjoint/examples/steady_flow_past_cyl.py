@@ -38,7 +38,7 @@ def get_form(self):
     """
 
     def form(i):
-        _, up = self.fields["up"]
+        up = self.fields["up"]
         W = self.function_spaces["up"][i]
         R = FunctionSpace(self[i], "R", 0)
         nu = Function(R).assign(1.0)
@@ -63,9 +63,7 @@ def get_solver(self):
 
     def solver(i):
         W = self.function_spaces["up"][i]
-
-        _, up = self.fields["up"]
-        self.fields["up"] = (up, up)
+        up = self.fields["up"]
 
         # Define variational problem
         F = self.form(i)["up"]
@@ -119,7 +117,7 @@ def get_qoi(self, i):
     """
 
     def steady_qoi():
-        u, p = split(self.fields["up"][0])
+        u, p = split(self.fields["up"])
         return p * ds(4)
 
     return steady_qoi

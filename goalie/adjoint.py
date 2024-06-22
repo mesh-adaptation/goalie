@@ -494,7 +494,11 @@ class AdjointMeshSeq(MeshSeq):
                 next(solver_gen)
             pyadjoint.pause_annotation()
 
-            checkpoint = {field: sol for field, (sol, _) in self.fields.items()}
+            # Final solution is used as the initial condition for the next subinterval
+            checkpoint = {
+                field: sol[0] if self.field_types[field] == "unsteady" else sol
+                for field, sol in self.fields.items()
+            }
 
             # Get seed vector for reverse propagation
             if i == num_subintervals - 1:

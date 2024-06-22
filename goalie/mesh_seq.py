@@ -480,12 +480,15 @@ class MeshSeq:
         :type initial_conditions: :class:`dict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        for field, initial_condition in initial_conditions.items():
-            fs = initial_condition.function_space()
-            self.fields[field] = (
-                firedrake.Function(fs, name=field),
-                firedrake.Function(fs, name=f"{field}_old").assign(initial_condition),
-            )
+        for field, ic in initial_conditions.items():
+            fs = ic.function_space()
+            if self.field_types[field] == "steady":
+                self.fields[field] = firedrake.Function(fs, name=f"{field}").assign(ic)
+            else:
+                self.fields[field] = (
+                    firedrake.Function(fs, name=field),
+                    firedrake.Function(fs, name=f"{field}_old").assign(ic),
+                )
 
     @PETSc.Log.EventDecorator()
     def _solve_forward(self, update_solutions=True, solver_kwargs=None):
@@ -531,10 +534,14 @@ class MeshSeq:
                     for _ in range(tp.num_timesteps_per_export[i]):
                         next(solver_gen)
                     # Update the solution data
-                    for field, (f, f_) in self.fields.items():
-                        solutions[field].forward[i][j].assign(f)
+                    for field, sol in self.fields.items():
                         if not self.steady:
-                            solutions[field].forward_old[i][j].assign(f_)
+                            assert isinstance(sol, tuple)
+                            solutions[field].forward[i][j].assign(sol[0])
+                            solutions[field].forward_old[i][j].assign(sol[1])
+                        else:
+                            assert isinstance(sol, firedrake.Function)
+                            solutions[field].forward[i][j].assign(sol)
             else:
                 # Solve over the entire subinterval in one go
                 for _ in range(tp.num_timesteps_per_subinterval[i]):
