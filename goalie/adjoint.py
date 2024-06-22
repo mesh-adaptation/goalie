@@ -414,7 +414,7 @@ class AdjointMeshSeq(MeshSeq):
         # TODO #126: Separate out qoi_kwargs
         solver_kwargs = solver_kwargs or {}
         adj_solver_kwargs = adj_solver_kwargs or {}
-        P = self.time_partition
+        tp = self.time_partition
         num_subintervals = len(self)
         solver = self.solver
         qoi_kwargs = solver_kwargs.get("qoi_kwargs", {})
@@ -441,7 +441,7 @@ class AdjointMeshSeq(MeshSeq):
                     self.solutions.extract(layout="field")[field]["adj_value"].append(
                         [
                             firedrake.Cofunction(fs.dual(), name=f"{field}_adj_value")
-                            for j in range(P.num_exports_per_subinterval[i] - 1)
+                            for j in range(tp.num_exports_per_subinterval[i] - 1)
                         ]
                     )
 
@@ -476,8 +476,8 @@ class AdjointMeshSeq(MeshSeq):
         # Loop over subintervals in reverse
         seeds = {}
         for i in reversed(range(num_subintervals)):
-            stride = P.num_timesteps_per_export[i]
-            num_exports = P.num_exports_per_subinterval[i]
+            stride = tp.num_timesteps_per_export[i]
+            num_exports = tp.num_exports_per_subinterval[i]
 
             # Clear tape and start annotation
             if not pyadjoint.annotate_tape():
@@ -490,7 +490,7 @@ class AdjointMeshSeq(MeshSeq):
             solver_gen = wrapped_solver(i, checkpoints[i], **solver_kwargs)
 
             # Annotate tape on current subinterval
-            for _ in range(P.num_timesteps_per_subinterval[i]):
+            for _ in range(tp.num_timesteps_per_subinterval[i]):
                 next(solver_gen)
             pyadjoint.pause_annotation()
 

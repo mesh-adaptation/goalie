@@ -61,7 +61,7 @@ field_names = ["solution"]
 # mode. This is specified using :func:`set_log_level`. ::
 
 set_log_level(DEBUG)
-P = TimePartition(end_time, num_subintervals, dt, field_names)
+tp = TimePartition(end_time, num_subintervals, dt, field_names)
 
 # Notice that one of the things which is printed
 # out is ``num_timesteps_per_export``, which controls
@@ -81,7 +81,7 @@ P = TimePartition(end_time, num_subintervals, dt, field_names)
 # than one subinterval. ::
 
 num_subintervals = 2
-P = TimePartition(
+tp = TimePartition(
     end_time, num_subintervals, dt, field_names, num_timesteps_per_export=2
 )
 
@@ -92,7 +92,7 @@ P = TimePartition(
 # timesteps corresponding to each subinterval. ::
 
 dt = [0.125, 0.0625]
-P = TimePartition(
+tp = TimePartition(
     end_time, num_subintervals, dt, field_names, num_timesteps_per_export=2
 )
 
@@ -101,7 +101,7 @@ P = TimePartition(
 # This can be remedied by also setting
 # ``num_timesteps_per_export`` as a list. ::
 
-P = TimePartition(
+tp = TimePartition(
     end_time, num_subintervals, dt, field_names, num_timesteps_per_export=[2, 4]
 )
 
@@ -112,7 +112,7 @@ P = TimePartition(
 # to the constructor as a list of tuples. ::
 
 subintervals = [(0.0, 0.75), (0.75, 1.0)]
-P = TimePartition(
+tp = TimePartition(
     end_time,
     num_subintervals,
     dt,
