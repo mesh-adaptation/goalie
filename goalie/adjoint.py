@@ -494,8 +494,9 @@ class AdjointMeshSeq(MeshSeq):
                 next(solver_gen)
             pyadjoint.pause_annotation()
 
+            # Final solution is used as the initial condition for the next subinterval
             checkpoint = {
-                field: sol[0] if isinstance(sol, tuple) else sol
+                field: sol[0] if self.field_types[field] == "unsteady" else sol
                 for field, sol in self.fields.items()
             }
 

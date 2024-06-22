@@ -536,9 +536,11 @@ class MeshSeq:
                     # Update the solution data
                     for field, sol in self.fields.items():
                         if not self.steady:
+                            assert isinstance(sol, tuple)
                             solutions[field].forward[i][j].assign(sol[0])
                             solutions[field].forward_old[i][j].assign(sol[1])
                         else:
+                            assert isinstance(sol, firedrake.Function)
                             solutions[field].forward[i][j].assign(sol)
             else:
                 # Solve over the entire subinterval in one go

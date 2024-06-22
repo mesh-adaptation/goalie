@@ -100,6 +100,9 @@ def get_form(mesh_seq):
     return form
 
 
+# Note that :attr:`mesh_seq.fields` now returns a single
+# :class:`~firedrake.function.Function` object since the problem is steady, so there is
+# no notion of a lagged solution, unlike in previous (time-dependent) demos.
 # With these ingredients, we can now define the :meth:`get_solver` method. Don't forget
 # to apply the corresponding `ad_block_tag` to the solve call. ::
 
