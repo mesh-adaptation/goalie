@@ -33,11 +33,10 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
     def get_form(self):
         def form(index):
             u, u_ = self.fields["u"]
-            P = self.time_partition
 
             # Define constants
             R = FunctionSpace(self[index], "R", 0)
-            dt = Function(R).assign(P.timesteps[index])
+            dt = Function(R).assign(self.time_partition.timesteps[index])
             nu = Function(R).assign(0.0001)
 
             # Setup variational problem

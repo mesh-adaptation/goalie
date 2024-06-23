@@ -27,9 +27,9 @@ def plot_snapshots(solutions, time_partition, field, label, **kwargs):
     :arg label: choose from ``'forward'``, ``'forward_old'``
         ``'adjoint'`` and ``'adjoint_next'``
     """
-    P = time_partition
-    rows = P.num_exports_per_subinterval[0] - 1
-    cols = P.num_subintervals
+    tp = time_partition
+    rows = tp.num_exports_per_subinterval[0] - 1
+    cols = tp.num_subintervals
     steady = rows == cols == 1
     figsize = kwargs.pop("figsize", (6 * cols, 24 // cols))
     fig, axes = plt.subplots(rows, cols, sharex="col", figsize=figsize)
@@ -43,8 +43,8 @@ def plot_snapshots(solutions, time_partition, field, label, **kwargs):
             tc.append(tricontourf(sol, axes=ax, **kwargs))
             if not steady:
                 time = (
-                    P.subintervals[i][0]
-                    + (j + 1) * P.timesteps[i] * P.num_timesteps_per_export[i]
+                    tp.subintervals[i][0]
+                    + (j + 1) * tp.timesteps[i] * tp.num_timesteps_per_export[i]
                 )
                 ax.annotate(f"t={time:.2f}", (0.05, 0.05), color="white")
         tcs.append(tc)
@@ -65,9 +65,9 @@ def plot_indicator_snapshots(indicators, time_partition, field, **kwargs):
     :arg time_partition: the :class:`~.TimePartition`
         object used to solve the problem
     """
-    P = time_partition
-    rows = P.num_exports_per_subinterval[0] - 1
-    cols = P.num_subintervals
+    tp = time_partition
+    rows = tp.num_exports_per_subinterval[0] - 1
+    cols = tp.num_subintervals
     steady = rows == cols == 1
     figsize = kwargs.pop("figsize", (6 * cols, 24 // cols))
     fig, axes = plt.subplots(rows, cols, sharex="col", figsize=figsize)
@@ -81,8 +81,8 @@ def plot_indicator_snapshots(indicators, time_partition, field, **kwargs):
             tc.append(tricontourf(indi, axes=ax, **kwargs))
             if not steady:
                 time = (
-                    P.subintervals[i][0]
-                    + (j + 1) * P.timesteps[i] * P.num_timesteps_per_export[i]
+                    tp.subintervals[i][0]
+                    + (j + 1) * tp.timesteps[i] * tp.num_timesteps_per_export[i]
                 )
                 ax.annotate(f"t={time:.2f}", (0.05, 0.05), color="white")
         tcs.append(tc)

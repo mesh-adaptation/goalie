@@ -183,9 +183,9 @@ def get_solver(mesh_seq):
         lvs = LinearVariationalSolver(lvp, ad_block_tag="c")
 
         # Time integrate from t_start to t_end
-        P = mesh_seq.time_partition
-        t_start, t_end = P.subintervals[index]
-        dt = P.timesteps[index]
+        tp = mesh_seq.time_partition
+        t_start, t_end = tp.subintervals[index]
+        dt = tp.timesteps[index]
         t = t_start
         while t < t_end - 0.5 * dt:
             lvs.solve()
