@@ -551,7 +551,12 @@ class MeshSeq:
             if i < num_subintervals - 1:
                 checkpoint = AttrDict(
                     {
-                        field: self._transfer(self.fields[field][0], fs[i + 1])
+                        field: self._transfer(
+                            self.fields[field]
+                            if self.field_types[field] == "steady"
+                            else self.fields[field][0],
+                            fs[i + 1],
+                        )
                         for field, fs in self._fs.items()
                     }
                 )
