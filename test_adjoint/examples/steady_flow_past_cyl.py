@@ -11,10 +11,10 @@ Code here is based on that found at
     https://nbviewer.jupyter.org/github/firedrakeproject/firedrake/blob/master/docs/notebooks/06-pde-constrained-optimisation.ipynb
 """
 
-from firedrake import *
-from firedrake.__future__ import interpolate
 import os
 
+from firedrake import *
+from firedrake.__future__ import interpolate
 
 mesh = Mesh(os.path.join(os.path.dirname(__file__), "mesh-with-hole.msh"))
 fields = ["up"]
@@ -37,8 +37,8 @@ def get_form(self):
     Weak form for Stokes equation.
     """
 
-    def form(i, sols):
-        up, up_ = sols["up"]
+    def form(i):
+        up = self.fields["up"]
         W = self.function_spaces["up"][i]
         R = FunctionSpace(self[i], "R", 0)
         nu = Function(R).assign(1.0)
@@ -50,25 +50,9 @@ def get_form(self):
             - inner(p, div(v)) * dx
             - inner(q, div(u)) * dx
         )
-        return F
+        return {"up": F}
 
     return form
-
-
-def get_bcs(self):
-    """
-    Inflow and no-slip conditions.
-    """
-
-    def bcs(i):
-        x, y = SpatialCoordinate(self[i])
-        u_inflow = as_vector([y * (10 - y) / 25.0, 0])
-        W = self.function_spaces["up"][i]
-        noslip = DirichletBC(W.sub(0), (0, 0), (3, 5))
-        inflow = DirichletBC(W.sub(0), assemble(interpolate(u_inflow, W.sub(0))), 1)
-        return [inflow, noslip, DirichletBC(W.sub(0), 0, 4)]
-
-    return bcs
 
 
 def get_solver(self):
@@ -77,16 +61,19 @@ def get_solver(self):
     direct method.
     """
 
-    def solver(i, ic):
+    def solver(i):
         W = self.function_spaces["up"][i]
-
-        # Assign initial condition
-        up = Function(W, name="up_old")
-        up.assign(ic["up"])
+        up = self.fields["up"]
 
         # Define variational problem
-        F = self.form(i, {"up": (up, up)})
-        bcs = self.bcs(i)
+        F = self.form(i)["up"]
+
+        # Define inflow and no-slip boundary conditions
+        y = SpatialCoordinate(self[i])[1]
+        u_inflow = as_vector([y * (10 - y) / 25.0, 0])
+        noslip = DirichletBC(W.sub(0), (0, 0), (3, 5))
+        inflow = DirichletBC(W.sub(0), assemble(interpolate(u_inflow, W.sub(0))), 1)
+        bcs = [inflow, noslip, DirichletBC(W.sub(0), 0, 4)]
 
         # Solve
         sp = {
@@ -104,7 +91,7 @@ def get_solver(self):
             solver_parameters=sp,
             ad_block_tag="up",
         )
-        return {"up": up}
+        yield
 
     return solver
 
@@ -123,14 +110,14 @@ def get_initial_condition(self):
     return {"up": up}
 
 
-def get_qoi(self, sol, i):
+def get_qoi(self, i):
     """
     Quantity of interest which integrates
     pressure over the boundary of the hole.
     """
 
     def steady_qoi():
-        u, p = split(sol["up"])
+        u, p = split(self.fields["up"])
         return p * ds(4)
 
     return steady_qoi

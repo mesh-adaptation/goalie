@@ -2,10 +2,12 @@
 Unit tests for :class:`~.FunctionData` and its subclasses.
 """
 
-from firedrake import *
-from goalie import *
 import abc
 import unittest
+
+from firedrake import *
+
+from goalie import *
 
 
 class BaseTestCases:
@@ -203,7 +205,7 @@ class TestIndicatorData(BaseTestCases.TestFunctionData):
         data = self.solution_data.extract(layout="subinterval")
         self.assertTrue(isinstance(data, list))
         self.assertEqual(len(data), self.num_subintervals)
-        for i, sub_data in enumerate(data):
+        for sub_data in data:
             self.assertTrue(isinstance(sub_data, AttrDict))
             self.assertTrue(self.field in sub_data)
             self.assertTrue(isinstance(sub_data[self.field], list))

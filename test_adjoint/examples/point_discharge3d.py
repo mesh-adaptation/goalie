@@ -24,10 +24,11 @@ effectivity index can be computed.
     Proceedings of the 28th International
     Meshing Roundtable (2020).
 """
-from firedrake import *
-from goalie.math import bessk0
-import numpy as np
 
+import numpy as np
+from firedrake import *
+
+from goalie.math import bessk0
 
 # Problem setup
 n = 0
@@ -67,8 +68,8 @@ def get_form(self):
     stabilisation.
     """
 
-    def form(i, sols):
-        c, c_ = sols["tracer_3d"]
+    def form(i):
+        c = self.fields["tracer_3d"]
         fs = self.function_spaces["tracer_3d"][i]
         R = FunctionSpace(self[i], "R", 0)
         D = Function(R).assign(0.1)
@@ -92,22 +93,9 @@ def get_form(self):
             - dot(u, grad(c)) * psi * dx
             - inner(D * grad(c), grad(psi)) * dx
         )
-        return F
+        return {"tracer_3d": F}
 
     return form
-
-
-def get_bcs(self):
-    """
-    Zero Dirichlet condition on the
-    left-hand (inlet) boundary.
-    """
-
-    def bcs(i):
-        fs = self.function_spaces["tracer_3d"][i]
-        return DirichletBC(fs, 0, 1)
-
-    return bcs
 
 
 def get_solver(self):
@@ -116,16 +104,15 @@ def get_solver(self):
     solved using a direct method.
     """
 
-    def solver(i, ic):
+    def solver(i):
         fs = self.function_spaces["tracer_3d"][i]
-
-        # Ensure dependence on initial condition
-        c = Function(fs, name="tracer_3d_old")
-        c.assign(ic["tracer_3d"])
+        c = self.fields["tracer_3d"]
 
         # Setup variational problem
-        F = self.form(i, {"tracer_3d": (c, c)})
-        bc = self.bcs(i)
+        F = self.form(i)["tracer_3d"]
+
+        # Zero Dirichlet condition on the left-hand (inlet) boundary
+        bc = DirichletBC(fs, 0, 1)
 
         # Solve
         sp = {
@@ -136,12 +123,12 @@ def get_solver(self):
             "pc_factor_mat_solver_type": "mumps",
         }
         solve(F == 0, c, bcs=bc, solver_parameters=sp, ad_block_tag="tracer_3d")
-        return {"tracer_3d": c}
+        yield
 
     return solver
 
 
-def get_qoi(self, sol, i):
+def get_qoi(self, i):
     """
     Quantity of interest which integrates
     the tracer concentration over an offset
@@ -149,7 +136,7 @@ def get_qoi(self, sol, i):
     """
 
     def steady_qoi():
-        c = sol["tracer_3d"]
+        c = self.fields["tracer_3d"]
         x, y, z = SpatialCoordinate(self[i])
         kernel = conditional(
             (x - rec_x) ** 2 + (y - rec_y) ** 2 + (z - rec_z) ** 2 < rec_r**2, 1, 0

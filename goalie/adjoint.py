@@ -2,17 +2,20 @@
 Drivers for solving adjoint problems on sequences of meshes.
 """
 
+from functools import wraps
+
 import firedrake
-from firedrake.petsc import PETSc
+import numpy as np
+from animate.utility import norm
 from firedrake.adjoint import pyadjoint
+from firedrake.adjoint_utils.solving import get_solve_blocks
+from firedrake.petsc import PETSc
+
 from .function_data import AdjointSolutionData
+from .log import pyrint
 from .mesh_seq import MeshSeq
 from .options import GoalOrientedParameters
-from .utility import AttrDict, norm
-from .log import pyrint
-from functools import wraps
-import numpy as np
-
+from .utility import AttrDict
 
 __all__ = ["AdjointMeshSeq", "annotate_qoi"]
 
@@ -28,8 +31,8 @@ def annotate_qoi(get_qoi):
     """
 
     @wraps(get_qoi)
-    def wrap_get_qoi(mesh_seq, solution_map, i):
-        qoi = get_qoi(mesh_seq, solution_map, i)
+    def wrap_get_qoi(mesh_seq, i):
+        qoi = get_qoi(mesh_seq, i)
 
         # Count number of arguments
         num_kwargs = 0 if qoi.__defaults__ is None else len(qoi.__defaults__)
@@ -85,7 +88,6 @@ class AdjointMeshSeq(MeshSeq):
             :meth:`~.MeshSeq.get_initial_condition`
         :kwarg get_form: a function as described in :meth:`~.MeshSeq.get_form`
         :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
-        :kwarg get_bcs: a function as described in :meth:`~.MeshSeq.get_bcs`
         :kwarg parameters: parameters to apply to the mesh adaptation process
         :type parameters: :class:`~.AdaptParameters`
         :kwarg get_qoi: a function as described in :meth:`~.AdjointMeshSeq.get_qoi`
@@ -98,6 +100,8 @@ class AdjointMeshSeq(MeshSeq):
                 f"QoI type '{self.qoi_type}' not recognised."
                 " Choose from 'end_time', 'time_integrated', or 'steady'."
             )
+        self._get_qoi = kwargs.get("get_qoi")
+        self.J = 0
         super().__init__(time_partition, initial_meshes, **kwargs)
         if self.qoi_type == "steady" and not self.steady:
             raise ValueError(
@@ -107,8 +111,6 @@ class AdjointMeshSeq(MeshSeq):
             raise ValueError(
                 f"Time partition is steady but the QoI type is set to '{self.qoi_type}'."
             )
-        self._get_qoi = kwargs.get("get_qoi")
-        self.J = 0
         self._controls = None
         self.qoi_values = []
 
@@ -118,7 +120,7 @@ class AdjointMeshSeq(MeshSeq):
         return super().initial_condition
 
     @annotate_qoi
-    def get_qoi(self, solution_map, subinterval):
+    def get_qoi(self, subinterval):
         """
         Get the function for evaluating the QoI, which has either zero or one arguments,
         corresponding to either an end time or time integrated quantity of interest,
@@ -143,11 +145,11 @@ class AdjointMeshSeq(MeshSeq):
         """
         if self._get_qoi is None:
             raise NotImplementedError("'get_qoi' is not implemented.")
-        return self._get_qoi(self, solution_map, subinterval)
+        return self._get_qoi(self, subinterval)
 
     @pyadjoint.no_annotations
     @PETSc.Log.EventDecorator()
-    def get_checkpoints(self, solver_kwargs={}, run_final_subinterval=False):
+    def get_checkpoints(self, solver_kwargs=None, run_final_subinterval=False):
         r"""
         Solve forward on the sequence of meshes, extracting checkpoints corresponding
         to the starting fields on each subinterval.
@@ -163,6 +165,7 @@ class AdjointMeshSeq(MeshSeq):
         :returns: checkpoints for each subinterval
         :rtype: :class:`list` of :class:`firedrake.function.Function`\s
         """
+        solver_kwargs = solver_kwargs or {}
 
         # In some cases we run over all subintervals to check the QoI that is computed
         if run_final_subinterval:
@@ -175,7 +178,8 @@ class AdjointMeshSeq(MeshSeq):
 
         # Account for end time QoI
         if self.qoi_type in ["end_time", "steady"] and run_final_subinterval:
-            qoi = self.get_qoi(checkpoints[-1], len(self) - 1)
+            self._reinitialise_fields(checkpoints[-1])
+            qoi = self.get_qoi(len(self) - 1)
             self.J = qoi(**solver_kwargs.get("qoi_kwargs", {}))
         return checkpoints
 
@@ -195,7 +199,64 @@ class AdjointMeshSeq(MeshSeq):
         :returns: list of solve blocks
         :rtype: :class:`list` of :class:`pyadjoint.block.Block`\s
         """
-        solve_blocks = super().get_solve_blocks(field, subinterval)
+        tape = pyadjoint.get_working_tape()
+        if tape is None:
+            self.warning("Tape does not exist!")
+            return []
+
+        blocks = tape.get_blocks()
+        if len(blocks) == 0:
+            self.warning("Tape has no blocks!")
+            return blocks
+
+        # Restrict to solve blocks
+        solve_blocks = get_solve_blocks()
+        if len(solve_blocks) == 0:
+            self.warning("Tape has no solve blocks!")
+            return solve_blocks
+
+        # Select solve blocks whose tags correspond to the field name
+        solve_blocks = [
+            block
+            for block in solve_blocks
+            if isinstance(block.tag, str) and block.tag.startswith(field)
+        ]
+        N = len(solve_blocks)
+        if N == 0:
+            self.warning(
+                f"No solve blocks associated with field '{field}'."
+                " Has ad_block_tag been used correctly?"
+            )
+            return solve_blocks
+        self.debug(
+            f"Field '{field}' on subinterval {subinterval} has {N} solve blocks."
+        )
+
+        # Check FunctionSpaces are consistent across solve blocks
+        element = self.function_spaces[field][subinterval].ufl_element()
+        for block in solve_blocks:
+            if element != block.function_space.ufl_element():
+                raise ValueError(
+                    f"Solve block list for field '{field}' contains mismatching elements:"
+                    f" {element} vs. {block.function_space.ufl_element()}."
+                )
+
+        # Check that the number of timesteps does not exceed the number of solve blocks
+        num_timesteps = self.time_partition.num_timesteps_per_subinterval[subinterval]
+        if num_timesteps > N:
+            raise ValueError(
+                f"Number of timesteps exceeds number of solve blocks for field '{field}'"
+                f" on subinterval {subinterval}: {num_timesteps} > {N}."
+            )
+
+        # Check the number of timesteps is divisible by the number of solve blocks
+        ratio = num_timesteps / N
+        if not np.isclose(np.round(ratio), ratio):
+            raise ValueError(
+                "Number of timesteps is not divisible by number of solve blocks for"
+                f" field '{field}' on subinterval {subinterval}: {num_timesteps} vs."
+                f" {N}."
+            )
         if not has_adj_sol:
             return solve_blocks
 
@@ -213,6 +274,106 @@ class AdjointMeshSeq(MeshSeq):
                 )
         return solve_blocks
 
+    def _output(self, field, subinterval, solve_block):
+        """
+        For a given solve block and solution field, get the block's outputs corresponding
+        to the solution from the current timestep.
+
+        :arg field: field of interest
+        :type field: :class:`str`
+        :arg subinterval: subinterval index
+        :type subinterval: :class:`int`
+        :arg solve_block: taped solve block
+        :type solve_block: :class:`firedrake.adjoint.blocks.GenericSolveBlock`
+        :returns: the output
+        :rtype: :class:`firedrake.function.Function`
+        """
+        # TODO #93: Inconsistent return value - can be None
+        fs = self.function_spaces[field][subinterval]
+
+        # Loop through the solve block's outputs
+        candidates = []
+        for out in solve_block._outputs:
+            # Look for Functions with matching function spaces
+            if not isinstance(out.output, firedrake.Function):
+                continue
+            if out.output.function_space() != fs:
+                continue
+
+            # Look for Functions whose name matches that of the field
+            # NOTE: Here we assume that the user has set this correctly in their
+            #       get_solver method
+            if not out.output.name() == field:
+                continue
+
+            # Add to the list of candidates
+            candidates.append(out)
+
+        # Check for existence and uniqueness
+        if len(candidates) == 1:
+            return candidates[0]
+        elif len(candidates) > 1:
+            raise AttributeError(
+                "Cannot determine a unique output index for the solution associated"
+                f" with field '{field}' out of {len(candidates)} candidates."
+            )
+        elif not self.steady:
+            raise AttributeError(
+                f"Solve block for field '{field}' on subinterval {subinterval} has no"
+                " outputs."
+            )
+
+    def _dependency(self, field, subinterval, solve_block):
+        """
+        For a given solve block and solution field, get the block's dependency which
+        corresponds to the solution from the previous timestep.
+
+        :arg field: field of interest
+        :type field: :class:`str`
+        :arg subinterval: subinterval index
+        :type subinterval: :class:`int`
+        :arg solve_block: taped solve block
+        :type solve_block: :class:`firedrake.adjoint.blocks.GenericSolveBlock`
+        :returns: the dependency
+        :rtype: :class:`firedrake.function.Function`
+        """
+        # TODO #93: Inconsistent return value - can be None
+        if self.field_types[field] == "steady":
+            return
+        fs = self.function_spaces[field][subinterval]
+
+        # Loop through the solve block's dependencies
+        candidates = []
+        for dep in solve_block._dependencies:
+            # Look for Functions with matching function spaces
+            if not isinstance(dep.output, firedrake.Function):
+                continue
+            if dep.output.function_space() != fs:
+                continue
+
+            # Look for Functions whose name is the lagged version of the field's
+            # NOTE: Here we assume that the user has set this correctly in their
+            #       get_solver method
+            if not dep.output.name() == f"{field}_old":
+                continue
+
+            # Add to the list of candidates
+            candidates.append(dep)
+
+        # Check for existence and uniqueness
+        if len(candidates) == 1:
+            return candidates[0]
+        elif len(candidates) > 1:
+            raise AttributeError(
+                "Cannot determine a unique dependency index for the lagged solution"
+                f" associated with field '{field}' out of {len(candidates)} candidates."
+            )
+        elif not self.steady:
+            raise AttributeError(
+                f"Solve block for field '{field}' on subinterval {subinterval} has no"
+                " dependencies."
+            )
+
     def _create_solutions(self):
         """
         Create the :class:`~.FunctionData` instance for holding solution data.
@@ -222,8 +383,8 @@ class AdjointMeshSeq(MeshSeq):
     @PETSc.Log.EventDecorator()
     def solve_adjoint(
         self,
-        solver_kwargs={},
-        adj_solver_kwargs={},
+        solver_kwargs=None,
+        adj_solver_kwargs=None,
         get_adj_values=False,
         test_checkpoint_qoi=False,
     ):
@@ -251,6 +412,8 @@ class AdjointMeshSeq(MeshSeq):
         """
         # TODO #125: Support get_adj_values in AdjointSolutionData
         # TODO #126: Separate out qoi_kwargs
+        solver_kwargs = solver_kwargs or {}
+        adj_solver_kwargs = adj_solver_kwargs or {}
         P = self.time_partition
         num_subintervals = len(self)
         solver = self.solver
@@ -304,7 +467,11 @@ class AdjointMeshSeq(MeshSeq):
                 }
             )
             self._controls = list(map(pyadjoint.Control, copy_map.values()))
-            return solver(subinterval, copy_map, **kwargs)
+
+            # Reinitialise fields and assign initial conditions
+            self._reinitialise_fields(copy_map)
+
+            return solver(subinterval, **kwargs)
 
         # Loop over subintervals in reverse
         seeds = {}
@@ -319,15 +486,25 @@ class AdjointMeshSeq(MeshSeq):
             if tape is not None:
                 tape.clear_tape()
 
+            # Initialise the solver generator
+            solver_gen = wrapped_solver(i, checkpoints[i], **solver_kwargs)
+
             # Annotate tape on current subinterval
-            checkpoint = wrapped_solver(i, checkpoints[i], **solver_kwargs)
+            for _ in range(P.num_timesteps_per_subinterval[i]):
+                next(solver_gen)
             pyadjoint.pause_annotation()
+
+            # Final solution is used as the initial condition for the next subinterval
+            checkpoint = {
+                field: sol[0] if self.field_types[field] == "unsteady" else sol
+                for field, sol in self.fields.items()
+            }
 
             # Get seed vector for reverse propagation
             if i == num_subintervals - 1:
                 if self.qoi_type in ["end_time", "steady"]:
                     pyadjoint.continue_annotation()
-                    qoi = self.get_qoi(checkpoint, i)
+                    qoi = self.get_qoi(i)
                     self.J = qoi(**qoi_kwargs)
                     if np.isclose(float(self.J), 0.0):
                         self.warning("Zero QoI. Is it implemented as intended?")

@@ -2,20 +2,21 @@
 Sequences of meshes corresponding to a :class:`~.TimePartition`.
 """
 
+from collections.abc import Iterable
+
 import firedrake
+import numpy as np
+from animate.interpolation import transfer
+from animate.quality import QualityMeasure
+from animate.utility import Mesh
 from firedrake.adjoint import pyadjoint
-from firedrake.adjoint_utils.solving import get_solve_blocks
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
-from .function_data import ForwardSolutionData
-from .interpolation import transfer
-from .log import pyrint, debug, warning, info, logger, DEBUG
-from .options import AdaptParameters
-from animate.quality import QualityMeasure
-from .utility import AttrDict, Mesh
-from collections.abc import Iterable
-import numpy as np
 
+from .function_data import ForwardSolutionData
+from .log import DEBUG, debug, info, logger, pyrint, warning
+from .options import AdaptParameters
+from .utility import AttrDict
 
 __all__ = ["MeshSeq"]
 
@@ -40,15 +41,18 @@ class MeshSeq:
             :meth:`~.MeshSeq.get_initial_condition`
         :kwarg get_form: a function as described in :meth:`~.MeshSeq.get_form`
         :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
-        :kwarg get_bcs: a function as described in :meth:`~.MeshSeq.get_bcs`
         :kwarg transfer_method: the method to use for transferring fields between
-            meshes. Options are "interpolate" (default) and "project"
+            meshes. Options are "project" (default) and "interpolate". See
+            :func:`animate.interpolation.transfer` for details
         :type transfer_method: :class:`str`
+        :kwarg transfer_kwargs: kwargs to pass to the chosen transfer method
+        :type transfer_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
         :kwarg parameters: parameters to apply to the mesh adaptation process
         :type parameters: :class:`~.AdaptParameters`
         """
         self.time_partition = time_partition
-        self.fields = time_partition.fields
+        self.fields = {field_name: None for field_name in time_partition.field_names}
         self.field_types = {
             field: field_type
             for field, field_type in zip(self.fields, time_partition.field_types)
@@ -61,8 +65,8 @@ class MeshSeq:
         self._get_initial_condition = kwargs.get("get_initial_condition")
         self._get_form = kwargs.get("get_form")
         self._get_solver = kwargs.get("get_solver")
-        self._get_bcs = kwargs.get("get_bcs")
-        self._transfer_method = kwargs.get("transfer_method", "interpolate")
+        self._transfer_method = kwargs.get("transfer_method", "project")
+        self._transfer_kwargs = kwargs.get("transfer_kwargs", {})
         self.params = kwargs.get("parameters")
         self.steady = time_partition.steady
         self.check_convergence = np.array([True] * len(self), dtype=bool)
@@ -71,6 +75,8 @@ class MeshSeq:
         if self.params is None:
             self.params = AdaptParameters()
         self.sections = [{} for mesh in self]
+
+        self._outputs_consistent()
 
     def __str__(self):
         return f"{[str(mesh) for mesh in self.meshes]}"
@@ -139,7 +145,8 @@ class MeshSeq:
         :returns: list of element counts
         :rtype: :class:`list` of :class:`int`\s
         """
-        return [mesh.num_cells() for mesh in self]  # TODO #123: make parallel safe
+        comm = firedrake.COMM_WORLD
+        return [comm.allreduce(mesh.coordinates.cell_set.size) for mesh in self]
 
     def count_vertices(self):
         r"""
@@ -148,7 +155,8 @@ class MeshSeq:
         :returns: list of vertex counts
         :rtype: :class:`list` of :class:`int`\s
         """
-        return [mesh.num_vertices() for mesh in self]  # TODO #123: make parallel safe
+        comm = firedrake.COMM_WORLD
+        return [comm.allreduce(mesh.coordinates.node_set.size) for mesh in self]
 
     def _reset_counts(self):
         """
@@ -177,13 +185,13 @@ class MeshSeq:
         self._reset_counts()
         if logger.level == DEBUG:
             for i, mesh in enumerate(meshes):
-                nc = mesh.num_cells()
-                nv = mesh.num_vertices()
+                nc = self.element_counts[0][i]
+                nv = self.vertex_counts[0][i]
                 qm = QualityMeasure(mesh)
                 ar = qm("aspect_ratio")
                 mar = ar.vector().gather().max()
                 self.debug(
-                    f"{i}: {nc:7d} cells, {nv:7d} vertices,   max aspect ratio {mar:.2f}"
+                    f"{i}: {nc:7d} cells, {nv:7d} vertices,  max aspect ratio {mar:.2f}"
                 )
             debug(100 * "-")
 
@@ -313,25 +321,6 @@ class MeshSeq:
             raise NotImplementedError("'get_solver' needs implementing.")
         return self._get_solver(self)
 
-    def get_bcs(self):
-        """
-        Get the function mapping a subinterval index to a set of Dirichlet boundary
-        conditions.
-
-        Signature for the function to be returned:
-        ```
-        :arg index: the subinterval index
-        :type index: :class:`int`
-        :return: boundary conditions
-        :rtype: :class:`~.DirichletBC` or :class:`list` thereof
-        :rtype: see docstring above
-        ```
-
-        :returns: the function for obtaining the boundary conditions
-        """
-        if self._get_bcs is not None:
-            return self._get_bcs(self)
-
     def _transfer(self, source, target_space, **kwargs):
         """
         Transfer a field between meshes using the specified transfer method.
@@ -350,7 +339,47 @@ class MeshSeq:
 
         Extra keyword arguments are passed to :func:`goalie.interpolation.transfer`.
         """
-        return transfer(source, target_space, self._transfer_method, **kwargs)
+        # Update kwargs with those specified by the user
+        transfer_kwargs = kwargs.copy()
+        transfer_kwargs.update(self._transfer_kwargs)
+        return transfer(source, target_space, self._transfer_method, **transfer_kwargs)
+
+    def _outputs_consistent(self):
+        """
+        Assert that function spaces, initial conditions, and forms are given in a
+        dictionary format with :attr:`MeshSeq.fields` as keys.
+        """
+        for method in ["function_spaces", "initial_condition", "form", "solver"]:
+            if getattr(self, f"_get_{method}") is None:
+                continue
+            method_map = getattr(self, f"get_{method}")
+            if method == "function_spaces":
+                method_map = method_map(self.meshes[0])
+            elif method == "initial_condition":
+                method_map = method_map()
+            elif method == "form":
+                self._reinitialise_fields(self.get_initial_condition())
+                method_map = method_map()(0)
+            elif method == "solver":
+                self._reinitialise_fields(self.get_initial_condition())
+                solver_gen = method_map()(0)
+                assert hasattr(solver_gen, "__next__"), "solver should yield"
+                if logger.level == DEBUG:
+                    next(solver_gen)
+                    f, f_ = self.fields[next(iter(self.fields))]
+                    if np.array_equal(f.vector().array(), f_.vector().array()):
+                        self.debug(
+                            "Current and lagged solutions are equal. Does the"
+                            " solver yield before updating lagged solutions?"
+                        )
+                break
+            assert isinstance(method_map, dict), f"get_{method} should return a dict"
+            mesh_seq_fields = set(self.fields)
+            method_fields = set(method_map.keys())
+            diff = mesh_seq_fields.difference(method_fields)
+            assert len(diff) == 0, f"missing fields {diff} in get_{method}"
+            diff = method_fields.difference(mesh_seq_fields)
+            assert len(diff) == 0, f"unexpected fields {diff} in get_{method}"
 
     def _function_spaces_consistent(self):
         """
@@ -411,19 +440,7 @@ class MeshSeq:
         :rtype: :class:`~.AttrDict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        initial_condition_map = self.get_initial_condition()
-        assert isinstance(
-            initial_condition_map, dict
-        ), "`get_initial_condition` should return a dict"
-        mesh_seq_fields = set(self.fields)
-        initial_condition_fields = set(initial_condition_map.keys())
-        assert mesh_seq_fields.issubset(
-            initial_condition_fields
-        ), "missing fields in initial condition"
-        assert initial_condition_fields.issubset(
-            mesh_seq_fields
-        ), "more initial conditions than fields"
-        return AttrDict(initial_condition_map)
+        return AttrDict(self.get_initial_condition())
 
     @property
     def form(self):
@@ -438,241 +455,6 @@ class MeshSeq:
         See :meth:`~.MeshSeq.get_solver`.
         """
         return self.get_solver()
-
-    @property
-    def bcs(self):
-        """
-        See :meth:`~.MeshSeq.get_bcs`.
-        """
-        return self.get_bcs()
-
-    @PETSc.Log.EventDecorator()
-    def get_checkpoints(self, solver_kwargs={}, run_final_subinterval=False):
-        r"""
-        Solve forward on the sequence of meshes, extracting checkpoints corresponding
-        to the starting fields on each subinterval.
-
-        :kwarg solver_kwargs: parameters for the forward solver
-        :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
-            take various types
-        :kwarg run_final_subinterval: if ``True``, the solver is run on the final
-            subinterval
-        :type run_final_subinterval: :class:`bool`
-        :returns: checkpoints for each subinterval
-        :rtype: :class:`list` of :class:`firedrake.function.Function`\s
-        """
-        N = len(self)
-
-        # The first checkpoint is the initial condition
-        checkpoints = [self.initial_condition]
-
-        # If there is only one subinterval then we are done
-        if N == 1 and not run_final_subinterval:
-            return checkpoints
-
-        # Otherwise, solve each subsequent subinterval, in each case making use of the
-        # previous checkpoint
-        for i in range(N if run_final_subinterval else N - 1):
-            solutions = self.solver(i, checkpoints[i], **solver_kwargs)
-            if not isinstance(solutions, dict):
-                raise TypeError(
-                    f"Solver should return a dictionary, not '{type(solutions)}'."
-                )
-
-            # Check that the output of the solver is as expected
-            fields = set(solutions.keys())
-            if not set(self.fields).issubset(fields):
-                diff = set(self.fields).difference(fields)
-                raise ValueError(f"Fields are missing from the solver: {diff}.")
-            if not fields.issubset(set(self.fields)):
-                diff = fields.difference(set(self.fields))
-                raise ValueError(f"Unexpected solver outputs: {diff}.")
-
-            # Transfer between meshes
-            if i < N - 1:
-                checkpoints.append(
-                    AttrDict(
-                        {
-                            field: self._transfer(solutions[field], fs[i + 1])
-                            for field, fs in self._fs.items()
-                        }
-                    )
-                )
-
-        return checkpoints
-
-    @PETSc.Log.EventDecorator()
-    def get_solve_blocks(self, field, subinterval):
-        r"""
-        Get all blocks of the tape corresponding to solve steps for prognostic solution
-        field on a given subinterval.
-
-        :arg field: name of the prognostic solution field
-        :type field: :class:`str`
-        :arg subinterval: subinterval index
-        :type subinterval: :class:`int`
-        :returns: list of solve blocks
-        :rtype: :class:`list` of :class:`pyadjoint.block.Block`\s
-        """
-        tape = pyadjoint.get_working_tape()
-        if tape is None:
-            self.warning("Tape does not exist!")
-            return []
-
-        blocks = tape.get_blocks()
-        if len(blocks) == 0:
-            self.warning("Tape has no blocks!")
-            return blocks
-
-        # Restrict to solve blocks
-        solve_blocks = get_solve_blocks()
-        if len(solve_blocks) == 0:
-            self.warning("Tape has no solve blocks!")
-            return solve_blocks
-
-        # Select solve blocks whose tags correspond to the field name
-        solve_blocks = [
-            block
-            for block in solve_blocks
-            if isinstance(block.tag, str) and block.tag.startswith(field)
-        ]
-        N = len(solve_blocks)
-        if N == 0:
-            self.warning(
-                f"No solve blocks associated with field '{field}'."
-                " Has ad_block_tag been used correctly?"
-            )
-            return solve_blocks
-        self.debug(
-            f"Field '{field}' on subinterval {subinterval} has {N} solve blocks."
-        )
-
-        # Check FunctionSpaces are consistent across solve blocks
-        element = self.function_spaces[field][subinterval].ufl_element()
-        for block in solve_blocks:
-            if element != block.function_space.ufl_element():
-                raise ValueError(
-                    f"Solve block list for field '{field}' contains mismatching elements:"
-                    f" {element} vs. {block.function_space.ufl_element()}."
-                )
-
-        # Check that the number of timesteps does not exceed the number of solve blocks
-        num_timesteps = self.time_partition.num_timesteps_per_subinterval[subinterval]
-        if num_timesteps > N:
-            raise ValueError(
-                f"Number of timesteps exceeds number of solve blocks for field '{field}'"
-                f" on subinterval {subinterval}: {num_timesteps} > {N}."
-            )
-
-        # Check the number of timesteps is divisible by the number of solve blocks
-        ratio = num_timesteps / N
-        if not np.isclose(np.round(ratio), ratio):
-            raise ValueError(
-                "Number of timesteps is not divisible by number of solve blocks for"
-                f" field '{field}' on subinterval {subinterval}: {num_timesteps} vs."
-                f" {N}."
-            )
-        return solve_blocks
-
-    def _output(self, field, subinterval, solve_block):
-        """
-        For a given solve block and solution field, get the block's outputs corresponding
-        to the solution from the current timestep.
-
-        :arg field: field of interest
-        :type field: :class:`str`
-        :arg subinterval: subinterval index
-        :type subinterval: :class:`int`
-        :arg solve_block: taped solve block
-        :type solve_block: :class:`firedrake.adjoint.blocks.GenericSolveBlock`
-        :returns: the output
-        :rtype: :class:`firedrake.function.Function`
-        """
-        # TODO #93: Inconsistent return value - can be None
-        fs = self.function_spaces[field][subinterval]
-
-        # Loop through the solve block's outputs
-        candidates = []
-        for out in solve_block._outputs:
-            # Look for Functions with matching function spaces
-            if not isinstance(out.output, firedrake.Function):
-                continue
-            if out.output.function_space() != fs:
-                continue
-
-            # Look for Functions whose name matches that of the field
-            # NOTE: Here we assume that the user has set this correctly in their
-            #       get_solver method
-            if not out.output.name() == field:
-                continue
-
-            # Add to the list of candidates
-            candidates.append(out)
-
-        # Check for existence and uniqueness
-        if len(candidates) == 1:
-            return candidates[0]
-        elif len(candidates) > 1:
-            raise AttributeError(
-                "Cannot determine a unique output index for the solution associated"
-                f" with field '{field}' out of {len(candidates)} candidates."
-            )
-        elif not self.steady:
-            raise AttributeError(
-                f"Solve block for field '{field}' on subinterval {subinterval} has no"
-                " outputs."
-            )
-
-    def _dependency(self, field, subinterval, solve_block):
-        """
-        For a given solve block and solution field, get the block's dependency which
-        corresponds to the solution from the previous timestep.
-
-        :arg field: field of interest
-        :type field: :class:`str`
-        :arg subinterval: subinterval index
-        :type subinterval: :class:`int`
-        :arg solve_block: taped solve block
-        :type solve_block: :class:`firedrake.adjoint.blocks.GenericSolveBlock`
-        :returns: the dependency
-        :rtype: :class:`firedrake.function.Function`
-        """
-        # TODO #93: Inconsistent return value - can be None
-        if self.field_types[field] == "steady":
-            return
-        fs = self.function_spaces[field][subinterval]
-
-        # Loop through the solve block's dependencies
-        candidates = []
-        for dep in solve_block._dependencies:
-            # Look for Functions with matching function spaces
-            if not isinstance(dep.output, firedrake.Function):
-                continue
-            if dep.output.function_space() != fs:
-                continue
-
-            # Look for Functions whose name is the lagged version of the field's
-            # NOTE: Here we assume that the user has set this correctly in their
-            #       get_solver method
-            if not dep.output.name() == f"{field}_old":
-                continue
-
-            # Add to the list of candidates
-            candidates.append(dep)
-
-        # Check for existence and uniqueness
-        if len(candidates) == 1:
-            return candidates[0]
-        elif len(candidates) > 1:
-            raise AttributeError(
-                "Cannot determine a unique dependency index for the lagged solution"
-                f" associated with field '{field}' out of {len(candidates)} candidates."
-            )
-        elif not self.steady:
-            raise AttributeError(
-                f"Solve block for field '{field}' on subinterval {subinterval} has no"
-                " dependencies."
-            )
 
     def _create_solutions(self):
         """
@@ -690,8 +472,127 @@ class MeshSeq:
             self._create_solutions()
         return self._solutions
 
+    def _reinitialise_fields(self, initial_conditions):
+        """
+        Reinitialise fields and assign initial conditions on the given subinterval.
+
+        :arg initial_conditions: the initial conditions to assign to lagged solutions
+        :type initial_conditions: :class:`dict` with :class:`str` keys and
+            :class:`firedrake.function.Function` values
+        """
+        for field, ic in initial_conditions.items():
+            fs = ic.function_space()
+            if self.field_types[field] == "steady":
+                self.fields[field] = firedrake.Function(fs, name=f"{field}").assign(ic)
+            else:
+                self.fields[field] = (
+                    firedrake.Function(fs, name=field),
+                    firedrake.Function(fs, name=f"{field}_old").assign(ic),
+                )
+
     @PETSc.Log.EventDecorator()
-    def solve_forward(self, solver_kwargs={}):
+    def _solve_forward(self, update_solutions=True, solver_kwargs=None):
+        r"""
+        Solve a forward problem on a sequence of subintervals. Yields the final solution
+        on each subinterval.
+
+        :kwarg update_solutions: if ``True``, updates the solution data
+        :type update_solutions: :class:`bool`
+        :kwarg solver_kwargs: parameters for the forward solver
+        :type solver_kwargs: :class:`dict` whose keys are :class:`str`\s and whose values
+            may take various types
+        :yields: the solution data of the forward solves
+        :ytype: :class:`~.ForwardSolutionData`
+        """
+        solver_kwargs = solver_kwargs or {}
+        num_subintervals = len(self)
+        tp = self.time_partition
+
+        if update_solutions:
+            # Reinitialise the solution data object
+            self._create_solutions()
+            solutions = self.solutions.extract(layout="field")
+
+        # Stop annotating
+        if pyadjoint.annotate_tape():
+            tape = pyadjoint.get_working_tape()
+            if tape is not None:
+                tape.clear_tape()
+            pyadjoint.pause_annotation()
+
+        # Loop over the subintervals
+        checkpoint = self.initial_condition
+        for i in range(num_subintervals):
+            solver_gen = self.solver(i, **solver_kwargs)
+
+            # Reinitialise fields and assign initial conditions
+            self._reinitialise_fields(checkpoint)
+
+            if update_solutions:
+                # Solve sequentially between each export time
+                for j in range(tp.num_exports_per_subinterval[i] - 1):
+                    for _ in range(tp.num_timesteps_per_export[i]):
+                        next(solver_gen)
+                    # Update the solution data
+                    for field, sol in self.fields.items():
+                        if not self.steady:
+                            assert isinstance(sol, tuple)
+                            solutions[field].forward[i][j].assign(sol[0])
+                            solutions[field].forward_old[i][j].assign(sol[1])
+                        else:
+                            assert isinstance(sol, firedrake.Function)
+                            solutions[field].forward[i][j].assign(sol)
+            else:
+                # Solve over the entire subinterval in one go
+                for _ in range(tp.num_timesteps_per_subinterval[i]):
+                    next(solver_gen)
+
+            # Transfer the checkpoint to the next subintervals
+            if i < num_subintervals - 1:
+                checkpoint = AttrDict(
+                    {
+                        field: self._transfer(self.fields[field][0], fs[i + 1])
+                        for field, fs in self._fs.items()
+                    }
+                )
+
+            yield checkpoint
+
+    @PETSc.Log.EventDecorator()
+    def get_checkpoints(self, run_final_subinterval=False, solver_kwargs=None):
+        r"""
+        Get checkpoints corresponding to the starting fields on each subinterval.
+
+        :kwarg run_final_subinterval: if ``True``, the solver is run on the final
+            subinterval
+        :type run_final_subinterval: :class:`bool`
+        :kwarg solver_kwargs: parameters for the forward solver
+        :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :returns: checkpoints for each subinterval
+        :rtype: :class:`list` of :class:`firedrake.function.Function`\s
+        """
+        solver_kwargs = solver_kwargs or {}
+        N = len(self)
+
+        # The first checkpoint is the initial condition
+        checkpoints = [self.initial_condition]
+
+        # If there is only one subinterval then we are done
+        if N == 1 and not run_final_subinterval:
+            return checkpoints
+
+        # Otherwise, solve each subsequent subinterval and append the checkpoint
+        solver_gen = self._solve_forward(
+            update_solutions=False, solver_kwargs=solver_kwargs
+        )
+        for _ in range(N if run_final_subinterval else N - 1):
+            checkpoints.append(next(solver_gen))
+
+        return checkpoints
+
+    @PETSc.Log.EventDecorator()
+    def solve_forward(self, solver_kwargs=None):
         r"""
         Solve a forward problem on a sequence of subintervals.
 
@@ -704,97 +605,10 @@ class MeshSeq:
         :returns: the solution data of the forward solves
         :rtype: :class:`~.ForwardSolutionData`
         """
-        num_subintervals = len(self)
-        P = self.time_partition
-        solver = self.solver
-
-        # Reinitialise the solution data object
-        self._create_solutions()
-
-        # Start annotating
-        if pyadjoint.annotate_tape():
-            tape = pyadjoint.get_working_tape()
-            if tape is not None:
-                tape.clear_tape()
-        else:
-            pyadjoint.continue_annotation()
-
-        # Loop over the subintervals
-        checkpoint = self.initial_condition
-        for i in range(num_subintervals):
-            stride = P.num_timesteps_per_export[i]
-            num_exports = P.num_exports_per_subinterval[i]
-
-            # Annotate tape on current subinterval
-            checkpoint = solver(i, checkpoint, **solver_kwargs)
-
-            # Loop over prognostic variables
-            for field, fs in self.function_spaces.items():
-                # Get solve blocks
-                solve_blocks = self.get_solve_blocks(field, i)
-                num_solve_blocks = len(solve_blocks)
-                if num_solve_blocks == 0:
-                    raise ValueError(
-                        "Looks like no solves were written to tape!"
-                        " Does the solution depend on the initial condition?"
-                    )
-                if fs[0].ufl_element() != solve_blocks[0].function_space.ufl_element():
-                    raise ValueError(
-                        f"Solve block list for field '{field}' contains mismatching"
-                        f" finite elements: ({fs[0].ufl_element()} vs. "
-                        f" {solve_blocks[0].function_space.ufl_element()})"
-                    )
-
-                # Extract solution data
-                if len(solve_blocks[::stride]) >= num_exports:
-                    raise ValueError(
-                        f"More solve blocks than expected"
-                        f" ({len(solve_blocks[::stride])} > {num_exports-1})"
-                    )
-
-                # Update solution data based on block dependencies and outputs
-                solutions = self.solutions.extract(layout="field")[field]
-                for j, block in enumerate(reversed(solve_blocks[::-stride])):
-                    # Current solution is determined from outputs
-                    out = self._output(field, i, block)
-                    if out is not None:
-                        solutions.forward[i][j].assign(out.saved_output)
-
-                    if not self.steady:
-                        # Lagged solution comes from dependencies for unsteady fields
-                        if self.field_types[field] == "unsteady":
-                            dep = self._dependency(field, i, block)
-                            solutions.forward_old[i][j].assign(dep.saved_output)
-                        # Lagged solution comes from previous block for steady fields
-                        elif self.field_types[field] == "steady":
-                            if stride == 1:
-                                if j == 0:
-                                    if i == 0:
-                                        forward_old = self.initial_condition[field]
-                                    else:
-                                        forward_old = self._transfer(
-                                            solutions.forward[i - 1][-1], fs[i]
-                                        )
-                                else:
-                                    forward_old = solutions.forward[i][j - 1]
-                            else:
-                                old_block = solve_blocks[solve_blocks.index(block) - 1]
-                                old_out = self._output(field, i, old_block)
-                                if out is not None:
-                                    forward_old = old_out.saved_output
-                            solutions.forward_old[i][j].assign(forward_old)
-
-            # Transfer the checkpoint between subintervals
-            if i < num_subintervals - 1:
-                checkpoint = AttrDict(
-                    {
-                        field: self._transfer(checkpoint[field], fs[i + 1])
-                        for field, fs in self._fs.items()
-                    }
-                )
-
-            # Clear the tape to reduce the memory footprint
-            pyadjoint.get_working_tape().clear_tape()
+        solver_kwargs = solver_kwargs or {}
+        solver_gen = self._solve_forward(update_solutions=True, **solver_kwargs)
+        for _ in range(len(self)):
+            next(solver_gen)
 
         return self.solutions
 
@@ -843,7 +657,7 @@ class MeshSeq:
 
     @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
-        self, adaptor, update_params=None, solver_kwargs={}, adaptor_kwargs={}
+        self, adaptor, update_params=None, solver_kwargs=None, adaptor_kwargs=None
     ):
         r"""
         Apply mesh adaptation using a fixed point iteration loop approach.
@@ -865,12 +679,15 @@ class MeshSeq:
         :rtype: :class:`~.ForwardSolutionData`
         """
         # TODO #124: adaptor no longer needs solution data to be passed explicitly
-        self.element_counts = [self.count_elements()]
-        self.vertex_counts = [self.count_vertices()]
+        solver_kwargs = solver_kwargs or {}
+        adaptor_kwargs = adaptor_kwargs or {}
+
+        self._reset_counts()
         self.converged[:] = False
         self.check_convergence[:] = True
 
-        for self.fp_iteration in range(self.params.maxiter):
+        for fp_iteration in range(self.params.maxiter):
+            self.fp_iteration = fp_iteration
             if update_params is not None:
                 update_params(self.params, self.fp_iteration)
 

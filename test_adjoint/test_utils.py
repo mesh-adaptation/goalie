@@ -1,8 +1,10 @@
-from firedrake import *
-from goalie_adjoint import *
-from goalie.adjoint import annotate_qoi
-import numpy as np
 import unittest
+
+import numpy as np
+from firedrake import *
+
+from goalie.adjoint import annotate_qoi
+from goalie_adjoint import *
 
 
 class TestAdjointUtils(unittest.TestCase):
@@ -19,7 +21,7 @@ class TestAdjointUtils(unittest.TestCase):
 
     def test_annotate_qoi_0args(self):
         @annotate_qoi
-        def get_qoi(mesh_seq, solution_map, i):
+        def get_qoi(mesh_seq, i):
             R = FunctionSpace(mesh_seq[i], "R", 0)
 
             def qoi():
@@ -27,11 +29,11 @@ class TestAdjointUtils(unittest.TestCase):
 
             return qoi
 
-        get_qoi(self.mesh_seq("end_time"), {}, 0)
+        get_qoi(self.mesh_seq("end_time"), 0)
 
     def test_annotate_qoi_1arg(self):
         @annotate_qoi
-        def get_qoi(mesh_seq, solution_map, i):
+        def get_qoi(mesh_seq, i):
             R = FunctionSpace(mesh_seq[i], "R", 0)
 
             def qoi(t):
@@ -39,11 +41,11 @@ class TestAdjointUtils(unittest.TestCase):
 
             return qoi
 
-        get_qoi(self.mesh_seq("time_integrated"), {}, 0)
+        get_qoi(self.mesh_seq("time_integrated"), 0)
 
     def test_annotate_qoi_0args_error(self):
         @annotate_qoi
-        def get_qoi(mesh_seq, solution_map, i):
+        def get_qoi(mesh_seq, i):
             R = FunctionSpace(mesh_seq[i], "R", 0)
 
             def qoi():
@@ -52,13 +54,13 @@ class TestAdjointUtils(unittest.TestCase):
             return qoi
 
         with self.assertRaises(ValueError) as cm:
-            get_qoi(self.mesh_seq("time_integrated"), {}, 0)
+            get_qoi(self.mesh_seq("time_integrated"), 0)
         msg = "Expected qoi_type to be 'end_time' or 'steady', not 'time_integrated'."
         assert str(cm.exception) == msg
 
     def test_annotate_qoi_1arg_error(self):
         @annotate_qoi
-        def get_qoi(mesh_seq, solution_map, i):
+        def get_qoi(mesh_seq, i):
             R = FunctionSpace(mesh_seq[i], "R", 0)
 
             def qoi(t):
@@ -67,13 +69,13 @@ class TestAdjointUtils(unittest.TestCase):
             return qoi
 
         with self.assertRaises(ValueError) as cm:
-            get_qoi(self.mesh_seq("end_time"), {}, 0)
+            get_qoi(self.mesh_seq("end_time"), 0)
         msg = "Expected qoi_type to be 'time_integrated', not 'end_time'."
         assert str(cm.exception) == msg
 
     def test_annotate_qoi_2args_error(self):
         @annotate_qoi
-        def get_qoi(mesh_seq, solution_map, i):
+        def get_qoi(mesh_seq, i):
             R = FunctionSpace(mesh_seq[i], "R", 0)
 
             def qoi(t, r):
@@ -82,7 +84,7 @@ class TestAdjointUtils(unittest.TestCase):
             return qoi
 
         with self.assertRaises(ValueError) as cm:
-            get_qoi(self.mesh_seq("time_integrated"), {}, 0)
+            get_qoi(self.mesh_seq("time_integrated"), 0)
         assert str(cm.exception) == "QoI should have 0 or 1 args, not 2."
 
     def test_annotate_qoi_not_steady(self):
@@ -109,7 +111,7 @@ class TestAdjointUtils(unittest.TestCase):
 
     def test_qoi_notimplemented(self):
         with self.assertRaises(NotImplementedError) as cm:
-            self.mesh_seq("end_time").get_qoi({}, 0)
+            self.mesh_seq("end_time").get_qoi(0)
         assert str(cm.exception) == "'get_qoi' is not implemented."
 
     def test_qoi_convergence_values_lt_2(self):

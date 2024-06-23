@@ -1,12 +1,12 @@
 """
 Tools to automate goal-oriented error estimation.
 """
+
 import firedrake
+import ufl
 from firedrake import Function, FunctionSpace
 from firedrake.functionspaceimpl import WithGeometry
 from firedrake.petsc import PETSc
-import ufl
-
 
 __all__ = ["get_dwr_indicator"]
 

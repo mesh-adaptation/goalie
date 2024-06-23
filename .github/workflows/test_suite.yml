@@ -1,4 +1,4 @@
-name: Build Goalie
+name: 'Run Goalie test suite'
 
 on:
   # Run test suite whenever main is updated
@@ -13,41 +13,57 @@ on:
   schedule:
     - cron: '0 1 * * 0'
 
+concurrency:
+  # Cancel jobs running if new commits are pushed
+  group: >
+    ${{ github.workflow }}-
+    ${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
-    name: "Build Goalie"
-    # The type of runner that the job will run on
+    name: 'Test suite'
     runs-on: ubuntu-latest
-    # The docker container to use.
     container:
       image: jwallwork/firedrake-parmmg:latest
       options: --user root
     steps:
       - uses: actions/checkout@v2
-      - name: Cleanup
+
+      - name: 'Cleanup'
         if: ${{ always() }}
         run: |
           cd ..
           rm -rf build
-      - name: Setup python
+
+      - name: 'Setup Python'
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
-      - name: Install Goalie
+
+      - name: 'Install Goalie'
         run: |
           . /home/firedrake/firedrake/bin/activate
           python -m pip uninstall -y goalie
           python -m pip install -e .
-      - name: Test Goalie
+
+      - name: 'Check citation'
         run: |
           . /home/firedrake/firedrake/bin/activate
-          python $(which firedrake-clean)
-          python -m coverage erase
-          python -m coverage run -a --source=goalie -m pytest -v --durations=20 test
-          python -m coverage run -a --source=goalie -m pytest -v --durations=10 test_adjoint
-          python -m coverage report
-      - name: Lint
+          make check_citation
+
+      - name: 'Lint'
         if: ${{ always() }}
         run: |
           . /home/firedrake/firedrake/bin/activate
           make lint
+
+      - name: 'Test Goalie'
+        run: |
+          . /home/firedrake/firedrake/bin/activate
+          python $(which firedrake-clean)
+          export GITHUB_ACTIONS_TEST_RUN=1
+          python -m coverage erase
+          python -m coverage run -a --source=goalie -m pytest -v --durations=20 test
+          python -m coverage run -a --source=goalie -m pytest -v --durations=10 test_adjoint
+          python -m coverage report

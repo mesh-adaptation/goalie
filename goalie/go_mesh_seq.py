@@ -2,17 +2,18 @@
 Drivers for goal-oriented error estimation on sequences of meshes.
 """
 
+from collections.abc import Iterable
+
+import numpy as np
+import ufl
+from animate.interpolation import interpolate
+from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
+from firedrake.petsc import PETSc
+
 from .adjoint import AdjointMeshSeq
 from .error_estimation import get_dwr_indicator
 from .function_data import IndicatorData
 from .log import pyrint
-from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
-from firedrake.petsc import PETSc
-from animate.interpolation import interpolate
-from collections.abc import Iterable
-import numpy as np
-import ufl
-
 
 __all__ = ["GoalOrientedMeshSeq"]
 
@@ -68,7 +69,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             get_form=self._get_form,
             get_solver=self._get_solver,
             get_qoi=self._get_qoi,
-            get_bcs=self._get_bcs,
             qoi_type=self.qoi_type,
             parameters=self.params,
         )
@@ -103,7 +103,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         if enrichment_method == "h":
             return TransferManager().prolong
         else:
-            return lambda source, target: interpolate(source, target)
+            return interpolate
 
     def _create_indicators(self):
         """
@@ -123,7 +123,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
     @PETSc.Log.EventDecorator()
     def indicate_errors(
-        self, enrichment_kwargs={}, solver_kwargs={}, indicator_fn=get_dwr_indicator
+        self, enrichment_kwargs=None, solver_kwargs=None, indicator_fn=get_dwr_indicator
     ):
         """
         Compute goal-oriented error indicators for each subinterval based on solving the
@@ -146,8 +146,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :rtype1: :class:`~.AdjointSolutionData
         :rtype2: :class:`~.IndicatorData
         """
-        enrichment_kwargs.setdefault("enrichment_method", "p")
-        enrichment_kwargs.setdefault("num_enrichments", 1)
+        solver_kwargs = solver_kwargs or {}
+        enrichment_kwargs = dict(
+            {"enrichment_method": "p", "num_enrichments": 1}, **enrichment_kwargs
+        )
         enriched_mesh_seq = self.get_enriched_mesh_seq(**enrichment_kwargs)
         transfer = self._get_transfer_function(enrichment_kwargs["enrichment_method"])
 
@@ -162,7 +164,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         FWD_OLD = "forward" if self.steady else "forward_old"
         ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
         P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
-        for i, mesh in enumerate(self):
+        for i in range(len(self)):
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
             enriched_spaces = {
@@ -172,24 +174,32 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             for f, fs_e in enriched_spaces.items():
                 u[f] = Function(fs_e)
                 u_[f] = Function(fs_e)
-                mapping[f] = (u[f], u_[f])
+                mapping[f] = (
+                    (u[f], u_[f])
+                    if enriched_mesh_seq.field_types[f] == "unsteady"
+                    else u[f]
+                )
                 u_star[f] = Function(fs_e)
                 u_star_next[f] = Function(fs_e)
                 u_star_e[f] = Function(fs_e)
 
             # Get forms for each equation in enriched space
-            forms = enriched_mesh_seq.form(i, mapping)
-            if not isinstance(forms, dict):
-                raise TypeError(
-                    "The function defined by get_form should return a dictionary"
-                    f", not type '{type(forms)}'."
-                )
+            enriched_mesh_seq.fields = mapping
+            forms = enriched_mesh_seq.form(i)
 
             # Loop over each timestep
             for j in range(self.time_partition.num_exports_per_subinterval[i] - 1):
+                # In case of having multiple solution fields that are solved for one
+                # after another, the field that is solved for first uses the values of
+                # latter fields from the previous timestep. Therefore, we must transfer
+                # the lagged solution of latter fields as if they were the current
+                # timestep solutions. This assumes that the order of fields being solved
+                # for in get_solver is the same as their order in self.fields
+                for f_next in self.time_partition.field_names[1:]:
+                    transfer(self.solutions[f_next][FWD_OLD][i][j], u[f_next])
                 # Loop over each strongly coupled field
                 for f in self.fields:
-                    # Transfer solutions associated to the current field
+                    # Transfer solutions associated with the current field f
                     transfer(self.solutions[f][FWD][i][j], u[f])
                     transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
                     transfer(self.solutions[f][ADJ][i][j], u_star[f])
@@ -239,7 +249,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             )
         estimator = 0
         for field, by_field in self.indicators.items():
-            if field not in self.time_partition.fields:
+            if field not in self.time_partition.field_names:
                 raise ValueError(
                     f"Key '{field}' does not exist in the TimePartition provided."
                 )
@@ -283,9 +293,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self,
         adaptor,
         update_params=None,
-        enrichment_kwargs={},
-        adaptor_kwargs={},
-        solver_kwargs={},
+        enrichment_kwargs=None,
+        adaptor_kwargs=None,
+        solver_kwargs=None,
         indicator_fn=get_dwr_indicator,
     ):
         r"""
@@ -317,14 +327,17 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         """
         # TODO #124: adaptor no longer needs solution and indicator data to be passed
         #            explicitly
-        self.element_counts = [self.count_elements()]
-        self.vertex_counts = [self.count_vertices()]
+        enrichment_kwargs = enrichment_kwargs or {}
+        adaptor_kwargs = adaptor_kwargs or {}
+        solver_kwargs = solver_kwargs or {}
+        self._reset_counts()
         self.qoi_values = []
         self.estimator_values = []
         self.converged[:] = False
         self.check_convergence[:] = True
 
-        for self.fp_iteration in range(self.params.maxiter):
+        for fp_iteration in range(self.params.maxiter):
+            self.fp_iteration = fp_iteration
             if update_params is not None:
                 update_params(self.params, self.fp_iteration)
 

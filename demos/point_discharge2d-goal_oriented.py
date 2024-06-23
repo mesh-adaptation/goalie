@@ -10,16 +10,16 @@
 # We copy over the setup as before. The only difference is that we import from
 # `goalie_adjoint` rather than `goalie`. ::
 
-from firedrake import *
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 from animate.adapt import adapt
 from animate.metric import RiemannianMetric
-from goalie_adjoint import *
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
+from firedrake import *
 from matplotlib import ticker
 
+from goalie_adjoint import *
 
-fields = ["c"]
+field_names = ["c"]
 
 
 def get_function_spaces(mesh):
@@ -33,8 +33,8 @@ def source(mesh):
 
 
 def get_form(mesh_seq):
-    def form(index, sols):
-        c, c_ = sols["c"]
+    def form(index):
+        c = mesh_seq.fields["c"]
         function_space = mesh_seq.function_spaces["c"][index]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
@@ -64,37 +64,24 @@ def get_form(mesh_seq):
     return form
 
 
-def get_bcs(mesh_seq):
-    def bcs(index):
-        function_space = mesh_seq.function_spaces["c"][index]
-        return DirichletBC(function_space, 0, 1)
-
-    return bcs
-
-
 def get_solver(mesh_seq):
-    def solver(index, ic):
+    def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
-
-        # Ensure dependence on the initial condition
-        c_ = Function(function_space, name="c_old")
-        c_.assign(ic["c"])
-        c = Function(function_space, name="c")
-        c.assign(c_)
+        c = mesh_seq.fields["c"]
 
         # Setup variational problem
-        F = mesh_seq.form(index, {"c": (c, c_)})["c"]
-        bc = mesh_seq.bcs(index)
+        F = mesh_seq.form(index)["c"]
+        bc = DirichletBC(function_space, 0, 1)
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
-        return {"c": c}
+        yield
 
     return solver
 
 
-def get_qoi(mesh_seq, sol, index):
+def get_qoi(mesh_seq, index):
     def qoi():
-        c = sol["c"]
+        c = mesh_seq.fields["c"]
         x, y = SpatialCoordinate(mesh_seq[index])
         xr, yr, rr = 20, 7.5, 0.5
         kernel = conditional((x - xr) ** 2 + (y - yr) ** 2 < rr**2, 1, 0)
@@ -112,18 +99,17 @@ params = GoalOrientedMetricParameters(
     {
         "element_rtol": 0.005,
         "qoi_rtol": 0.005,
-        "maxiter": 35 if os.environ.get("GOALIE_REGRESSION_TEST") is None else 3,
+        "maxiter": 35,
     }
 )
 
 mesh = RectangleMesh(50, 10, 50, 10)
-time_partition = TimeInstant(fields)
+time_partition = TimeInstant(field_names)
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     mesh,
     get_function_spaces=get_function_spaces,
     get_form=get_form,
-    get_bcs=get_bcs,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="steady",
@@ -343,7 +329,6 @@ mesh_seq = GoalOrientedMeshSeq(
     mesh,
     get_function_spaces=get_function_spaces,
     get_form=get_form,
-    get_bcs=get_bcs,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="steady",

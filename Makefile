@@ -3,9 +3,6 @@ all: install
 .PHONY: demos test
 
 install:
-	@echo "Installing dependencies..."
-	@python3 -m pip install -r requirements.txt
-	@echo "Done."
 	@echo "Installing Goalie..."
 	@python3 -m pip install -e .
 	@echo "Done."
@@ -15,7 +12,7 @@ install:
 
 lint:
 	@echo "Checking lint..."
-	@flake8
+	@ruff check
 	@echo "PASS"
 
 test: lint
@@ -35,6 +32,11 @@ demo:
 	@echo "Running all demos..."
 	@cd demos && make
 	@echo "Done."
+
+check_citation:
+	@echo "Checking CITATION.cff formatting..."
+	@cffconvert --validate
+	@echo "PASS"
 
 tree:
 	@tree -d .
