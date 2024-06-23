@@ -204,11 +204,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
                     transfer(self.solutions[f][ADJ][i][j], u_star[f])
                     transfer(self.solutions[f][ADJ_NEXT][i][j], u_star_next[f])
-                    # Transfer solutions associated to the fields solved next
-                    f_idx = self.fields.index(f)
-                    if len(self.fields) > 1 and f_idx < len(self.fields) - 1:
-                        for f_next in self.fields[f_idx + 1 :]:
-                            transfer(self.solutions[f_next][FWD_OLD][i][j], u[f_next])
 
                     # Combine adjoint solutions as appropriate
                     u_star[f].assign(0.5 * (u_star[f] + u_star_next[f]))
