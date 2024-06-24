@@ -147,9 +147,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :rtype2: :class:`~.IndicatorData
         """
         solver_kwargs = solver_kwargs or {}
-        enrichment_kwargs = dict(
-            {"enrichment_method": "p", "num_enrichments": 1}, **enrichment_kwargs
-        )
+        default_enrichment_kwargs = {"enrichment_method": "p", "num_enrichments": 1}
+        enrichment_kwargs = dict(default_enrichment_kwargs, **(enrichment_kwargs or {}))
         enriched_mesh_seq = self.get_enriched_mesh_seq(**enrichment_kwargs)
         transfer = self._get_transfer_function(enrichment_kwargs["enrichment_method"])
 
