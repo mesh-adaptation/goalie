@@ -33,6 +33,7 @@
 # As always, we begin by importing Firedrake and Goalie, and defining constants.
 
 from firedrake import *
+
 from goalie_adjoint import *
 
 Ra, mu, kappa = Constant(1e4), Constant(1.0), Constant(1.0)
@@ -53,30 +54,10 @@ def get_function_spaces(mesh):
     return {"up": Z, "T": Q}
 
 
-# We must prescribe boundary and initial conditions to solve the problem. Note that
-# Goalie requires defining the initial condition for the mixed field ``up`` despite
-# the equations not involving a time derivative. In this case, the prescribed initial
-# condition should be understood as the *initial guess* for the solver.
-
-
-def get_bcs(mesh_seq):
-    def bcs(index):
-        Z = mesh_seq.function_spaces["up"][index]
-        Q = mesh_seq.function_spaces["T"][index]
-
-        # Boundary IDs
-        left, right, bottom, top = 1, 2, 3, 4
-
-        # Boundary conditions for velocity
-        bcvx = DirichletBC(Z.sub(0).sub(0), 0, sub_domain=(left, right))
-        bcvy = DirichletBC(Z.sub(0).sub(1), 0, sub_domain=(bottom, top))
-        # Boundary conditions for temperature
-        bctb = DirichletBC(Q, 1.0, sub_domain=bottom)
-        bctt = DirichletBC(Q, 0.0, sub_domain=top)
-
-        return {"up": [bcvx, bcvy], "T": [bctb, bctt]}
-
-    return bcs
+# We must initial conditions to solve the problem. Note that we define the initial
+# condition for the mixed field ``up`` despite the equations not involving a time
+# derivative. In this case, the prescribed initial condition should be understood as the
+# *initial guess* for the solver.
 
 
 def get_initial_condition(mesh_seq):
@@ -88,19 +69,16 @@ def get_initial_condition(mesh_seq):
 
 
 # The weak forms for the Stokes and energy equations are defined as follows. Note that
-# the lagged solution ``up_`` is not used in compiling the form, but is still by
-# internal Goalie machinery.
+# the mixed field ``up`` does not have a lagged term.
 
 
 def get_form(mesh_seq):
-    def form(index, sols):
-        dt = mesh_seq.time_partition.timesteps[index]
-
-        up, up_ = sols["up"]
+    def form(index):
+        up = mesh_seq.fields["up"]
         u, p = split(up)
         v, w = TestFunctions(mesh_seq.function_spaces["up"][index])
 
-        T, T_ = sols["T"]
+        T, T_ = mesh_seq.fields["T"]
         q = TestFunction(mesh_seq.function_spaces["T"][index])
 
         # Crank-Nicolson time discretisation for temperature
@@ -116,6 +94,7 @@ def get_form(mesh_seq):
         F_up += -w * div(u) * dx  # Continuity equation
 
         # Energy equation
+        dt = mesh_seq.time_partition.timesteps[index]
         F_T = (
             q * (T - T_) / dt * dx
             + q * dot(u, grad(Ttheta)) * dx
@@ -135,19 +114,26 @@ def get_form(mesh_seq):
 
 
 def get_solver(mesh_seq):
-    def solver(index, ic):
+    def solver(index):
         Z = mesh_seq.function_spaces["up"][index]
-        up = Function(Z, name="up")
-        up_ = Function(Z, name="up_old")
-
         Q = mesh_seq.function_spaces["T"][index]
-        T = Function(Q, name="T")
-        T_ = Function(Q, name="T_old")
-        T_.assign(ic["T"])
+
+        up = mesh_seq.fields["up"]
+        T, T_ = mesh_seq.fields["T"]
 
         # Dictionary of weak forms and boundary conditions for both fields
-        F = mesh_seq.form(index, {"up": (up, up_), "T": (T, T_)})
-        bcs = mesh_seq.bcs(index)
+        F = mesh_seq.form(index)
+
+        # Boundary IDs
+        left, right, bottom, top = 1, 2, 3, 4
+        # Boundary conditions for velocity
+        bcux = DirichletBC(Z.sub(0).sub(0), 0, sub_domain=(left, right))
+        bcuy = DirichletBC(Z.sub(0).sub(1), 0, sub_domain=(bottom, top))
+        bcs_up = [bcux, bcuy]
+        # Boundary conditions for temperature
+        bctb = DirichletBC(Q, 1.0, sub_domain=bottom)
+        bctt = DirichletBC(Q, 0.0, sub_domain=top)
+        bcs_T = [bctb, bctt]
 
         # Solver parameters dictionary
         solver_parameters = {
@@ -158,27 +144,26 @@ def get_solver(mesh_seq):
             "pc_factor_mat_solver_type": "mumps",
         }
 
-        nlvp_up = NonlinearVariationalProblem(F["up"], up, bcs=bcs["up"])
+        nlvp_up = NonlinearVariationalProblem(F["up"], up, bcs=bcs_up)
         nlvs_up = NonlinearVariationalSolver(
             nlvp_up,
             solver_parameters=solver_parameters,
             ad_block_tag="up",
         )
-        nlvp_T = NonlinearVariationalProblem(F["T"], T, bcs=bcs["T"])
+        nlvp_T = NonlinearVariationalProblem(F["T"], T, bcs=bcs_T)
         nlvs_T = NonlinearVariationalSolver(
             nlvp_T,
             solver_parameters=solver_parameters,
             ad_block_tag="T",
         )
 
-        # Time integrate from t_start to t_end
-        P = mesh_seq.time_partition
-        num_timesteps = P.num_timesteps_per_subinterval[index]
+        # Time integrate over the subinterval
+        num_timesteps = mesh_seq.time_partition.num_timesteps_per_subinterval[index]
         for _ in range(num_timesteps):
             nlvs_up.solve()
             nlvs_T.solve()
+            yield
             T_.assign(T)
-        return {"up": up, "T": T}
 
     return solver
 
@@ -187,9 +172,9 @@ def get_solver(mesh_seq):
 # :math:`\mathbf{u}`. The QoI will be evaluated at the final time step.
 
 
-def get_qoi(mesh_seq, sols, i):
+def get_qoi(mesh_seq, i):
     def qoi():
-        up = sols["up"]
+        up = mesh_seq.fields["up"]
         u, _ = split(up)
         return dot(u, u) * dx
 
@@ -228,11 +213,11 @@ mesh_seq = GoalOrientedMeshSeq(
     meshes,
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
-    get_bcs=get_bcs,
     get_form=get_form,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="end_time",
+    transfer_method="interpolate",
 )
 
 solutions, indicators = mesh_seq.indicate_errors()
