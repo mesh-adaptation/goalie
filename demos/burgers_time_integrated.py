@@ -23,11 +23,10 @@ def get_function_spaces(mesh):
 def get_form(mesh_seq):
     def form(index):
         u, u_ = mesh_seq.fields["u"]
-        P = mesh_seq.time_partition
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(P.timesteps[index])
+        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
