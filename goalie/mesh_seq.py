@@ -53,10 +53,7 @@ class MeshSeq:
         """
         self.time_partition = time_partition
         self.fields = {field_name: None for field_name in time_partition.field_names}
-        self.field_types = {
-            field: field_type
-            for field, field_type in zip(self.fields, time_partition.field_types)
-        }
+        self.field_types = dict(zip(self.fields, time_partition.field_types))
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
         self.set_meshes(initial_meshes)

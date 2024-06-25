@@ -80,7 +80,7 @@ class AdaptParameters(AttrDict):
             )
 
     def __str__(self):
-        return str({key: value for key, value in self.items()})
+        return str(dict(self.items()))
 
     def __repr__(self):
         d = ", ".join([f"{key}={value}" for key, value in self.items()])
