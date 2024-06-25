@@ -217,7 +217,6 @@ mesh_seq = GoalOrientedMeshSeq(
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="end_time",
-    transfer_method="interpolate",
 )
 
 solutions, indicators = mesh_seq.indicate_errors()
