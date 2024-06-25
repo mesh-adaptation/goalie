@@ -45,12 +45,13 @@ line-length = 88
 [tool.ruff.lint]
 select = [
   "B",  # flake8-bugbear
-#  "C",  # mccabe complexity  TODO: enable this (#165)
+  "C",  # mccabe complexity
   "E", "W",  # Pycodestyle
   "F",  # Pyflakes
   "I",  # isort
 ]
 ignore = [
+  "C901",  # function is too complex (TODO #165: enable this)
   "E501",  # line too long
   "E203",  # whitespace before ':'
   "E226",  # missing whitespace around arithmetic operator
