@@ -48,8 +48,6 @@ class MeshSeq:
         :kwarg transfer_kwargs: kwargs to pass to the chosen transfer method
         :type transfer_kwargs: :class:`dict` with :class:`str` keys and values which may
             take various types
-        :kwarg parameters: parameters to apply to the mesh adaptation process
-        :type parameters: :class:`~.AdaptParameters`
         """
         self.time_partition = time_partition
         self.fields = {field_name: None for field_name in time_partition.field_names}
@@ -64,13 +62,11 @@ class MeshSeq:
         self._get_solver = kwargs.get("get_solver")
         self._transfer_method = kwargs.get("transfer_method", "project")
         self._transfer_kwargs = kwargs.get("transfer_kwargs", {})
-        self.params = kwargs.get("parameters")
         self.steady = time_partition.steady
         self.check_convergence = np.array([True] * len(self), dtype=bool)
         self.converged = np.array([False] * len(self), dtype=bool)
         self.fp_iteration = 0
-        if self.params is None:
-            self.params = AdaptParameters()
+        self.params = None
         self.sections = [{} for mesh in self]
 
         self._outputs_consistent()
@@ -659,7 +655,12 @@ class MeshSeq:
 
     @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
-        self, adaptor, update_params=None, solver_kwargs=None, adaptor_kwargs=None
+        self,
+        adaptor,
+        parameters=None,
+        update_params=None,
+        solver_kwargs=None,
+        adaptor_kwargs=None,
     ):
         r"""
         Apply mesh adaptation using a fixed point iteration loop approach.
@@ -668,6 +669,8 @@ class MeshSeq:
             sequence and the solution data object. It should return ``True`` if the
             convergence criteria checks are to be skipped for this iteration. Otherwise,
             it should return ``False``.
+        :kwarg parameters: parameters to apply to the mesh adaptation process
+        :type parameters: :class:`~.AdaptParameters`
         :kwarg update_params: function for updating :attr:`~.MeshSeq.params` at each
             iteration. Its arguments are the parameter class and the fixed point
             iteration
@@ -681,6 +684,7 @@ class MeshSeq:
         :rtype: :class:`~.ForwardSolutionData`
         """
         # TODO #124: adaptor no longer needs solution data to be passed explicitly
+        self.params = parameters or AdaptParameters()
         solver_kwargs = solver_kwargs or {}
         adaptor_kwargs = adaptor_kwargs or {}
 

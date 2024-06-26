@@ -14,7 +14,6 @@ from firedrake.petsc import PETSc
 from .function_data import AdjointSolutionData
 from .log import pyrint
 from .mesh_seq import MeshSeq
-from .options import GoalOrientedParameters
 from .utility import AttrDict
 
 __all__ = ["AdjointMeshSeq", "annotate_qoi"]
@@ -88,12 +87,8 @@ class AdjointMeshSeq(MeshSeq):
             :meth:`~.MeshSeq.get_initial_condition`
         :kwarg get_form: a function as described in :meth:`~.MeshSeq.get_form`
         :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
-        :kwarg parameters: parameters to apply to the mesh adaptation process
-        :type parameters: :class:`~.AdaptParameters`
         :kwarg get_qoi: a function as described in :meth:`~.AdjointMeshSeq.get_qoi`
         """
-        if kwargs.get("parameters") is None:
-            kwargs["parameters"] = GoalOrientedParameters()
         self.qoi_type = kwargs.pop("qoi_type")
         if self.qoi_type not in ["end_time", "time_integrated", "steady"]:
             raise ValueError(
