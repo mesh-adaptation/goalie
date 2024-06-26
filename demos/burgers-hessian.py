@@ -86,7 +86,7 @@ time_partition = TimePartition(
     num_timesteps_per_export=2,
 )
 
-params = MetricParameters(
+params = AdaptParameters(
     {
         "element_rtol": 0.001,
         "maxiter": 35,

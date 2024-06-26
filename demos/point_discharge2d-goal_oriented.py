@@ -95,7 +95,7 @@ def get_qoi(mesh_seq, index):
 # we add another relative tolerance condition for the change in QoI value between
 # iterations. ::
 
-params = GoalOrientedMetricParameters(
+params = GoalOrientedParameters(
     {
         "element_rtol": 0.005,
         "qoi_rtol": 0.005,

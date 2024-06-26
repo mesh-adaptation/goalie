@@ -85,14 +85,14 @@ def get_solver(mesh_seq):
 
 # Take a relatively coarse initial mesh, a :class:`TimeInstant` (since we have a
 # steady-state problem), and put everything together in a :class:`MeshSeq`. For this
-# demo, we also create a :class:`MetricParameters` object and set the `element_rtol`
+# demo, we also create a :class:`AdaptParameters` object and set the `element_rtol`
 # parameter to 0.005. This means that the fixed point iteration will terminate if the
 # element count changes by less than 0.5% between iterations. As standard, we allow
 # 35 iterations before establishing that the iteration is not going to converge.
 # To cut down the cost of the regresssion tests, we just use three iterations
 # instead. ::
 
-params = MetricParameters(
+params = AdaptParameters(
     {
         "element_rtol": 0.005,
         "maxiter": 35,
