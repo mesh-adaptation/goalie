@@ -29,7 +29,6 @@ class PointSeq(MeshSeq):
             which returns a function that integrates initial data over a subinterval
         :kwarg get_bcs: a function, whose only argument is a :class:`~.MeshSeq`, which
             returns a function that determines any Dirichlet boundary conditions
-        :kwarg parameters: :class:`~.AdaptParameters` instance
         """
         mesh = fmesh.VertexOnlyMesh(firedrake.UnitIntervalMesh(1), [[0.5]])
         super().__init__(time_partition, mesh, **kwargs)

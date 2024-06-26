@@ -17,7 +17,9 @@ class TestAdjointUtils(unittest.TestCase):
         self.mesh = UnitSquareMesh(1, 1)
 
     def mesh_seq(self, qoi_type="end_time"):
-        return AdjointMeshSeq(self.time_interval, [self.mesh], qoi_type=qoi_type)
+        msq = AdjointMeshSeq(self.time_interval, [self.mesh], qoi_type=qoi_type)
+        msq.params = GoalOrientedAdaptParameters()
+        return msq
 
     def test_annotate_qoi_0args(self):
         @annotate_qoi

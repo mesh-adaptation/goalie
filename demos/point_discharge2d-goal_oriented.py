@@ -91,17 +91,7 @@ def get_qoi(mesh_seq, index):
 
 
 # Since we want to do goal-oriented mesh adaptation, we use a
-# :class:`GoalOrientedMeshSeq`. In addition to the element count convergence criterion,
-# we add another relative tolerance condition for the change in QoI value between
-# iterations. ::
-
-params = GoalOrientedMetricParameters(
-    {
-        "element_rtol": 0.005,
-        "qoi_rtol": 0.005,
-        "maxiter": 35,
-    }
-)
+# :class:`GoalOrientedMeshSeq`. ::
 
 mesh = RectangleMesh(50, 10, 50, 10)
 time_partition = TimeInstant(field_names)
@@ -113,7 +103,6 @@ mesh_seq = GoalOrientedMeshSeq(
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="steady",
-    parameters=params,
 )
 
 # Let's solve the adjoint problem on the initial mesh so that we can see what the
@@ -202,9 +191,18 @@ def adaptor(mesh_seq, solutions, indicators):
 # that, in addition to solving the forward problem, this version of the fixed point
 # iteration method solves the adjoint problem, as well as solving the forward problem
 # again on a globally uniformly refined mesh. The latter is particularly expensive, so
-# we should expect the computation to take more time. ::
+# we should expect the computation to take more time.
+# In addition to the element count convergence criterion, we add another relative
+# tolerance condition for the change in QoI value between iterations. ::
 
-solutions, indicators = mesh_seq.fixed_point_iteration(adaptor)
+params = GoalOrientedAdaptParameters(
+    {
+        "element_rtol": 0.005,
+        "qoi_rtol": 0.005,
+        "maxiter": 35,
+    }
+)
+solutions, indicators = mesh_seq.fixed_point_iteration(adaptor, parameters=params)
 
 # This time, we find that the fixed point iteration converges in five iterations.
 # Convergence is reached because the relative change in QoI is found to be smaller than

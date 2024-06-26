@@ -86,12 +86,6 @@ time_partition = TimePartition(
     num_timesteps_per_export=2,
 )
 
-params = MetricParameters(
-    {
-        "element_rtol": 0.001,
-        "maxiter": 35,
-    }
-)
 mesh_seq = MeshSeq(
     time_partition,
     meshes,
@@ -99,7 +93,6 @@ mesh_seq = MeshSeq(
     get_initial_condition=get_initial_condition,
     get_form=get_form,
     get_solver=get_solver,
-    parameters=params,
 )
 
 # As in the previous adaptation demos, the most important part is the adaptor function.
@@ -189,7 +182,13 @@ def adaptor(mesh_seq, solutions):
 
 # With the adaptor function defined, we can call the fixed point iteration method. ::
 
-solutions = mesh_seq.fixed_point_iteration(adaptor)
+params = AdaptParameters(
+    {
+        "element_rtol": 0.001,
+        "maxiter": 35,
+    }
+)
+solutions = mesh_seq.fixed_point_iteration(adaptor, parameters=params)
 
 # Here the output should look something like
 #

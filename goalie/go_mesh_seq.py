@@ -14,6 +14,7 @@ from .adjoint import AdjointMeshSeq
 from .error_estimation import get_dwr_indicator
 from .function_data import IndicatorData
 from .log import pyrint
+from .options import GoalOrientedAdaptParameters
 
 __all__ = ["GoalOrientedMeshSeq"]
 
@@ -70,7 +71,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             get_solver=self._get_solver,
             get_qoi=self._get_qoi,
             qoi_type=self.qoi_type,
-            parameters=self.params,
         )
         enriched_mesh_seq._update_function_spaces()
 
@@ -286,6 +286,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
     def fixed_point_iteration(
         self,
         adaptor,
+        parameters=None,
         update_params=None,
         enrichment_kwargs=None,
         adaptor_kwargs=None,
@@ -299,6 +300,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             sequence and the solution and indicator data objects. It should return
             ``True`` if the convergence criteria checks are to be skipped for this
             iteration. Otherwise, it should return ``False``.
+        :kwarg parameters: parameters to apply to the mesh adaptation process
+        :type parameters: :class:`~.GoalOrientedAdaptParameters`
         :kwarg update_params: function for updating :attr:`~.MeshSeq.params` at each
             iteration. Its arguments are the parameter class and the fixed point
             iteration
@@ -321,6 +324,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         """
         # TODO #124: adaptor no longer needs solution and indicator data to be passed
         #            explicitly
+        self.params = parameters or GoalOrientedAdaptParameters()
         enrichment_kwargs = enrichment_kwargs or {}
         adaptor_kwargs = adaptor_kwargs or {}
         solver_kwargs = solver_kwargs or {}
