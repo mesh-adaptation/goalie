@@ -54,7 +54,7 @@ class TestGeneric(unittest.TestCase):
         funcs = [lambda _: 0, lambda _: 0, lambda _: lambda *_: 0]
         methods_map = dict(zip(methods, funcs))
         if method == "get_form":
-            kwargs = {method: func for method, func in methods_map.items()}
+            kwargs = methods_map
             f_space = FunctionSpace(mesh, "CG", 1)
             kwargs["get_function_spaces"] = lambda _: {"field": f_space}
             kwargs["get_initial_condition"] = lambda _: {"field": Function(f_space)}
