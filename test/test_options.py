@@ -80,9 +80,9 @@ class TestAdaptParameters(unittest.TestCase):
         self.assertEqual(str(cm.exception), msg)
 
 
-class TestGoalOrientedParameters(unittest.TestCase):
+class TestGoalOrientedAdaptParameters(unittest.TestCase):
     """
-    Unit tests for the :class:`GoalOrientedParameters` class.
+    Unit tests for the :class:`GoalOrientedAdaptParameters` class.
     """
 
     def setUp(self):
@@ -97,18 +97,18 @@ class TestGoalOrientedParameters(unittest.TestCase):
         }
 
     def test_defaults(self):
-        ap = GoalOrientedParameters()
+        ap = GoalOrientedAdaptParameters()
         for key, value in self.defaults.items():
             self.assertEqual(ap[key], value)
 
     def test_str(self):
-        ap = GoalOrientedParameters()
+        ap = GoalOrientedAdaptParameters()
         self.assertEqual(str(ap), str(self.defaults))
 
     def test_repr(self):
-        ap = GoalOrientedParameters()
+        ap = GoalOrientedAdaptParameters()
         expected = (
-            "GoalOrientedParameters(qoi_rtol=0.001, estimator_rtol=0.001,"
+            "GoalOrientedAdaptParameters(qoi_rtol=0.001, estimator_rtol=0.001,"
             " convergence_criteria=any, miniter=3, maxiter=35, element_rtol=0.001,"
             " drop_out_converged=False)"
         )
@@ -116,7 +116,7 @@ class TestGoalOrientedParameters(unittest.TestCase):
 
     def test_convergence_criteria_type_error(self):
         with self.assertRaises(TypeError) as cm:
-            GoalOrientedParameters({"convergence_criteria": 0})
+            GoalOrientedAdaptParameters({"convergence_criteria": 0})
         msg = (
             "Expected attribute 'convergence_criteria' to be of type 'str', not 'int'."
         )
@@ -124,19 +124,19 @@ class TestGoalOrientedParameters(unittest.TestCase):
 
     def test_convergence_criteria_value_error(self):
         with self.assertRaises(ValueError) as cm:
-            GoalOrientedParameters({"convergence_criteria": "both"})
+            GoalOrientedAdaptParameters({"convergence_criteria": "both"})
         msg = "Unsupported value 'both' for 'convergence_criteria'. Choose from ['all', 'any']."
         self.assertEqual(str(cm.exception), msg)
 
     def test_qoi_rtol_type_error(self):
         with self.assertRaises(TypeError) as cm:
-            GoalOrientedParameters({"qoi_rtol": "0.001"})
+            GoalOrientedAdaptParameters({"qoi_rtol": "0.001"})
         msg = "Expected attribute 'qoi_rtol' to be of type 'float' or 'int', not 'str'."
         self.assertEqual(str(cm.exception), msg)
 
     def test_estimator_rtol_type_error(self):
         with self.assertRaises(TypeError) as cm:
-            GoalOrientedParameters({"estimator_rtol": "0.001"})
+            GoalOrientedAdaptParameters({"estimator_rtol": "0.001"})
         msg = (
             "Expected attribute 'estimator_rtol' to be of type 'float' or 'int', not"
             " 'str'."

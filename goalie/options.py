@@ -2,7 +2,7 @@ from .utility import AttrDict
 
 __all__ = [
     "AdaptParameters",
-    "GoalOrientedParameters",
+    "GoalOrientedAdaptParameters",
 ]
 
 
@@ -83,7 +83,7 @@ class AdaptParameters(AttrDict):
         return f"{type(self).__name__}({d})"
 
 
-class GoalOrientedParameters(AdaptParameters):
+class GoalOrientedAdaptParameters(AdaptParameters):
     """
     A class for holding parameters associated with
     goal-oriented adaptive mesh fixed point iteration

@@ -195,7 +195,7 @@ class TestAdjointMeshSeq(unittest.TestCase, MeshSeqBaseClass):
     seq = AdjointMeshSeq
 
     def setUp(self):
-        self.parameters = GoalOrientedParameters(
+        self.parameters = GoalOrientedAdaptParameters(
             {
                 "miniter": 3,
                 "maxiter": 5,

@@ -195,7 +195,7 @@ def adaptor(mesh_seq, solutions, indicators):
 # In addition to the element count convergence criterion, we add another relative
 # tolerance condition for the change in QoI value between iterations. ::
 
-params = GoalOrientedParameters(
+params = GoalOrientedAdaptParameters(
     {
         "element_rtol": 0.005,
         "qoi_rtol": 0.005,
