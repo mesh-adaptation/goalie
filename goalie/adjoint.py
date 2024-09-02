@@ -384,11 +384,11 @@ class AdjointMeshSeq(MeshSeq):
         test_checkpoint_qoi=False,
     ):
         """
-        A generator for solving an adjoint problem on a sequence of subintervals,
-        yielding the solution data at each timestep before clearing the tape.
+        A generator for solving an adjoint problem on a sequence of subintervals.
 
         As well as the quantity of interest value, solution fields are computed - see
-        :class:`~.AdjointSolutionData` for more information.
+        :class:`~.AdjointSolutionData` for more information. The solution data are
+        yielded at the end of each subinterval, before clearing the tape.
 
         :kwarg solver_kwargs: parameters for the forward solver, as well as any
             parameters for the QoI, which should be included as a sub-dictionary with key
@@ -403,7 +403,7 @@ class AdjointMeshSeq(MeshSeq):
         :type get_adj_values: :class:`bool`
         :kwarg test_checkpoint_qoi: solve over the final subinterval when checkpointing
             so that the QoI value can be checked across runs
-        :yield: the solution data of the forward and adjoint solves
+        :yields: the solution data of the forward and adjoint solves
         :ytype: :class:`~.AdjointSolutionData`
         """
         # TODO #125: Support get_adj_values in AdjointSolutionData

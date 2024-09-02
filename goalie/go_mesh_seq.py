@@ -155,7 +155,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         # Reinitialise the error indicator data object
         self._create_indicators()
 
-        # Initialise adjoint solver generators
+        # Initialise adjoint solver generators on the MeshSeq and its enriched version
         adj_sol_gen = self._solve_adjoint(**solver_kwargs)
         adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(**solver_kwargs)
 
