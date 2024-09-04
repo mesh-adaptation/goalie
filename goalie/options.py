@@ -24,6 +24,10 @@ class AdaptParameters(AttrDict):
         self["maxiter"] = 35  # Maximum iteration count
         self["element_rtol"] = 0.001  # Relative tolerance for element count
         self["drop_out_converged"] = False  # Drop out converged subintervals?
+        self["stall_niter"] = 3  # Number of iterations to check for stalling over
+        self["stall_factor"] = (
+            5  # Factor to multiply element_rtol by to check for stalling
+        )
 
         if not isinstance(parameters, dict):
             raise TypeError(
@@ -40,6 +44,8 @@ class AdaptParameters(AttrDict):
         self._check_type("maxiter", int)
         self._check_type("element_rtol", (float, int))
         self._check_type("drop_out_converged", bool)
+        self._check_type("stall_niter", int)
+        self._check_type("stall_factor", (float, int))
 
     def _check_type(self, key, expected):
         """

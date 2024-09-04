@@ -722,3 +722,12 @@ class MeshSeq:
                     )
 
         return self.solutions
+
+    @property
+    def stalled(self):
+        niter = self.params.stall_niter
+        if len(self.element_counts) < niter:
+            return False
+        rtol = self.params.stall_factor * self.params.element_rtol
+        # TODO:May need to slice differently
+        return np.allclose(self.count_elements[-niter:], atol=rtol)
