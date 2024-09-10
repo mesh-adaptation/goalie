@@ -155,15 +155,20 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         # Reinitialise the error indicator data object
         self._create_indicators()
 
-        # Solve the forward and adjoint problems on the MeshSeq and its enriched version
-        self.solve_adjoint(**solver_kwargs)
-        enriched_mesh_seq.solve_adjoint(**solver_kwargs)
+        # Initialise adjoint solver generators on the MeshSeq and its enriched version
+        adj_sol_gen = self._solve_adjoint(**solver_kwargs)
+        adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(**solver_kwargs)
 
         FWD, ADJ = "forward", "adjoint"
         FWD_OLD = "forward" if self.steady else "forward_old"
         ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
         P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
-        for i in range(len(self)):
+        # Loop over each subinterval in reverse
+        for i in reversed(range(len(self))):
+            # Solve the adjoint problem on the current subinterval
+            next(adj_sol_gen)
+            next(adj_sol_gen_enriched)
+
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
             enriched_spaces = {

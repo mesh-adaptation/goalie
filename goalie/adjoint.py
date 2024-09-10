@@ -376,7 +376,7 @@ class AdjointMeshSeq(MeshSeq):
         self._solutions = AdjointSolutionData(self.time_partition, self.function_spaces)
 
     @PETSc.Log.EventDecorator()
-    def solve_adjoint(
+    def _solve_adjoint(
         self,
         solver_kwargs=None,
         adj_solver_kwargs=None,
@@ -384,10 +384,11 @@ class AdjointMeshSeq(MeshSeq):
         test_checkpoint_qoi=False,
     ):
         """
-        Solve an adjoint problem on a sequence of subintervals.
+        A generator for solving an adjoint problem on a sequence of subintervals.
 
         As well as the quantity of interest value, solution fields are computed - see
-        :class:`~.AdjointSolutionData` for more information.
+        :class:`~.AdjointSolutionData` for more information. The solution data are
+        yielded at the end of each subinterval, before clearing the tape.
 
         :kwarg solver_kwargs: parameters for the forward solver, as well as any
             parameters for the QoI, which should be included as a sub-dictionary with key
@@ -402,8 +403,8 @@ class AdjointMeshSeq(MeshSeq):
         :type get_adj_values: :class:`bool`
         :kwarg test_checkpoint_qoi: solve over the final subinterval when checkpointing
             so that the QoI value can be checked across runs
-        :returns: the solution data of the forward and adjoint solves
-        :rtype: :class:`~.AdjointSolutionData`
+        :yields: the solution data of the forward and adjoint solves
+        :ytype: :class:`~.AdjointSolutionData`
         """
         # TODO #125: Support get_adj_values in AdjointSolutionData
         # TODO #126: Separate out qoi_kwargs
@@ -621,6 +622,8 @@ class AdjointMeshSeq(MeshSeq):
                             " subinterval is zero."
                         )
 
+            yield self.solutions
+
             # Clear the tape to reduce the memory footprint
             tape.clear_tape()
 
@@ -633,6 +636,48 @@ class AdjointMeshSeq(MeshSeq):
                 )
 
         tape.clear_tape()
+
+    def solve_adjoint(
+        self,
+        solver_kwargs=None,
+        adj_solver_kwargs=None,
+        get_adj_values=False,
+        test_checkpoint_qoi=False,
+    ):
+        """
+        Solve an adjoint problem on a sequence of subintervals.
+
+        As well as the quantity of interest value, solution fields are computed - see
+        :class:`~.AdjointSolutionData` for more information.
+
+        :kwarg solver_kwargs: parameters for the forward solver, as well as any
+            parameters for the QoI, which should be included as a sub-dictionary with key
+            'qoi_kwargs'
+        :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :kwarg adj_solver_kwargs: parameters for the adjoint solver
+        :type adj_solver_kwargs: :class:`dict` with :class:`str` keys and values which
+            may take various types
+        :kwarg get_adj_values: if ``True``, adjoint actions are also returned at exported
+            timesteps
+        :type get_adj_values: :class:`bool`
+        :kwarg test_checkpoint_qoi: solve over the final subinterval when checkpointing
+            so that the QoI value can be checked across runs
+        :returns: the solution data of the forward and adjoint solves
+        :rtype: :class:`~.AdjointSolutionData`
+        """
+
+        # Initialise the adjoint solver generator
+        adjoint_solver_gen = self._solve_adjoint(
+            solver_kwargs=solver_kwargs,
+            adj_solver_kwargs=adj_solver_kwargs,
+            get_adj_values=get_adj_values,
+            test_checkpoint_qoi=test_checkpoint_qoi,
+        )
+        # Solve the adjoint problem over each subinterval
+        for _ in range(len(self)):
+            next(adjoint_solver_gen)
+
         return self.solutions
 
     @staticmethod
