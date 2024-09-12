@@ -60,11 +60,6 @@ jobs:
           python -m pip uninstall -y goalie
           python -m pip install -e .
 
-      - name: 'Check citation'
-        run: |
-          . /home/firedrake/firedrake/bin/activate
-          make check_citation
-
       - name: 'Lint'
         if: ${{ (steps.changed-files.outputs.any_changed == 'true') || ( github.event_name == 'schedule') }}
         run: |

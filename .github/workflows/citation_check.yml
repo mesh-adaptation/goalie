@@ -1,0 +1,35 @@
+name: 'Citation Check'
+
+on:
+  # Run only when commits are pushed to a branch or a PR that modifies a .cff file
+  push:
+    paths:
+      - '**/*.cff'
+  pull_request:
+    paths:
+      - '**/*.cff'
+
+  # Allow manual triggering
+  workflow_dispatch:
+
+jobs:
+  citation_check:
+    name: 'Check Citation'
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/mesh-adaptation/firedrake-parmmg:latest
+      options: --user root
+
+    steps:
+      - name: 'Check out the repo'
+        uses: actions/checkout@v4
+
+      - name: 'Setup Python'
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: 'Check citation'
+        run: |
+          . /home/firedrake/firedrake/bin/activate
+          make check_citation
