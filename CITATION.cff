@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: If you use this software in a publication, please cite it using these metadata.
+message: If you use this software in a publication then please cite it using these metadata.
 title: Goalie
 abstract: Goal-oriented error estimation and mesh adaptation for finite element problems solved using Firedrake.
 authors:
