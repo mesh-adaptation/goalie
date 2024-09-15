@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   build:
-    name: 'Test suite'
+    name: 'Test suite with files changed check'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/mesh-adaptation/firedrake-parmmg:latest
@@ -28,7 +28,7 @@ jobs:
         uses: tj-actions/changed-files@v44
         with:
           files: |
-            .github/workflows/test_suite.yml
+            .github/workflows/files_changed_test_suite.yml
             *.py
             *.msh
             *.geo

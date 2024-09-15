@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   build:
-    name: 'Test suite'
+    name: 'Full test suite'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/mesh-adaptation/firedrake-parmmg:latest
