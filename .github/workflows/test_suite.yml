@@ -34,6 +34,7 @@ jobs:
 
       - name: 'Determine files differing from target branch'
         id: changed-files
+        if: ${{ github.event_name != 'push' && github.ref != 'refs/heads/main' }}
         uses: tj-actions/changed-files@v44
         with:
           files: |
@@ -49,26 +50,26 @@ jobs:
           rm -rf build
 
       - name: 'Setup Python'
-        if: ${{ (steps.changed-files.outputs.any_changed == 'true') || ( github.event_name == 'schedule') }}
+        if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (steps.changed-files.outcome == 'success' && steps.changed-files.outputs.any_changed == 'true') || github.event_name == 'schedule' }}
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
 
       - name: 'Install Goalie'
-        if: ${{ (steps.changed-files.outputs.any_changed == 'true') || ( github.event_name == 'schedule') }}
+        if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (steps.changed-files.outcome == 'success' && steps.changed-files.outputs.any_changed == 'true') || github.event_name == 'schedule' }}
         run: |
           . /home/firedrake/firedrake/bin/activate
           python -m pip uninstall -y goalie
           python -m pip install -e .
 
       - name: 'Lint'
-        if: ${{ (steps.changed-files.outputs.any_changed == 'true') || ( github.event_name == 'schedule') }}
+        if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (steps.changed-files.outcome == 'success' && steps.changed-files.outputs.any_changed == 'true') || github.event_name == 'schedule' }}
         run: |
           . /home/firedrake/firedrake/bin/activate
           make lint
 
       - name: 'Test Goalie'
-        if: ${{ (steps.changed-files.outputs.any_changed == 'true') || ( github.event_name == 'schedule') }}
+        if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (steps.changed-files.outcome == 'success' && steps.changed-files.outputs.any_changed == 'true') || github.event_name == 'schedule' }}
         run: |
           . /home/firedrake/firedrake/bin/activate
           python $(which firedrake-clean)

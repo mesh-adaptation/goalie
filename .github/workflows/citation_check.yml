@@ -1,10 +1,14 @@
 name: 'Citation Check'
 
 on:
-  # Run only when commits are pushed to a branch or a PR that modifies a .cff file
+  # Run when a branch that modifies a .cff file is merged into main
   push:
+    branches:
+      - main
     paths:
       - '**/*.cff'
+
+  # Run when commits are pushed to a branch or a PR that modifies a .cff file
   pull_request:
     paths:
       - '**/*.cff'
@@ -16,9 +20,6 @@ jobs:
   citation_check:
     name: 'Check Citation'
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/mesh-adaptation/firedrake-parmmg:latest
-      options: --user root
 
     steps:
       - name: 'Check out the repo'
@@ -31,5 +32,5 @@ jobs:
 
       - name: 'Check citation'
         run: |
-          . /home/firedrake/firedrake/bin/activate
+          pip install cffconvert
           make check_citation
