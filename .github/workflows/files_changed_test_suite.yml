@@ -1,0 +1,70 @@
+name: 'Run Goalie test suite for files changed'
+
+on:
+  # Run test suite whenever commits are pushed to an open PR
+  pull_request:
+
+concurrency:
+  # Cancel jobs running if new commits are pushed
+  group: >
+    ${{ github.workflow }}-
+    ${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: 'Test suite'
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/mesh-adaptation/firedrake-parmmg:latest
+      options: --user root
+    steps:
+      - name: 'Check out the repo'
+        id: checkout
+        uses: actions/checkout@v4
+
+      - name: 'Determine files differing from target branch'
+        id: changed-files
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            .github/workflows/test_suite.yml
+            *.py
+            *.msh
+            *.geo
+
+      - name: 'Cleanup'
+        if: ${{ always() }}
+        run: |
+          cd ..
+          rm -rf build
+
+      - name: 'Setup Python'
+        if: ${{ (steps.changed-files.outputs.any_changed == 'true') }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: 'Install Goalie'
+        if: ${{ (steps.changed-files.outputs.any_changed == 'true') }}
+        run: |
+          . /home/firedrake/firedrake/bin/activate
+          python -m pip uninstall -y goalie
+          python -m pip install -e .
+
+      - name: 'Lint'
+        if: ${{ (steps.changed-files.outputs.any_changed == 'true') }}
+        run: |
+          . /home/firedrake/firedrake/bin/activate
+          make lint
+
+      - name: 'Test Goalie'
+        if: ${{ (steps.changed-files.outputs.any_changed == 'true') }}
+        run: |
+          . /home/firedrake/firedrake/bin/activate
+          python $(which firedrake-clean)
+          export GITHUB_ACTIONS_TEST_RUN=1
+          python -m coverage erase
+          python -m coverage run -a --source=goalie -m pytest -v --durations=20 test
+          python -m coverage run -a --source=goalie -m pytest -v --durations=10 test_adjoint
+          python -m coverage report

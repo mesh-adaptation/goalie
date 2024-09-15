@@ -1,13 +1,10 @@
-name: 'Run Goalie test suite'
+name: 'Run full Goalie test suite'
 
 on:
-  # Run test suite whenever main is updated
+  # Run test suite whenever main is updated, i.e., a PR is merged
   push:
     branches:
       - main
-
-  # Run test suite whenever commits are pushed to an open PR
-  pull_request:
 
   # Run test suite every Sunday at 1AM
   schedule:
@@ -32,16 +29,6 @@ jobs:
         id: checkout
         uses: actions/checkout@v4
 
-      - name: 'Determine files differing from target branch'
-        id: changed-files
-        uses: tj-actions/changed-files@v44
-        with:
-          files: |
-            .github/workflows/test_suite.yml
-            *.py
-            *.msh
-            *.geo
-
       - name: 'Cleanup'
         if: ${{ always() }}
         run: |
@@ -49,26 +36,22 @@ jobs:
           rm -rf build
 
       - name: 'Setup Python'
-        if: ${{ (steps.changed-files.outputs.any_changed == 'true') || ( github.event_name == 'schedule') }}
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
 
       - name: 'Install Goalie'
-        if: ${{ (steps.changed-files.outputs.any_changed == 'true') || ( github.event_name == 'schedule') }}
         run: |
           . /home/firedrake/firedrake/bin/activate
           python -m pip uninstall -y goalie
           python -m pip install -e .
 
       - name: 'Lint'
-        if: ${{ (steps.changed-files.outputs.any_changed == 'true') || ( github.event_name == 'schedule') }}
         run: |
           . /home/firedrake/firedrake/bin/activate
           make lint
 
       - name: 'Test Goalie'
-        if: ${{ (steps.changed-files.outputs.any_changed == 'true') || ( github.event_name == 'schedule') }}
         run: |
           . /home/firedrake/firedrake/bin/activate
           python $(which firedrake-clean)
