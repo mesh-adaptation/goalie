@@ -135,12 +135,11 @@ def pytest_runtest_teardown(item, nextitem):
     """
     Clear caches after running a test
     """
-    # TODO #222: GlobalKernel no longer has _cache attribute
     from firedrake.tsfc_interface import clear_cache
-    # from pyop2.global_kernel import GlobalKernel
+    from pyop2.caching import clear_memory_cache
 
     clear_cache()
-    # GlobalKernel._cache.clear()
+    clear_memory_cache()
 
 
 @pytest.fixture(autouse=True)
