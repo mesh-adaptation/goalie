@@ -187,31 +187,48 @@ class FunctionData(ABC):
             export_field_types = [export_field_types]
         if not all(field_type in self.labels for field_type in export_field_types):
             raise ValueError(
-                f"Field types {export_field_types} not recognised. Available types are {self.labels}."
+                f"Field types {export_field_types} not recognised."
+                f" Available types are {self.labels}."
             )
-        tp = self.time_partition
 
         if output_fpath.endswith(".pvd"):
-            outfile = VTKFile(output_fpath, adaptive=True)
-            if initial_condition is not None:
-                if export_field_types != ["forward"]:
-                    print(
-                        "Initial condition not exported because more than 'forward' field type is selected for export."
-                    )
-                else:
-                    ics = []
-                    for field, ic in initial_condition.items():
-                        ic = ic.copy(deepcopy=True)
-                        # If the function space is mixed, rename and append each
-                        # subfunction separately
-                        if hasattr(ic.function_space(), "num_sub_spaces"):
-                            for idx, sf in enumerate(ic.subfunctions):
-                                sf.rename(f"{field}_{idx}_forward")
-                                ics.append(sf)
-                        else:
-                            ic.rename(f"{field}_forward")
-                            ics.append(ic)
-                    outfile.write(*ics, time=tp.subintervals[0][0])
+            self._export_vtk(output_fpath, export_field_types, initial_condition)
+        elif output_fpath.endswith(".h5"):
+            self._export_h5(output_fpath, export_field_types, initial_condition)
+        else:
+            raise ValueError(
+                f"Output file format not recognised: '{output_fpath}'."
+                " Supported formats are '.pvd' and '.h5'."
+            )
+
+    def _export_vtk(self, output_fpath, export_field_types, initial_condition=None):
+        """
+        Export field data to a series of VTK files. Arguments are the same as for
+        :meth:`~.export`.
+        """
+        tp = self.time_partition
+        outfile = VTKFile(output_fpath, adaptive=True)
+        if initial_condition is not None:
+            if export_field_types != ["forward"]:
+                print(
+                    "Initial condition not exported because more than 'forward' field"
+                    " type is selected for export."
+                )
+            else:
+                ics = []
+                for field, ic in initial_condition.items():
+                    ic = ic.copy(deepcopy=True)
+                    # If the function space is mixed, rename and append each
+                    # subfunction separately
+                    if hasattr(ic.function_space(), "num_sub_spaces"):
+                        for idx, sf in enumerate(ic.subfunctions):
+                            sf.rename(f"{field}_{idx}_forward")
+                            ics.append(sf)
+                    else:
+                        ic.rename(f"{field}_forward")
+                        ics.append(ic)
+                outfile.write(*ics, time=tp.subintervals[0][0])
+
             for i in range(tp.num_subintervals):
                 for j in range(tp.num_exports_per_subinterval[i] - 1):
                     time = (
@@ -233,33 +250,35 @@ class FunctionData(ABC):
                                 f.rename(f"{field}_{field_type}")
                                 fs.append(f)
                     outfile.write(*fs, time=time)
-        elif output_fpath.endswith(".h5"):
-            # Mesh names must be unique
-            mesh_names = [
-                fspace.mesh().name for fspace in self.function_spaces[tp.field_names[0]]
-            ]
-            rename_meshes = len(set(mesh_names)) != len(mesh_names)
-            with CheckpointFile(output_fpath, "w") as outfile:
-                for i in range(tp.num_subintervals):
-                    if rename_meshes:
-                        mesh_name = f"mesh_{i}"
-                        msh = self.function_spaces[tp.field_names[0]][i].mesh()
-                        msh.name = mesh_name
-                        msh.topology_dm.name = mesh_name
-                    for j in range(tp.num_exports_per_subinterval[i] - 1):
-                        for field in tp.field_names:
-                            for field_type in export_field_types:
-                                f = self._data[field][field_type][i][j]
-                                name = f"{field}_{field_type}_{i}_{j}"
-                                outfile.save_function(f, name=name)
-                if initial_condition is not None:
-                    for field, ic in initial_condition.items():
-                        outfile.save_function(ic, name=f"{field}_initial")
-        else:
-            raise ValueError(
-                f"Output file format not recognised: '{output_fpath}'."
-                " Supported formats are '.pvd' and '.h5'."
-            )
+
+    def _export_h5(self, output_fpath, export_field_types, initial_condition=None):
+        """
+        Export field data to an HDF5 file. Arguments are the same as for
+        :meth:`~.export`.
+        """
+        tp = self.time_partition
+
+        # Mesh names must be unique
+        mesh_names = [
+            fspace.mesh().name for fspace in self.function_spaces[tp.field_names[0]]
+        ]
+        rename_meshes = len(set(mesh_names)) != len(mesh_names)
+        with CheckpointFile(output_fpath, "w") as outfile:
+            for i in range(tp.num_subintervals):
+                if rename_meshes:
+                    mesh_name = f"mesh_{i}"
+                    msh = self.function_spaces[tp.field_names[0]][i].mesh()
+                    msh.name = mesh_name
+                    msh.topology_dm.name = mesh_name
+                for j in range(tp.num_exports_per_subinterval[i] - 1):
+                    for field in tp.field_names:
+                        for field_type in export_field_types:
+                            f = self._data[field][field_type][i][j]
+                            name = f"{field}_{field_type}_{i}_{j}"
+                            outfile.save_function(f, name=name)
+            if initial_condition is not None:
+                for field, ic in initial_condition.items():
+                    outfile.save_function(ic, name=f"{field}_initial")
 
 
 class ForwardSolutionData(FunctionData):
