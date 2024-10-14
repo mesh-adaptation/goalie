@@ -25,16 +25,16 @@ modifications = {
     "burgers-hessian.py": {""""maxiter": 35""": """"maxiter": 3"""},
     "gray_scott.py": {
         "end_time = 2000.0": "end_time = 10.0",
-        r"ic = mesh_seq.get_initial_condition\(\)\n.*?adj_outfile.write\(\*adj_end.subfunctions\)": "",
+        r"solutions\.export\((.*?)\)\s*solutions\.export\((.*?)\)": "",
     },
     "gray_scott_split.py": {
         "end_time = 2000.0": "end_time = 10.0",
-        r"ic = mesh_seq.get_initial_condition\(\)\n.*?adj_outfile.write\(Function\(ic\[field\]\).assign\(0.0\)\)": "",
+        r"solutions\.export\((.*?)\)\s*solutions\.export\((.*?)\)": "",
     },
     "point_discharge2d-hessian.py": {""""maxiter": 35""": """"maxiter": 3"""},
     "point_discharge2d-goal_oriented.py": {""""maxiter": 35""": """"maxiter": 3"""},
     "solid_body_rotation.py": {
-        r"for field, sols in solutions.items\(\):\n.*?adj_outfile.write\(sol\)": "",
+        r"solutions\.export\((.*?)\)": "",
     },
 }
 
