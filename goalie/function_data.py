@@ -155,7 +155,8 @@ class FunctionData(ABC):
         the output file path. Supported formats are '.pvd' and '.h5'.
 
         If the output file format is '.pvd', the data is exported as a series of VTK
-        files using Firedrake's :class:`~.VTKFile`.
+        files using Firedrake's :class:`~.VTKFile`. Since mixed function spaces are not
+        supported by VTK, each subfunction of a mixed function is exported separately.
 
         If the output file format is '.h5', the data is exported as a single HDF5 file
         using Firedrake's :class:`~.CheckpointFile`. If names of meshes in the mesh
@@ -201,8 +202,15 @@ class FunctionData(ABC):
                     ics = []
                     for field, ic in initial_condition.items():
                         ic = ic.copy(deepcopy=True)
-                        ic.rename(f"{field}_forward")
-                        ics.append(ic)
+                        # If the function space is mixed, rename and append each
+                        # subfunction separately
+                        if hasattr(ic.function_space(), "num_sub_spaces"):
+                            for idx, sf in enumerate(ic.subfunctions):
+                                sf.rename(f"{field}_{idx}_forward")
+                                ics.append(sf)
+                        else:
+                            ic.rename(f"{field}_forward")
+                            ics.append(ic)
                     outfile.write(*ics, time=tp.subintervals[0][0])
             for i in range(tp.num_subintervals):
                 for j in range(tp.num_exports_per_subinterval[i] - 1):
@@ -212,10 +220,18 @@ class FunctionData(ABC):
                     )
                     fs = []
                     for field in tp.field_names:
+                        mixed = hasattr(
+                            self.function_spaces[field][0], "num_sub_spaces"
+                        )
                         for field_type in export_field_types:
                             f = self._data[field][field_type][i][j].copy(deepcopy=True)
-                            f.rename(f"{field}_{field_type}")
-                            fs.append(f)
+                            if mixed:
+                                for idx, sf in enumerate(f.subfunctions):
+                                    sf.rename(f"{field}_{idx}_{field_type}")
+                                    fs.append(sf)
+                            else:
+                                f.rename(f"{field}_{field_type}")
+                                fs.append(f)
                     outfile.write(*fs, time=time)
         elif output_fpath.endswith(".h5"):
             # Mesh names must be unique
