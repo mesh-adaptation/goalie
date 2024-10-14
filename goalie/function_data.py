@@ -198,10 +198,12 @@ class FunctionData(ABC):
                         "Initial condition not exported because more than 'forward' field type is selected for export."
                     )
                 else:
+                    ics = []
                     for field, ic in initial_condition.items():
                         ic = ic.copy(deepcopy=True)
                         ic.rename(f"{field}_forward")
-                        outfile.write(ic, time=tp.subintervals[0][0])
+                        ics.append(ic)
+                    outfile.write(*ics, time=tp.subintervals[0][0])
             for i in range(tp.num_subintervals):
                 for j in range(tp.num_exports_per_subinterval[i] - 1):
                     time = (
