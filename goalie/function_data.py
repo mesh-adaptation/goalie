@@ -179,9 +179,10 @@ class FunctionData(ABC):
         export_field_types = export_field_types or self.labels
         if isinstance(export_field_types, str):
             export_field_types = [export_field_types]
-        assert all(
-            field_type in self.labels for field_type in export_field_types
-        ), f"Field type not recognised. Available types are {self.labels}."
+        if not all(field_type in self.labels for field_type in export_field_types):
+            raise ValueError(
+                f"Field types {export_field_types} not recognised. Available types are {self.labels}."
+            )
         tp = self.time_partition
 
         if output_fpath.endswith(".pvd"):
