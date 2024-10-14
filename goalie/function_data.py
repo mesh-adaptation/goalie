@@ -170,8 +170,8 @@ class FunctionData(ABC):
 
             with CheckpointFile(output_fpath, "r") as afile:
                 first_mesh = afile.load_mesh("mesh_0")
-                initial_condition = afile.load_function("u_initial")
-                first_export = afile.load_function("u_forward_0_0")
+                initial_condition = afile.load_function(first_mesh, "u_initial")
+                first_export = afile.load_function(first_mesh, "u_forward_0_0")
 
         :arg output_fpath: the path to the output file
         :type output_fpath: :class:`str`
