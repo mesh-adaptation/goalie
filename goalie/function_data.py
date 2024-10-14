@@ -259,11 +259,12 @@ class FunctionData(ABC):
         tp = self.time_partition
 
         # Mesh names must be unique
-        mesh_names = [
-            fspace.mesh().name for fspace in self.function_spaces[tp.field_names[0]]
-        ]
+        mesh_names = [fs.mesh().name for fs in self.function_spaces[tp.field_names[0]]]
         rename_meshes = len(set(mesh_names)) != len(mesh_names)
         with CheckpointFile(output_fpath, "w") as outfile:
+            if initial_condition is not None:
+                for field, ic in initial_condition.items():
+                    outfile.save_function(ic, name=f"{field}_initial")
             for i in range(tp.num_subintervals):
                 if rename_meshes:
                     mesh_name = f"mesh_{i}"
@@ -276,9 +277,6 @@ class FunctionData(ABC):
                             f = self._data[field][field_type][i][j]
                             name = f"{field}_{field_type}_{i}_{j}"
                             outfile.save_function(f, name=name)
-            if initial_condition is not None:
-                for field, ic in initial_condition.items():
-                    outfile.save_function(ic, name=f"{field}_initial")
 
 
 class ForwardSolutionData(FunctionData):
