@@ -231,27 +231,25 @@ class FunctionData(ABC):
                         ics.append(ic)
                 outfile.write(*ics, time=tp.subintervals[0][0])
 
-            for i in range(tp.num_subintervals):
-                for j in range(tp.num_exports_per_subinterval[i] - 1):
-                    time = (
-                        tp.subintervals[i][0]
-                        + (j + 1) * tp.timesteps[i] * tp.num_timesteps_per_export[i]
-                    )
-                    fs = []
-                    for field in tp.field_names:
-                        mixed = hasattr(
-                            self.function_spaces[field][0], "num_sub_spaces"
-                        )
-                        for field_type in export_field_types:
-                            f = self._data[field][field_type][i][j].copy(deepcopy=True)
-                            if mixed:
-                                for idx, sf in enumerate(f.subfunctions):
-                                    sf.rename(f"{field}_{idx}_{field_type}")
-                                    fs.append(sf)
-                            else:
-                                f.rename(f"{field}_{field_type}")
-                                fs.append(f)
-                    outfile.write(*fs, time=time)
+        for i in range(tp.num_subintervals):
+            for j in range(tp.num_exports_per_subinterval[i] - 1):
+                time = (
+                    tp.subintervals[i][0]
+                    + (j + 1) * tp.timesteps[i] * tp.num_timesteps_per_export[i]
+                )
+                fs = []
+                for field in tp.field_names:
+                    mixed = hasattr(self.function_spaces[field][0], "num_sub_spaces")
+                    for field_type in export_field_types:
+                        f = self._data[field][field_type][i][j].copy(deepcopy=True)
+                        if mixed:
+                            for idx, sf in enumerate(f.subfunctions):
+                                sf.rename(f"{field}_{idx}_{field_type}")
+                                fs.append(sf)
+                        else:
+                            f.rename(f"{field}_{field_type}")
+                            fs.append(f)
+                outfile.write(*fs, time=time)
 
     def _export_h5(self, output_fpath, export_field_types, initial_condition=None):
         """
