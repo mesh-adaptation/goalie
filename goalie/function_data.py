@@ -149,7 +149,7 @@ class FunctionData(ABC):
         else:
             raise ValueError(f"Layout type '{layout}' not recognised.")
 
-    def export(self, output_fpath, export_field_types=None):
+    def export(self, output_fpath, export_field_types=None, initial_condition=None):
         """
         Export field data to a file. The file format is determined by the extension of
         the output file path. Supported formats are '.pvd' and '.h5'.
@@ -162,19 +162,24 @@ class FunctionData(ABC):
         sequence are not unique, they are renamed to ``"mesh_i"``, where ``i`` is the
         subinterval index. Functions are saved with names of the form
         ``"field_label_i_j"``, where ``i`` is the subinterval index and ``j`` is the
-        export index. Later on, the data can be loaded using, for example,
+        export index. Initial conditions are named in the form ``"field_initial"``.
+        The exported data may then be loaded using, for example,
 
         .. code-block:: python
 
             with CheckpointFile(output_fpath, "r") as afile:
                 first_mesh = afile.load_mesh("mesh_0")
+                initial_condition = afile.load_function("u_initial")
                 first_export = afile.load_function("u_forward_0_0")
 
         :arg output_fpath: the path to the output file
         :type output_fpath: :class:`str`
-        :arg export_field_types: the field types to export; defaults to all available
+        :kwarg export_field_types: the field types to export; defaults to all available
             field types
         :type export_field_types: :class:`str` or :class:`list` of :class:`str`
+        :kwarg initial_condition: if provided, exports the initial condition. Only
+            supported when only the 'forward' field type is exported.
+        :type initial_condition: :class:`dict` of :class:`~.Function`
         """
         export_field_types = export_field_types or self.labels
         if isinstance(export_field_types, str):
@@ -187,6 +192,16 @@ class FunctionData(ABC):
 
         if output_fpath.endswith(".pvd"):
             outfile = VTKFile(output_fpath, adaptive=True)
+            if initial_condition is not None:
+                if export_field_types != ["forward"]:
+                    print(
+                        "Initial condition not exported because more than 'forward' field type is selected for export."
+                    )
+                else:
+                    for field, ic in initial_condition.items():
+                        ic = ic.copy(deepcopy=True)
+                        ic.rename(f"{field}_forward")
+                        outfile.write(ic, time=tp.subintervals[0][0])
             for i in range(tp.num_subintervals):
                 for j in range(tp.num_exports_per_subinterval[i] - 1):
                     time = (
@@ -219,6 +234,9 @@ class FunctionData(ABC):
                                 f = self._data[field][field_type][i][j]
                                 name = f"{field}_{field_type}_{i}_{j}"
                                 outfile.save_function(f, name=name)
+                if initial_condition is not None:
+                    for field, ic in initial_condition.items():
+                        outfile.save_function(ic, name=f"{field}_initial")
         else:
             raise ValueError(
                 f"Output file format not recognised: '{output_fpath}'."
