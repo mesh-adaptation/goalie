@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 
 import firedrake.function as ffunc
 import firedrake.functionspace as ffs
+from firedrake.checkpointing import CheckpointFile
+from firedrake.output.vtk_output import VTKFile
 
 from .utility import AttrDict
 
@@ -146,6 +148,81 @@ class FunctionData(ABC):
             return self._data_by_subinterval
         else:
             raise ValueError(f"Layout type '{layout}' not recognised.")
+
+    def export(self, output_fpath, export_field_types=None):
+        """
+        Export field data to a file. The file format is determined by the extension of
+        the output file path. Supported formats are '.pvd' and '.h5'.
+
+        If the output file format is '.pvd', the data is exported as a series of VTK
+        files using Firedrake's :class:`~.VTKFile`.
+
+        If the output file format is '.h5', the data is exported as a single HDF5 file
+        using Firedrake's :class:`~.CheckpointFile`. If names of meshes in the mesh
+        sequence are not unique, they are renamed to ``"mesh_i"``, where ``i`` is the
+        subinterval index. Functions are saved with names of the form
+        ``"field_label_i_j"``, where ``i`` is the subinterval index and ``j`` is the
+        export index. Later on, the data can be loaded using, for example,
+
+        .. code-block:: python
+
+            with CheckpointFile(output_fpath, "r") as afile:
+                first_mesh = afile.load_mesh("mesh_0")
+                first_export = afile.load_function("u_forward_0_0")
+
+        :arg output_fpath: the path to the output file
+        :type output_fpath: :class:`str`
+        :arg export_field_types: the field types to export; defaults to all available
+            field types
+        :type export_field_types: :class:`str` or :class:`list` of :class:`str`
+        """
+        export_field_types = export_field_types or self.labels
+        if isinstance(export_field_types, str):
+            export_field_types = [export_field_types]
+        assert all(
+            field_type in self.labels for field_type in export_field_types
+        ), f"Field type not recognised. Available types are {self.labels}."
+        tp = self.time_partition
+
+        if output_fpath.endswith(".pvd"):
+            outfile = VTKFile(output_fpath, adaptive=True)
+            for i in range(tp.num_subintervals):
+                for j in range(tp.num_exports_per_subinterval[i] - 1):
+                    time = (
+                        tp.subintervals[i][0]
+                        + (j + 1) * tp.timesteps[i] * tp.num_timesteps_per_export[i]
+                    )
+                    fs = []
+                    for field in tp.field_names:
+                        for field_type in export_field_types:
+                            f = self._data[field][field_type][i][j].copy(deepcopy=True)
+                            f.rename(f"{field}_{field_type}")
+                            fs.append(f)
+                    outfile.write(*fs, time=time)
+        elif output_fpath.endswith(".h5"):
+            # Mesh names must be unique
+            mesh_names = [
+                fspace.mesh().name for fspace in self.function_spaces[tp.field_names[0]]
+            ]
+            rename_meshes = len(set(mesh_names)) != len(mesh_names)
+            with CheckpointFile(output_fpath, "w") as outfile:
+                for i in range(tp.num_subintervals):
+                    if rename_meshes:
+                        mesh_name = f"mesh_{i}"
+                        msh = self.function_spaces[tp.field_names[0]][i].mesh()
+                        msh.name = mesh_name
+                        msh.topology_dm.name = mesh_name
+                    for j in range(tp.num_exports_per_subinterval[i] - 1):
+                        for field in tp.field_names:
+                            for field_type in export_field_types:
+                                f = self._data[field][field_type][i][j]
+                                name = f"{field}_{field_type}_{i}_{j}"
+                                outfile.save_function(f, name=name)
+        else:
+            raise ValueError(
+                f"Output file format not recognised: '{output_fpath}'."
+                " Supported formats are '.pvd' and '.h5'."
+            )
 
 
 class ForwardSolutionData(FunctionData):
