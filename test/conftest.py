@@ -24,5 +24,7 @@ def pytest_runtest_teardown(item, nextitem):
     from firedrake.tsfc_interface import TSFCKernel
     from pyop2.global_kernel import GlobalKernel
 
-    TSFCKernel._cache.clear()
-    GlobalKernel._cache.clear()
+    if hasattr(TSFCKernel, "_cache"):
+        TSFCKernel._cache.clear()
+    if hasattr(GlobalKernel, "_cache"):
+        GlobalKernel._cache.clear()
