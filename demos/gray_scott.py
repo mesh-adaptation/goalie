@@ -159,18 +159,12 @@ solutions = mesh_seq.solve_adjoint()
 
 # Finally, plot the outputs to be viewed in Paraview. ::
 
-ic = mesh_seq.get_initial_condition()
-for field, sols in solutions.items():
-    fwd_outfile = VTKFile(f"gray_scott/{field}_forward.pvd")
-    adj_outfile = VTKFile(f"gray_scott/{field}_adjoint.pvd")
-    fwd_outfile.write(*ic[field].subfunctions)
-    for i in range(num_subintervals):
-        for sol in sols["forward"][i]:
-            fwd_outfile.write(*sol.subfunctions)
-        for sol in sols["adjoint"][i]:
-            adj_outfile.write(*sol.subfunctions)
-    adj_end = Function(ic[field]).assign(0.0)
-    adj_outfile.write(*adj_end.subfunctions)
+solutions.export(
+    "gray_scott/forward.pvd",
+    export_field_types="forward",
+    initial_condition=mesh_seq.get_initial_condition(),
+)
+solutions.export("gray_scott/adjoint.pvd", export_field_types="adjoint")
 
 # In the `next demo <./gray_scott_split.py.html>`__, we consider solving the same
 # problem, but splitting the solution field into multiple components.
