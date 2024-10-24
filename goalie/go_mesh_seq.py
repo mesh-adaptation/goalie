@@ -232,16 +232,17 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     indi.interpolate(abs(indi))
                     self.indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
 
-            # discard extra subinterval solution field
-            self.solutions[f][FWD_OLD].pop()
-            self.solutions[f][ADJ_NEXT].pop()
-            enriched_mesh_seq.solutions[f][FWD_OLD].pop()
-            enriched_mesh_seq.solutions[f][ADJ_NEXT].pop()
+            # discard current subinterval solution field
+            for f in self.fields:
+                self.solutions[f][FWD_OLD].pop(-1)
+                self.solutions[f][ADJ_NEXT].pop(-1)
+                enriched_mesh_seq.solutions[f][FWD_OLD].pop(-1)
+                enriched_mesh_seq.solutions[f][ADJ_NEXT].pop(-1)
 
-            # delete extra mesh to reduce the memory footprint
-            enriched_mesh_seq.meshes.pop()
+            # delete current subinterval enriched mesh to reduce the memory footprint
+            enriched_mesh_seq.meshes.pop(-1)
             enriched_mesh_seq.time_partition.num_subintervals -= 1
-            enriched_mesh_seq.time_partition.timesteps.pop()
+            enriched_mesh_seq.time_partition.timesteps.pop(-1)
 
         return self.solutions, self.indicators
 
