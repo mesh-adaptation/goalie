@@ -237,14 +237,9 @@ solutions = mesh_seq.solve_adjoint()
 # use Paraview. To save all adjoint solution components in Paraview format, use the
 # following. ::
 
-for field, sols in solutions.items():
-    fwd_outfile = VTKFile(f"solid_body_rotation/{field}_forward.pvd")
-    adj_outfile = VTKFile(f"solid_body_rotation/{field}_adjoint.pvd")
-    for i in range(len(mesh_seq)):
-        for sol in sols["forward"][i]:
-            fwd_outfile.write(sol)
-        for sol in sols["adjoint"][i]:
-            adj_outfile.write(sol)
+solutions.export(
+    "solid_body_rotation/solutions.pvd", export_field_types=["forward", "adjoint"]
+)
 
 # In the `next demo <./gray_scott.py.html>`__, we increase the complexity by considering
 # two concentration fields in an advection-diffusion-reaction problem.
