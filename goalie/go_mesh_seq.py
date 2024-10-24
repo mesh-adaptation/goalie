@@ -3,10 +3,12 @@ Drivers for goal-oriented error estimation on sequences of meshes.
 """
 
 from collections.abc import Iterable
+from copy import deepcopy
 
 import numpy as np
 import ufl
 from animate.interpolation import interpolate
+from animate.utility import Mesh
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
 from firedrake.petsc import PETSc
 
@@ -59,11 +61,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 )
             meshes = [MeshHierarchy(mesh, num_enrichments)[-1] for mesh in self.meshes]
         else:
-            meshes = self.meshes
+            meshes = [Mesh(mesh) for mesh in self.meshes]
+
+        # Create copy of time_partition
+        time_partition = deepcopy(self.time_partition)
 
         # Construct object to hold enriched spaces
         enriched_mesh_seq = type(self)(
-            self.time_partition,
+            time_partition,
             meshes,
             get_function_spaces=self._get_function_spaces,
             get_initial_condition=self._get_initial_condition,
@@ -227,6 +232,19 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     indi = self._transfer(indi_e, P0_spaces[i])
                     indi.interpolate(abs(indi))
                     self.indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
+
+            # discard current subinterval duplicate solution fields
+            if not self.steady:
+                for f in self.fields:
+                    self.solutions[f][FWD_OLD].pop(-1)
+                    self.solutions[f][ADJ_NEXT].pop(-1)
+                    enriched_mesh_seq.solutions[f][FWD_OLD].pop(-1)
+                    enriched_mesh_seq.solutions[f][ADJ_NEXT].pop(-1)
+
+            # delete current subinterval enriched mesh to reduce the memory footprint
+            enriched_mesh_seq.meshes.pop(-1)
+            enriched_mesh_seq.time_partition.drop_last_subinterval()
+            enriched_mesh_seq._update_function_spaces()
 
         return self.solutions, self.indicators
 
