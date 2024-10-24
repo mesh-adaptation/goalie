@@ -367,6 +367,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             enriched_mesh_seq.meshes.pop(-1)
             enriched_mesh_seq.time_partition.num_subintervals -= 1
             enriched_mesh_seq.time_partition.timesteps.pop(-1)
+            enriched_mesh_seq._update_function_spaces()
 
         return self.solutions, self.indicators
 
