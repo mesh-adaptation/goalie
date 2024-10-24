@@ -234,7 +234,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
             # discard extra subinterval solution field
             self.solutions[f][FWD_OLD].pop()
-            self.solutions[f][ADJ_NEXT].pop()  # ej321
+            self.solutions[f][ADJ_NEXT].pop()
             enriched_mesh_seq.solutions[f][FWD_OLD].pop()
             enriched_mesh_seq.solutions[f][ADJ_NEXT].pop()
 
