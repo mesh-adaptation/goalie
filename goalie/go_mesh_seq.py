@@ -8,6 +8,7 @@ from copy import deepcopy
 import numpy as np
 import ufl
 from animate.interpolation import interpolate
+from animate.utility import Mesh
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
 from firedrake.petsc import PETSc
 
@@ -60,7 +61,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 )
             meshes = [MeshHierarchy(mesh, num_enrichments)[-1] for mesh in self.meshes]
         else:
-            meshes = self.meshes
+            meshes = [Mesh(mesh) for mesh in self.meshes]
 
         # Create copy of time_partition
         time_partition = deepcopy(self.time_partition)
@@ -232,12 +233,13 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     indi.interpolate(abs(indi))
                     self.indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
 
-            # discard current subinterval solution field
-            for f in self.fields:
-                self.solutions[f][FWD_OLD].pop(-1)
-                self.solutions[f][ADJ_NEXT].pop(-1)
-                enriched_mesh_seq.solutions[f][FWD_OLD].pop(-1)
-                enriched_mesh_seq.solutions[f][ADJ_NEXT].pop(-1)
+            # discard current subinterval duplicate solution fields
+            if not self.steady:
+                for f in self.fields:
+                    self.solutions[f][FWD_OLD].pop(-1)
+                    self.solutions[f][ADJ_NEXT].pop(-1)
+                    enriched_mesh_seq.solutions[f][FWD_OLD].pop(-1)
+                    enriched_mesh_seq.solutions[f][ADJ_NEXT].pop(-1)
 
             # delete current subinterval enriched mesh to reduce the memory footprint
             enriched_mesh_seq.meshes.pop(-1)
