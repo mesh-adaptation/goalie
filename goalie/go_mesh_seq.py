@@ -365,8 +365,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
             # delete current subinterval enriched mesh to reduce the memory footprint
             enriched_mesh_seq.meshes.pop(-1)
-            enriched_mesh_seq.time_partition.num_subintervals -= 1
-            enriched_mesh_seq.time_partition.timesteps.pop(-1)
+            enriched_mesh_seq.time_partition.drop_last_subinterval()
             enriched_mesh_seq._update_function_spaces()
 
         return self.solutions, self.indicators

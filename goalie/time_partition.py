@@ -272,6 +272,19 @@ class TimePartition:
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def drop_last_subinterval(self):
+        """
+        Drop the last subinterval and reset lists and counters appropriately.
+        """
+        self.end_time = self.subintervals[-1][0]
+        self.interval = (self.start_time, self.end_time)
+        self.num_subintervals -= 1
+        self.timesteps.pop(-1)
+        self.subintervals.pop(-1)
+        self.num_timesteps_per_subinterval.pop(-1)
+        self.num_timesteps_per_export.pop(-1)
+        self.num_exports_per_subinterval.pop(-1)
+
 
 class TimeInterval(TimePartition):
     """
