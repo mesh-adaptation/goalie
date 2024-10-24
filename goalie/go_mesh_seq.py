@@ -3,6 +3,7 @@ Drivers for goal-oriented error estimation on sequences of meshes.
 """
 
 from collections.abc import Iterable
+from copy import deepcopy
 
 import numpy as np
 import ufl
@@ -61,9 +62,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         else:
             meshes = self.meshes
 
+        # Create copy of time_partition
+        time_partition = deepcopy(self.time_partition)
+
         # Construct object to hold enriched spaces
         enriched_mesh_seq = type(self)(
-            self.time_partition,
+            time_partition,
             meshes,
             get_function_spaces=self._get_function_spaces,
             get_initial_condition=self._get_initial_condition,
