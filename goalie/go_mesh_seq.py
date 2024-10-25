@@ -246,6 +246,16 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             enriched_mesh_seq.time_partition.drop_last_subinterval()
             enriched_mesh_seq._update_function_spaces()
 
+        # clear empty labels
+        for f in self.fields:
+            if self.steady:
+                self.solutions.labels = "forward"
+                self.solutions[f].pop("forward_old", None)
+            else:
+                self.solutions.labels = ("forward", "adjoint")
+                self.solutions[f].pop("forward_old", None)
+                self.solutions[f].pop("adjoint_next", None)
+
         return self.solutions, self.indicators
 
     @PETSc.Log.EventDecorator()
