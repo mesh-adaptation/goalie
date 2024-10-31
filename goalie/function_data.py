@@ -211,25 +211,25 @@ class FunctionData(ABC):
         tp = self.time_partition
         outfile = VTKFile(output_fpath, adaptive=True)
         if initial_condition is not None:
-            if export_field_types != ["forward"]:
-                print(
-                    "Initial condition not exported because more than 'forward' field"
-                    " type is selected for export."
-                )
-            else:
-                ics = []
+            ics = []
+            for field_type in export_field_types:
                 for field, ic in initial_condition.items():
                     ic = ic.copy(deepcopy=True)
                     # If the function space is mixed, rename and append each
                     # subfunction separately
                     if hasattr(ic.function_space(), "num_sub_spaces"):
                         for idx, sf in enumerate(ic.subfunctions):
-                            sf.rename(f"{field}[{idx}]_forward")
+                            if field_type != "forward":
+                                sf = sf.copy(deepcopy=True)
+                                sf.assign(float("nan"))
+                            sf.rename(f"{field}[{idx}]_{field_type}")
                             ics.append(sf)
                     else:
-                        ic.rename(f"{field}_forward")
+                        if field_type != "forward":
+                            ic.assign(float("nan"))
+                        ic.rename(f"{field}_{field_type}")
                         ics.append(ic)
-                outfile.write(*ics, time=tp.subintervals[0][0])
+            outfile.write(*ics, time=tp.subintervals[0][0])
 
         for i in range(tp.num_subintervals):
             for j in range(tp.num_exports_per_subinterval[i] - 1):

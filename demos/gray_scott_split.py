@@ -162,10 +162,9 @@ mesh_seq = AdjointMeshSeq(
 solutions = mesh_seq.solve_adjoint()
 
 solutions.export(
-    "gray_scott_split/forward.pvd",
-    export_field_types="forward",
+    "gray_scott_split/solutions.pvd",
+    export_field_types=["forward", "adjoint"],
     initial_condition=mesh_seq.get_initial_condition(),
 )
-solutions.export("gray_scott_split/adjoint.pvd", export_field_types="adjoint")
 
 # This tutorial can be dowloaded as a `Python script <gray_scott_split.py>`__.

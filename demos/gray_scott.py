@@ -160,11 +160,10 @@ solutions = mesh_seq.solve_adjoint()
 # Finally, plot the outputs to be viewed in Paraview. ::
 
 solutions.export(
-    "gray_scott/forward.pvd",
-    export_field_types="forward",
+    "gray_scott/solutions.pvd",
+    export_field_types=["forward", "adjoint"],
     initial_condition=mesh_seq.get_initial_condition(),
 )
-solutions.export("gray_scott/adjoint.pvd", export_field_types="adjoint")
 
 # In the `next demo <./gray_scott_split.py.html>`__, we consider solving the same
 # problem, but splitting the solution field into multiple components.
