@@ -183,8 +183,8 @@ class FunctionData(ABC):
         :type initial_condition: :class:`dict` of :class:`~.Function`
         """
         if export_field_types is None:
-            default_export_types = ["forward", "adjoint", "error_indicator"]
-            export_field_types = list(set(self.labels) & set(default_export_types))
+            default_export_types = {"forward", "adjoint", "error_indicator"}
+            export_field_types = list(set(self.labels) & default_export_types)
         if isinstance(export_field_types, str):
             export_field_types = [export_field_types]
         if not all(field_type in self.labels for field_type in export_field_types):
