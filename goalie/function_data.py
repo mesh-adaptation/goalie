@@ -224,7 +224,7 @@ class FunctionData(ABC):
                     # subfunction separately
                     if hasattr(ic.function_space(), "num_sub_spaces"):
                         for idx, sf in enumerate(ic.subfunctions):
-                            sf.rename(f"{field}_{idx}_forward")
+                            sf.rename(f"{field}[{idx}]_forward")
                             ics.append(sf)
                     else:
                         ic.rename(f"{field}_forward")
@@ -244,7 +244,7 @@ class FunctionData(ABC):
                         f = self._data[field][field_type][i][j].copy(deepcopy=True)
                         if mixed:
                             for idx, sf in enumerate(f.subfunctions):
-                                sf.rename(f"{field}_{idx}_{field_type}")
+                                sf.rename(f"{field}[{idx}]_{field_type}")
                                 fs.append(sf)
                         else:
                             f.rename(f"{field}_{field_type}")
