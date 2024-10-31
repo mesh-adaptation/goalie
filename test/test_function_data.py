@@ -4,6 +4,7 @@ Unit tests for :class:`~.FunctionData` and its subclasses.
 
 import abc
 import unittest
+from tempfile import TemporaryDirectory
 
 from firedrake import *
 
@@ -108,24 +109,6 @@ class BaseTestCases:
                     for f in sub_data[self.field][label]:
                         self.assertTrue(isinstance(f, Function))
 
-        def test_export_extension_error(self):
-            with self.assertRaises(ValueError) as cm:
-                self.solution_data.export("test.ext")
-            msg = (
-                "Output file format not recognised: 'test.ext'."
-                + " Supported formats are '.pvd' and '.h5'."
-            )
-            self.assertEqual(str(cm.exception), msg)
-
-        def test_export_field_error(self):
-            with self.assertRaises(ValueError) as cm:
-                self.solution_data.export("test.pvd", export_field_types="test")
-            msg = (
-                "Field types ['test'] not recognised."
-                + f" Available types are {self.solution_data.labels}."
-            )
-            self.assertEqual(str(cm.exception), msg)
-
 
 class TestSteadyForwardSolutionData(BaseTestCases.TestFunctionData):
     """
@@ -229,6 +212,63 @@ class TestIndicatorData(BaseTestCases.TestFunctionData):
             self.assertTrue(isinstance(sub_data[self.field], list))
             for f in sub_data[self.field]:
                 self.assertTrue(isinstance(f, Function))
+
+
+class TestExportFunctionData(BaseTestCases.TestFunctionData):
+    """
+    Unit tests for exporting and checkpointing :class:`~.FunctionData`.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmpdir = TemporaryDirectory()
+
+    def setUp(self):
+        super().setUpUnsteady()
+        self.labels = ("forward", "forward_old")
+
+    def _create_function_data(self):
+        self.solution_data = ForwardSolutionData(
+            self.time_partition, self.function_spaces
+        )
+        self.solution_data._create_data()
+
+    def test_export_extension_error(self):
+        with self.assertRaises(ValueError) as cm:
+            self.solution_data.export("test.ext")
+        msg = (
+            "Output file format not recognised: 'test.ext'."
+            + " Supported formats are '.pvd' and '.h5'."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_export_field_error(self):
+        with self.assertRaises(ValueError) as cm:
+            self.solution_data.export("test.pvd", export_field_types="test")
+        msg = (
+            "Field types ['test'] not recognised."
+            + f" Available types are {self.solution_data.labels}."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_export_pvd(self):
+        with TemporaryDirectory() as tmpdir:
+            export_filepath = os.path.join(tmpdir, "test.pvd")
+            self.solution_data.export(export_filepath)
+            self.assertTrue(os.path.exists(export_filepath))
+
+    def test_export_pvd_ic(self):
+        ic = {field: Function(fs[0]) for field, fs in self.function_spaces.items()}
+        with TemporaryDirectory() as tmpdir:
+            export_filepath = os.path.join(tmpdir, "test.pvd")
+            self.solution_data.export(export_filepath, initial_condition=ic)
+            self.assertTrue(os.path.exists(export_filepath))
+
+    def test_export_h5(self):
+        with TemporaryDirectory() as tmpdir:
+            export_filepath = os.path.join(tmpdir, "test.h5")
+            self.solution_data.export(export_filepath)
+            self.assertTrue(os.path.exists(export_filepath))
 
 
 if __name__ == "__main__":
