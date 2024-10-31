@@ -268,9 +268,9 @@ class FunctionData(ABC):
             for i in range(tp.num_subintervals):
                 if rename_meshes:
                     mesh_name = f"mesh_{i}"
-                    msh = self.function_spaces[tp.field_names[0]][i].mesh()
-                    msh.name = mesh_name
-                    msh.topology_dm.name = mesh_name
+                    mesh = self.function_spaces[tp.field_names[0]][i].mesh()
+                    mesh.name = mesh_name
+                    mesh.topology_dm.name = mesh_name
                 for j in range(tp.num_exports_per_subinterval[i] - 1):
                     for field in tp.field_names:
                         for field_type in export_field_types:
