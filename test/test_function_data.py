@@ -219,10 +219,6 @@ class TestExportFunctionData(BaseTestCases.TestFunctionData):
     Unit tests for exporting and checkpointing :class:`~.FunctionData`.
     """
 
-    @classmethod
-    def setUpClass(cls):
-        cls.tmpdir = TemporaryDirectory()
-
     def setUp(self):
         super().setUpUnsteady()
         self.labels = ("forward", "forward_old")
