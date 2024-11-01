@@ -178,8 +178,9 @@ class FunctionData(ABC):
         :kwarg export_field_types: the field types to export; defaults to all available
             field types
         :type export_field_types: :class:`str` or :class:`list` of :class:`str`
-        :kwarg initial_condition: if provided, exports the initial condition. Only
-            supported when only the 'forward' field type is exported.
+        :kwarg initial_condition: if provided, exports the provided initial condition
+            for 'forward' fields. Initial values for other fields are set to 'nan' since
+            they are not defined at the initial time (e.g., 'adjoint' fields)
         :type initial_condition: :class:`dict` of :class:`~.Function`
         """
         if export_field_types is None:
