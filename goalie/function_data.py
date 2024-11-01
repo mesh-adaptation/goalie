@@ -157,6 +157,9 @@ class FunctionData(ABC):
         If the output file format is '.pvd', the data is exported as a series of VTK
         files using Firedrake's :class:`~.VTKFile`. Since mixed function spaces are not
         supported by VTK, each subfunction of a mixed function is exported separately.
+        If initial conditions are provided and fields other than 'forward' are to be
+        exported, the initial values of these other fields are set to 'nan' since they
+        are not defined at the initial time (e.g., 'adjoint' fields).
 
         If the output file format is '.h5', the data is exported as a single HDF5 file
         using Firedrake's :class:`~.CheckpointFile`. If names of meshes in the mesh
@@ -179,8 +182,7 @@ class FunctionData(ABC):
             field types
         :type export_field_types: :class:`str` or :class:`list` of :class:`str`
         :kwarg initial_condition: if provided, exports the provided initial condition
-            for 'forward' fields. Initial values for other fields are set to 'nan' since
-            they are not defined at the initial time (e.g., 'adjoint' fields)
+            for 'forward' fields.
         :type initial_condition: :class:`dict` of :class:`~.Function`
         """
         if export_field_types is None:
