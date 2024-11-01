@@ -161,16 +161,10 @@ mesh_seq = AdjointMeshSeq(
 )
 solutions = mesh_seq.solve_adjoint()
 
-ic = mesh_seq.get_initial_condition()
-for field, sols in solutions.items():
-    fwd_outfile = VTKFile(f"gray_scott_split/{field}_forward.pvd")
-    adj_outfile = VTKFile(f"gray_scott_split/{field}_adjoint.pvd")
-    fwd_outfile.write(ic[field])
-    for i in range(num_subintervals):
-        for sol in sols["forward"][i]:
-            fwd_outfile.write(sol)
-        for sol in sols["adjoint"][i]:
-            adj_outfile.write(sol)
-    adj_outfile.write(Function(ic[field]).assign(0.0))
+solutions.export(
+    "gray_scott_split/solutions.pvd",
+    export_field_types=["forward", "adjoint"],
+    initial_condition=mesh_seq.get_initial_condition(),
+)
 
 # This tutorial can be dowloaded as a `Python script <gray_scott_split.py>`__.
