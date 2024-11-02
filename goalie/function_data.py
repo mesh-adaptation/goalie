@@ -164,17 +164,16 @@ class FunctionData(ABC):
         If the output file format is '.h5', the data is exported as a single HDF5 file
         using Firedrake's :class:`~.CheckpointFile`. If names of meshes in the mesh
         sequence are not unique, they are renamed to ``"mesh_i"``, where ``i`` is the
-        subinterval index. Functions are saved with names of the form
-        ``"field_label_i_j"``, where ``i`` is the subinterval index and ``j`` is the
-        export index. Initial conditions are named in the form ``"field_initial"``.
-        The exported data may then be loaded using, for example,
+        subinterval index. Functions are saved with names of the form ``"field_label"``.
+        Initial conditions are named in the form ``"field_initial"``. The exported data
+        may then be loaded using, for example,
 
         .. code-block:: python
 
             with CheckpointFile(output_fpath, "r") as afile:
                 first_mesh = afile.load_mesh("mesh_0")
                 initial_condition = afile.load_function(first_mesh, "u_initial")
-                first_export = afile.load_function(first_mesh, "u_forward_0_0")
+                first_export = afile.load_function(first_mesh, "u_forward", idx=0)
 
         :arg output_fpath: the path to the output file
         :type output_fpath: :class:`str`
@@ -274,12 +273,12 @@ class FunctionData(ABC):
                     mesh = self.function_spaces[tp.field_names[0]][i].mesh()
                     mesh.name = mesh_name
                     mesh.topology_dm.name = mesh_name
-                for j in range(tp.num_exports_per_subinterval[i] - 1):
-                    for field in tp.field_names:
-                        for field_type in export_field_types:
+                for field in tp.field_names:
+                    for field_type in export_field_types:
+                        name = f"{field}_{field_type}"
+                        for j in range(tp.num_exports_per_subinterval[i] - 1):
                             f = self._data[field][field_type][i][j]
-                            name = f"{field}_{field_type}_{i}_{j}"
-                            outfile.save_function(f, name=name)
+                            outfile.save_function(f, name=name, idx=j)
 
 
 class ForwardSolutionData(FunctionData):
