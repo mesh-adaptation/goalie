@@ -2,11 +2,13 @@
 Drivers for goal-oriented error estimation on sequences of meshes.
 """
 
+import os
 from collections.abc import Iterable
 from copy import deepcopy
 from copy import deepcopy
 
 import numpy as np
+import psutil
 import ufl
 from animate.interpolation import interpolate
 from animate.utility import Mesh
@@ -277,6 +279,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         FWD_OLD = "forward" if self.steady else "forward_old"
         ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
         P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
+
+        process = psutil.Process(os.getpid())  # ej321
+
+        def mem(i):
+            print(
+                f"Memory usage {i}: {process.memory_full_info().uss / 1024**2:.0f} MB"
+            )  # ej321
+
         # Loop over each subinterval in reverse
         for i in reversed(range(len(self))):
             # Solve the adjoint problem on the current subinterval
@@ -366,14 +376,16 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     enriched_mesh_seq.solutions[f][ADJ_NEXT].pop(-1)
 
             # delete current subinterval enriched mesh to reduce the memory footprint
+            for f in self.fields:
+                enriched_mesh_seq._fs[f].pop(-1)
+
             enriched_mesh_seq.meshes.pop(-1)
             enriched_mesh_seq.time_partition.drop_last_subinterval()
-            enriched_mesh_seq._update_function_spaces()
 
         # clear empty labels
         for f in self.fields:
             if self.steady:
-                self.solutions.labels = "forward"
+                self.solutions.labels = ("forward",)
                 self.solutions[f].pop("forward_old", None)
             else:
                 self.solutions.labels = ("forward", "adjoint")
