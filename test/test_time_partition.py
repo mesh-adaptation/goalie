@@ -191,6 +191,71 @@ class TestSetup(unittest.TestCase):
         self.assertEqual(str(cm.exception), msg)
 
 
+class TestDropLastSubinterval(unittest.TestCase):
+    r"""
+    Tests related to :method:\~.drop_last_subinterval` of :class:`~.TimePartition`
+    """
+
+    def setUp(self):
+        self.end_time = 1.0
+        self.field_names = ["field"]
+
+    def get_time_partition(self, n):
+        split = self.end_time / n
+        timesteps = [split if i % 2 else split / 2 for i in range(n)]
+        return TimePartition(self.end_time, n, timesteps, self.field_names)
+
+    def test_drop_last_subinterval(self):
+        n = 5
+        multi_subintervals = self.get_time_partition(n - 1)
+        expected_end_time = [1.0, 0.75, 0.5, 0.25, 0.25]
+        expected_interval = [
+            (0.0, 1.0),
+            (0.0, 0.75),
+            (0.0, 0.5),
+            (0.0, 0.25),
+            (0.0, 0.25),
+        ]
+        expected_num_subintervals = [4, 3, 2, 1, 1]
+        expected_timesteps = [
+            [0.125, 0.25, 0.125, 0.25],
+            [0.125, 0.25, 0.125],
+            [0.125, 0.25],
+            [0.125],
+            [0.125],
+        ]
+        expected_subintervals = [
+            [(0.0, 0.25), (0.25, 0.5), (0.5, 0.75), (0.75, 1.0)],
+            [(0.0, 0.25), (0.25, 0.5), (0.5, 0.75)],
+            [(0.0, 0.25), (0.25, 0.5)],
+            [(0.0, 0.25)],
+            [(0.0, 0.25)],
+        ]
+        expected_n_time_per_sub = [[2, 1, 2, 1], [2, 1, 2], [2, 1], [2], [2]]
+        expected_n_time_per_xpt = [[1, 1, 1, 1], [1, 1, 1], [1, 1], [1], [1]]
+        expected_n_xpt_per_sub = [[3, 2, 3, 2], [3, 2, 3], [3, 2], [3], [3]]
+        for i in range(n):
+            self.assertEqual(multi_subintervals.end_time, expected_end_time[i])
+            self.assertEqual(multi_subintervals.interval, expected_interval[i])
+            self.assertEqual(
+                multi_subintervals.num_subintervals, expected_num_subintervals[i]
+            )
+            self.assertEqual(multi_subintervals.timesteps, expected_timesteps[i])
+            self.assertEqual(multi_subintervals.subintervals, expected_subintervals[i])
+            self.assertEqual(
+                multi_subintervals.num_timesteps_per_subinterval,
+                expected_n_time_per_sub[i],
+            )
+            self.assertEqual(
+                multi_subintervals.num_timesteps_per_export, expected_n_time_per_xpt[i]
+            )
+            self.assertEqual(
+                multi_subintervals.num_exports_per_subinterval,
+                expected_n_xpt_per_sub[i],
+            )
+            multi_subintervals.drop_last_subinterval()
+
+
 class TestStringFormatting(unittest.TestCase):
     """
     Test that the :meth:`__str__`` and :meth:`__repr__`` methods work as intended for
