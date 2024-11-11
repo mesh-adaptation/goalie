@@ -12,6 +12,7 @@
 # of both Firedrake and Goalie. ::
 
 from firedrake import *
+
 from goalie import *
 
 # Again, turn debugging mode on to get verbose output. ::
@@ -21,14 +22,14 @@ set_log_level(DEBUG)
 # Consider the final subinterval from the previous demo. ::
 
 end_time = 1.0
-fields = ["solution"]
+field_names = ["solution"]
 dt = [0.125, 0.0625]
 subintervals = [(0.0, 0.75), (0.75, 1.0)]
 time_partition = TimePartition(
     end_time,
     len(subintervals),
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=[2, 4],
     subintervals=subintervals,
 )
@@ -57,7 +58,7 @@ fig.savefig("mesh_seq.jpg")
 #    :figwidth: 90%
 #    :align: center
 
-# In the `next demo <./burgers.py.html>`__, we actually solve a
-# PDE using a :class:`MeshSeq`.
+# In the `next demo <./ode.py.html>`__, we solve an ordinary differential equation (ODE)
+# using a special kind of :class:`MeshSeq`.
 #
 # This demo can also be accessed as a `Python script <mesh_seq.py>`__.

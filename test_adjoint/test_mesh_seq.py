@@ -1,17 +1,171 @@
 """
 Testing for the mesh sequence objects.
 """
-from firedrake import *
-from goalie_adjoint import *
-from goalie.log import *
-from goalie.mesh_seq import MeshSeq
-from goalie.go_mesh_seq import GoalOrientedMeshSeq
-from goalie.time_partition import TimeInterval
-from parameterized import parameterized
+
 import logging
+import unittest
+from unittest.mock import patch
+
 import pyadjoint
 import pytest
-import unittest
+from animate.utility import norm
+from firedrake import (
+    Function,
+    FunctionSpace,
+    SpatialCoordinate,
+    TestFunction,
+    TrialFunction,
+    UnitSquareMesh,
+    UnitTriangleMesh,
+    VectorFunctionSpace,
+    dx,
+    solve,
+)
+from parameterized import parameterized
+from pyadjoint.block_variable import BlockVariable
+
+from goalie.go_mesh_seq import GoalOrientedMeshSeq
+from goalie.log import *
+from goalie.time_partition import TimeInterval
+from goalie_adjoint import *
+
+
+class TestBlockLogic(unittest.TestCase):
+    """
+    Unit tests for :meth:`MeshSeq._dependency` and :meth:`MeshSeq._output`.
+    """
+
+    @staticmethod
+    def get_p0_spaces(mesh):
+        return {"field": FunctionSpace(mesh, "DG", 0)}
+
+    def setUp(self):
+        self.time_interval = TimeInterval(1.0, 0.5, "field")
+        self.mesh = UnitTriangleMesh()
+        self.mesh_seq = AdjointMeshSeq(
+            self.time_interval,
+            self.mesh,
+            get_function_spaces=self.get_p0_spaces,
+            qoi_type="end_time",
+        )
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_output_not_function(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        block_variable = BlockVariable(1)
+        solve_block._outputs = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._output("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no outputs."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_output_wrong_function_space(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        block_variable = BlockVariable(Function(FunctionSpace(self.mesh, "CG", 1)))
+        solve_block._outputs = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._output("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no outputs."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_output_wrong_name(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field2"))
+        solve_block._outputs = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._output("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no outputs."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_output_valid(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field"))
+        solve_block._outputs = [block_variable]
+        self.assertIsNotNone(self.mesh_seq._output("field", 0, solve_block))
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_output_multiple_valid_error(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field"))
+        solve_block._outputs = [block_variable, block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._output("field", 0, solve_block)
+        msg = (
+            "Cannot determine a unique output index for the solution associated with"
+            " field 'field' out of 2 candidates."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_dependency_not_function(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        block_variable = BlockVariable(1)
+        solve_block._dependencies = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._dependency("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_dependency_wrong_function_space(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        block_variable = BlockVariable(Function(FunctionSpace(self.mesh, "CG", 1)))
+        solve_block._dependencies = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._dependency("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_dependency_wrong_name(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field_new"))
+        solve_block._dependencies = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._dependency("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_dependency_valid(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field_old"))
+        solve_block._dependencies = [block_variable]
+        self.assertIsNotNone(self.mesh_seq._dependency("field", 0, solve_block))
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_dependency_multiple_valid_error(self, MockSolveBlock):
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field_old"))
+        solve_block._dependencies = [block_variable, block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._dependency("field", 0, solve_block)
+        msg = (
+            "Cannot determine a unique dependency index for the lagged solution"
+            " associated with field 'field' out of 2 candidates."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
+    def test_dependency_steady(self, MockSolveBlock):
+        time_interval = TimeInterval(1.0, 0.5, "field", field_types="steady")
+        mesh_seq = AdjointMeshSeq(
+            time_interval,
+            self.mesh,
+            get_function_spaces=self.get_p0_spaces,
+            qoi_type="end_time",
+        )
+        solve_block = MockSolveBlock()
+        self.assertIsNone(mesh_seq._dependency("field", 0, solve_block))
 
 
 class TestGetSolveBlocks(unittest.TestCase):
@@ -25,10 +179,11 @@ class TestGetSolveBlocks(unittest.TestCase):
 
     def setUp(self):
         time_interval = TimeInterval(1.0, [1.0], ["field"])
-        self.mesh_seq = MeshSeq(
+        self.mesh_seq = AdjointMeshSeq(
             time_interval,
             [UnitSquareMesh(1, 1)],
             get_function_spaces=self.get_function_spaces,
+            qoi_type="steady",
         )
         if not pyadjoint.annotate_tape():
             pyadjoint.continue_annotation()
@@ -94,10 +249,11 @@ class TestGetSolveBlocks(unittest.TestCase):
 
     def test_too_many_timesteps(self):
         time_interval = TimeInterval(1.0, [0.5], ["field"])
-        mesh_seq = MeshSeq(
+        mesh_seq = AdjointMeshSeq(
             time_interval,
             [UnitSquareMesh(1, 1)],
             get_function_spaces=self.get_function_spaces,
+            qoi_type="end_time",
         )
         fs = mesh_seq.function_spaces["field"][0]
         u = Function(fs, name="field")
@@ -112,10 +268,11 @@ class TestGetSolveBlocks(unittest.TestCase):
 
     def test_incompatible_timesteps(self):
         time_interval = TimeInterval(1.0, [0.5], ["field"])
-        mesh_seq = MeshSeq(
+        mesh_seq = AdjointMeshSeq(
             time_interval,
             [UnitSquareMesh(1, 1)],
             get_function_spaces=self.get_function_spaces,
+            qoi_type="end_time",
         )
         fs = mesh_seq.function_spaces["field"][0]
         u = Function(fs, name="field")
@@ -131,7 +288,7 @@ class TestGetSolveBlocks(unittest.TestCase):
         self.assertEqual(str(cm.exception), msg)
 
 
-class TrivalGoalOrientedBaseClass(unittest.TestCase):
+class TrivialGoalOrientedBaseClass(unittest.TestCase):
     """
     Base class for tests with a trivial :class:`GoalOrientedMeshSeq`.
     """
@@ -140,6 +297,11 @@ class TrivalGoalOrientedBaseClass(unittest.TestCase):
         self.field = "field"
         self.time_interval = TimeInterval(1.0, [1.0], [self.field])
         self.meshes = [UnitSquareMesh(1, 1)]
+
+    @staticmethod
+    def constant_qoi(mesh_seq, solutions, index):
+        R = FunctionSpace(mesh_seq[index], "R", 0)
+        return lambda: Function(R).assign(1) * dx
 
     def go_mesh_seq(self, get_function_spaces, parameters=None):
         return GoalOrientedMeshSeq(
@@ -151,7 +313,7 @@ class TrivalGoalOrientedBaseClass(unittest.TestCase):
         )
 
 
-class TestGlobalEnrichment(TrivalGoalOrientedBaseClass):
+class TestGlobalEnrichment(TrivialGoalOrientedBaseClass):
     """
     Unit tests for global enrichment of a :class:`GoalOrientedMeshSeq`.
     """
@@ -179,6 +341,21 @@ class TestGlobalEnrichment(TrivalGoalOrientedBaseClass):
         with self.assertRaises(ValueError) as cm:
             mesh_seq.get_enriched_mesh_seq(num_enrichments=0)
         msg = "A positive number of enrichments is required."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_h_enrichment_error(self):
+        end_time = 1.0
+        num_subintervals = 2
+        dt = end_time / num_subintervals
+        mesh_seq = GoalOrientedMeshSeq(
+            TimePartition(end_time, num_subintervals, dt, "field"),
+            [UnitTriangleMesh()] * num_subintervals,
+            get_qoi=self.constant_qoi,
+            qoi_type="end_time",
+        )
+        with self.assertRaises(ValueError) as cm:
+            mesh_seq.get_enriched_mesh_seq(enrichment_method="h")
+        msg = "h-enrichment is not supported for shallow-copied meshes."
         self.assertEqual(str(cm.exception), msg)
 
     @parameterized.expand([[1], [2]])
@@ -315,29 +492,3 @@ class TestGlobalEnrichment(TrivalGoalOrientedBaseClass):
         target = Function(mesh_seq_e.function_spaces["field"][0])
         transfer(source, target)
         self.assertAlmostEqual(norm(source), norm(target))
-
-
-class TestErrorIndication(TrivalGoalOrientedBaseClass):
-    """
-    Unit tests for :meth:`indicate_errors`.
-    """
-
-    @staticmethod
-    def constant_qoi(mesh_seq, solutions, index):
-        R = FunctionSpace(mesh_seq[index], "R", 0)
-        return lambda: Function(R).assign(1) * dx
-
-    def test_form_error(self):
-        mesh_seq = GoalOrientedMeshSeq(
-            TimeInstant([]),
-            UnitTriangleMesh(),
-            get_qoi=self.constant_qoi,
-            qoi_type="steady",
-        )
-        mesh_seq._get_function_spaces = lambda _: {}
-        mesh_seq._get_form = lambda _: lambda *_: 0
-        mesh_seq._get_solver = lambda _: lambda *_: {}
-        with self.assertRaises(TypeError) as cm:
-            mesh_seq.fixed_point_iteration(lambda *_: [False])
-        msg = "The function defined by get_form should return a dictionary, not type '<class 'int'>'."
-        self.assertEqual(str(cm.exception), msg)

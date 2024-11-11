@@ -11,13 +11,18 @@
 # ::
 
 from firedrake import *
+
 from goalie_adjoint import *
 
-# For ease, the field list and functions for obtaining the
+# For ease, the list of field names and functions for obtaining the
 # function spaces, forms, solvers, and initial conditions
-# are redefined as in the previous demo. ::
+# are redefined as in the previous demo. The only difference
+# is that now we are solving the adjoint problem, which
+# requires that the PDE solve is labelled with an
+# ``ad_block_tag`` that matches the corresponding prognostic
+# variable name. ::
 
-fields = ["u"]
+field_names = ["u"]
 
 
 def get_function_spaces(mesh):
@@ -25,13 +30,12 @@ def get_function_spaces(mesh):
 
 
 def get_form(mesh_seq):
-    def form(index, solutions):
-        u, u_ = solutions["u"]
-        P = mesh_seq.time_partition
+    def form(index):
+        u, u_ = mesh_seq.fields["u"]
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(P.timesteps[index])
+        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -47,27 +51,23 @@ def get_form(mesh_seq):
 
 
 def get_solver(mesh_seq):
-    def solver(index, ic):
-        function_space = mesh_seq.function_spaces["u"][index]
-        u = Function(function_space, name="u")
-
-        # Initialise 'lagged' solution
-        u_ = Function(function_space, name="u_old")
-        u_.assign(ic["u"])
+    def solver(index):
+        u, u_ = mesh_seq.fields["u"]
 
         # Define form
-        F = mesh_seq.form(index, {"u": (u, u_)})["u"]
+        F = mesh_seq.form(index)["u"]
 
         # Time integrate from t_start to t_end
-        P = mesh_seq.time_partition
-        t_start, t_end = P.subintervals[index]
-        dt = P.timesteps[index]
+        tp = mesh_seq.time_partition
+        t_start, t_end = tp.subintervals[index]
+        dt = tp.timesteps[index]
         t = t_start
         while t < t_end - 1.0e-05:
-            solve(F == 0, u, ad_block_tag="u")
+            solve(F == 0, u, ad_block_tag="u")  # Note the ad_block_tag
+            yield
+
             u_.assign(u)
             t += dt
-        return {"u": u}
 
     return solver
 
@@ -75,7 +75,7 @@ def get_solver(mesh_seq):
 def get_initial_condition(mesh_seq):
     fs = mesh_seq.function_spaces["u"][0]
     x, y = SpatialCoordinate(mesh_seq[0])
-    return {"u": interpolate(as_vector([sin(pi * x), 0]), fs)}
+    return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
 
 
 # In line with the
@@ -92,9 +92,9 @@ def get_initial_condition(mesh_seq):
 # hand boundary. ::
 
 
-def get_qoi(mesh_seq, solutions, i):
+def get_qoi(mesh_seq, i):
     def end_time_qoi():
-        u = solutions["u"]
+        u = mesh_seq.fields["u"][0]
         return inner(u, u) * ds(2)
 
     return end_time_qoi
@@ -113,7 +113,7 @@ dt = 1 / n
 # single mesh, so the partition is trivial and we can use the
 # :class:`TimeInterval` constructor. ::
 
-time_partition = TimeInterval(end_time, dt, fields, num_timesteps_per_export=2)
+time_partition = TimeInterval(end_time, dt, field_names, num_timesteps_per_export=2)
 
 # Finally, we are able to construct an :class:`AdjointMeshSeq` and
 # thereby call its :meth:`solve_adjoint` method. This computes the QoI

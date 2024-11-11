@@ -9,14 +9,14 @@
 #
 # As before, we copy over what is now effectively boiler plate to set up our problem. ::
 
-from firedrake import *
+import matplotlib.pyplot as plt
 from animate.adapt import adapt
 from animate.metric import RiemannianMetric
+from firedrake import *
+
 from goalie import *
-import matplotlib.pyplot as plt
 
-
-fields = ["u"]
+field_names = ["u"]
 
 
 def get_function_spaces(mesh):
@@ -24,13 +24,12 @@ def get_function_spaces(mesh):
 
 
 def get_form(mesh_seq):
-    def form(index, solutions):
-        u, u_ = solutions["u"]
-        P = mesh_seq.time_partition
+    def form(index):
+        u, u_ = mesh_seq.fields["u"]
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(P.timesteps[index])
+        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -46,27 +45,23 @@ def get_form(mesh_seq):
 
 
 def get_solver(mesh_seq):
-    def solver(index, ic):
-        function_space = mesh_seq.function_spaces["u"][index]
-        u = Function(function_space, name="u")
-
-        # Initialise 'lagged' solution
-        u_ = Function(function_space, name="u_old")
-        u_.assign(ic["u"])
+    def solver(index):
+        u, u_ = mesh_seq.fields["u"]
 
         # Define form
-        F = mesh_seq.form(index, {"u": (u, u_)})["u"]
+        F = mesh_seq.form(index)["u"]
 
         # Time integrate from t_start to t_end
-        P = mesh_seq.time_partition
-        t_start, t_end = P.subintervals[index]
-        dt = P.timesteps[index]
+        tp = mesh_seq.time_partition
+        t_start, t_end = tp.subintervals[index]
+        dt = tp.timesteps[index]
         t = t_start
         while t < t_end - 1.0e-05:
             solve(F == 0, u, ad_block_tag="u")
+            yield
+
             u_.assign(u)
             t += dt
-        return {"u": u}
 
     return solver
 
@@ -74,7 +69,7 @@ def get_solver(mesh_seq):
 def get_initial_condition(mesh_seq):
     fs = mesh_seq.function_spaces["u"][0]
     x, y = SpatialCoordinate(mesh_seq[0])
-    return {"u": interpolate(as_vector([sin(pi * x), 0]), fs)}
+    return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
 
 
 n = 32
@@ -87,16 +82,10 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=2,
 )
 
-params = MetricParameters(
-    {
-        "element_rtol": 0.001,
-        "maxiter": 35 if os.environ.get("GOALIE_REGRESSION_TEST") is None else 3,
-    }
-)
 mesh_seq = MeshSeq(
     time_partition,
     meshes,
@@ -104,7 +93,6 @@ mesh_seq = MeshSeq(
     get_initial_condition=get_initial_condition,
     get_form=get_form,
     get_solver=get_solver,
-    parameters=params,
 )
 
 # As in the previous adaptation demos, the most important part is the adaptor function.
@@ -194,7 +182,13 @@ def adaptor(mesh_seq, solutions):
 
 # With the adaptor function defined, we can call the fixed point iteration method. ::
 
-solutions = mesh_seq.fixed_point_iteration(adaptor)
+params = AdaptParameters(
+    {
+        "element_rtol": 0.001,
+        "maxiter": 35,
+    }
+)
+solutions = mesh_seq.fixed_point_iteration(adaptor, parameters=params)
 
 # Here the output should look something like
 #

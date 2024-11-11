@@ -1,16 +1,14 @@
 """
-Problem specification for a simple Burgers
-equation test case.
+Problem specification for a simple Burgers equation test case.
 
-The test case is notable for Goalie
-because the prognostic equation is
-nonlinear.
+The test case is notable for Goalie because the prognostic equation is nonlinear.
 
 Code here is based on that found at
     https://firedrakeproject.org/demos/burgers.py.html
 """
-from firedrake import *
 
+from firedrake import *
+from firedrake.__future__ import interpolate
 
 # Problem setup
 n = 32
@@ -35,9 +33,9 @@ def get_form(self):
     Burgers equation weak form.
     """
 
-    def form(i, sols):
-        u, u_ = sols["uv_2d"]
-        dt = self.time_partition[i].timestep
+    def form(i):
+        u, u_ = self.fields["uv_2d"]
+        dt = self.time_partition.timesteps[i]
         fs = self.function_spaces["uv_2d"][i]
         R = FunctionSpace(self[i], "R", 0)
         dtc = Function(R).assign(dt)
@@ -48,68 +46,59 @@ def get_form(self):
             + inner(dot(u, nabla_grad(u)), v) * dx
             + nu * inner(grad(u), grad(v)) * dx
         )
-        return F
+        return {"uv_2d": F}
 
     return form
 
 
 def get_solver(self):
     """
-    Burgers equation solved using
-    a direct method and backward
-    Euler timestepping.
+    Burgers equation solved using a direct method and backward Euler timestepping.
     """
 
-    def solver(i, ic):
-        t_start, t_end = self.time_partition[i].subinterval
-        dt = self.time_partition[i].timestep
-        fs = self.function_spaces["uv_2d"][i]
-        u = Function(fs, name="uv_2d")
-        solution_map = {"uv_2d": u}
+    def solver(i):
+        t_start, t_end = self.time_partition.subintervals[i]
+        dt = self.time_partition.timesteps[i]
 
-        # Set initial condition
-        u_ = Function(fs, name="uv_2d_old")
-        u_.assign(ic["uv_2d"])
+        u, u_ = self.fields["uv_2d"]
 
         # Setup variational problem
-        F = self.form(i, {"uv_2d": (u, u_)})
+        F = self.form(i)["uv_2d"]
 
         # Time integrate from t_start to t_end
         t = t_start
-        qoi = self.get_qoi(solution_map, i)
+        qoi = self.get_qoi(i)
         while t < t_end - 1.0e-05:
             solve(F == 0, u, ad_block_tag="uv_2d")
             if self.qoi_type == "time_integrated":
                 self.J += qoi(t)
+            yield
+
             u_.assign(u)
             t += dt
-        return solution_map
 
     return solver
 
 
 def get_initial_condition(self):
     """
-    Initial condition which is
-    sinusoidal in the x-direction.
+    Initial condition which is sinusoidal in the x-direction.
     """
     init_fs = self.function_spaces["uv_2d"][0]
     x, y = SpatialCoordinate(self.meshes[0])
-    return {"uv_2d": interpolate(as_vector([sin(pi * x), 0]), init_fs)}
+    return {"uv_2d": assemble(interpolate(as_vector([sin(pi * x), 0]), init_fs))}
 
 
-def get_qoi(self, sol, i):
+def get_qoi(self, i):
     """
-    Quantity of interest which
-    computes the square L2
-    norm over the right hand
+    Quantity of interest which computes the square :math:`L^2` norm over the right hand
     boundary.
     """
     R = FunctionSpace(self[i], "R", 0)
-    dtc = Function(R).assign(self.time_partition[i].timestep)
+    dtc = Function(R).assign(self.time_partition.timesteps[i])
 
     def time_integrated_qoi(t):
-        u = sol["uv_2d"]
+        u = self.fields["uv_2d"][0]
         return dtc * inner(u, u) * ds(2)
 
     def end_time_qoi():

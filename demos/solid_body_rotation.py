@@ -10,9 +10,8 @@
 #
 # which is solved for a tracer concentration :math:`c`. The
 # velocity field :math:`\mathbf{u}` drives the transport.
-# A new piece of information in this demo is the approach to
-# strongly imposing Dirichlet boundary conditions in Goalie.
-# In particular, we impose
+# Furthermore, we strongly impose zero Dirichlet boundary
+# conditions:
 #
 # .. math::
 #    c|_{\partial\Omega}=0,
@@ -37,15 +36,19 @@
 # adjoint mode activated. ::
 
 from firedrake import *
+
 from goalie_adjoint import *
 
-# For simplicity, we use a :math:`\mathbb P1` space for each
-# field. The domain of interest is again the unit square, in
-# this case shifted to have its centre at the origin. ::
+# For simplicity, we use a :math:`\mathbb P1` space for the
+# concentration field. The domain of interest is again the
+# unit square, in this case shifted to have its centre at
+# the origin. ::
+
+field_names = ["c"]
 
 
-def get_function_spaces(mesh, field="c"):
-    return {field: FunctionSpace(mesh, "CG", 1)}
+def get_function_spaces(mesh):
+    return {"c": FunctionSpace(mesh, "CG", 1)}
 
 
 mesh = UnitSquareMesh(40, 40)
@@ -54,10 +57,6 @@ coords.interpolate(coords - as_vector([0.5, 0.5]))
 mesh = Mesh(coords)
 
 
-# The reason for passing an additional keyword argument for the
-# field name will become clear in the next demo. We continue
-# this pattern throughout.
-#
 # Next, let's define the initial condition, to get a
 # better idea of the problem at hand. ::
 
@@ -85,27 +84,23 @@ def slot_cyl_initial_condition(x, y):
     )
 
 
-def get_initial_condition(mesh_seq, field="c"):
-    fs = mesh_seq.function_spaces[field][0]
+def get_initial_condition(mesh_seq):
+    fs = mesh_seq.function_spaces["c"][0]
     x, y = SpatialCoordinate(mesh_seq[0])
     bell = bell_initial_condition(x, y)
     cone = cone_initial_condition(x, y)
     slot_cyl = slot_cyl_initial_condition(x, y)
-    return {field: interpolate(bell + cone + slot_cyl, fs)}
+    return {"c": assemble(interpolate(bell + cone + slot_cyl, fs))}
 
 
-# Now let's set up the time interval of interest. The `"GOALIE_REGRESSION_TEST"` flag
-# can be ignored here and in subsequent demos; it is used to cut down the runtime in
-# Goalie's continuous integration suite. ::
+# Now let's set up the time interval of interest. ::
 
-test = os.environ.get("GOALIE_REGRESSION_TEST") is not None
-end_time = pi / 4 if test else 2 * pi
+end_time = 2 * pi
 dt = pi / 300
-fields = ["c"]
 time_partition = TimeInterval(
     end_time,
     dt,
-    fields,
+    field_names,
     num_timesteps_per_export=25,
 )
 
@@ -113,9 +108,8 @@ time_partition = TimeInterval(
 # only the :meth:`get_function_spaces` and :meth:`get_initial_condition`
 # methods implemented. ::
 
-from firedrake.pyplot import tricontourf
 import matplotlib.pyplot as plt
-
+from firedrake.pyplot import tricontourf
 
 mesh_seq = MeshSeq(
     time_partition,
@@ -147,9 +141,9 @@ plt.savefig("solid_body_rotation-init.jpg")
 
 
 def get_form(mesh_seq):
-    def form(index, sols, field="c"):
-        c, c_ = sols[field]
-        V = mesh_seq.function_spaces[field][index]
+    def form(index):
+        c, c_ = mesh_seq.fields["c"]
+        V = mesh_seq.function_spaces["c"][index]
         mesh = mesh_seq[index]
 
         # Define velocity field
@@ -158,62 +152,47 @@ def get_form(mesh_seq):
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition[index].timestep)
+        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
         theta = Function(R).assign(0.5)
 
         psi = TrialFunction(V)
         phi = TestFunction(V)
         a = psi * phi * dx + dt * theta * dot(u, grad(psi)) * phi * dx
         L = c_ * phi * dx - dt * (1 - theta) * dot(u, grad(c_)) * phi * dx
-        return {field: (a, L)}
+        return {"c": (a, L)}
 
     return form
 
 
-# To implement the boundary conditions, we simply create a list of
-# :class:`DirichletBC` objects for each field. Here, the list only
-# has one entry. ::
-
-
-def get_bcs(mesh_seq):
-    def bcs(index, field="c"):
-        fs = mesh_seq.function_spaces[field][index]
-        return [DirichletBC(fs, 0, "on_boundary")]
-
-    return bcs
-
-
-# The :func:`get_form` and :func:`get_bcs` functions are then used by
-# :func:`get_solver`. ::
+# The :func:`get_form` function is then used by :func:`get_solver`. ::
 
 
 def get_solver(mesh_seq):
-    def solver(index, ic, field="c"):
-        function_space = mesh_seq.function_spaces[field][index]
-        c = Function(function_space, name=field)
-
-        # Initialise 'lagged' solution
-        c_ = Function(function_space, name=field + "_old")
-        c_.assign(ic[field])
+    def solver(index):
+        function_space = mesh_seq.function_spaces["c"][index]
+        c, c_ = mesh_seq.fields["c"]
 
         # Setup variational problem
-        a, L = mesh_seq.form(index, {field: (c, c_)}, field=field)[field]
-        bcs = mesh_seq.bcs(index, field=field)
+        a, L = mesh_seq.form(index)["c"]
+
+        # Zero Dirichlet condition on the boundary
+        bcs = DirichletBC(function_space, 0, "on_boundary")
 
         # Setup the solver object
         lvp = LinearVariationalProblem(a, L, c, bcs=bcs)
-        lvs = LinearVariationalSolver(lvp, ad_block_tag=field)
+        lvs = LinearVariationalSolver(lvp, ad_block_tag="c")
 
         # Time integrate from t_start to t_end
-        P = mesh_seq.time_partition
-        t_start, t_end = P.subintervals[index]
-        dt = P.timesteps[index]
+        tp = mesh_seq.time_partition
+        t_start, t_end = tp.subintervals[index]
+        dt = tp.timesteps[index]
         t = t_start
         while t < t_end - 0.5 * dt:
             lvs.solve()
+            yield
+
             c_.assign(c)
             t += dt
-        return {field: c}
 
     return solver
 
@@ -229,9 +208,9 @@ def get_solver(mesh_seq):
 # to be positioned at the end time. ::
 
 
-def get_qoi(mesh_seq, sols, index, field="c"):
+def get_qoi(mesh_seq, index):
     def qoi():
-        c = sols[field]
+        c = mesh_seq.fields["c"][0]
         x, y = SpatialCoordinate(mesh_seq[index])
         x0, y0, r0 = 0.0, 0.25, 0.15
         ball = conditional((x - x0) ** 2 + (y - y0) ** 2 < r0**2, 1.0, 0.0)
@@ -240,8 +219,7 @@ def get_qoi(mesh_seq, sols, index, field="c"):
     return qoi
 
 
-# We are now ready to create an :class:`AdjointMeshSeq`. This
-# time, make sure to pass the ``get_bcs`` option, too. ::
+# We are now ready to create an :class:`AdjointMeshSeq`.
 
 mesh_seq = AdjointMeshSeq(
     time_partition,
@@ -249,7 +227,6 @@ mesh_seq = AdjointMeshSeq(
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_form=get_form,
-    get_bcs=get_bcs,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="end_time",
@@ -258,22 +235,14 @@ solutions = mesh_seq.solve_adjoint()
 
 # So far, we have visualised outputs using `Matplotlib`. In many cases, it is better to
 # use Paraview. To save all adjoint solution components in Paraview format, use the
-# following. The `if` statement is used here to check whether this demo is being run as
-# part of Goalie's continuous integration testing and can be ignored. ::
+# following. ::
 
-if not test:
-    for field, sols in solutions.items():
-        fwd_outfile = File(f"solid_body_rotation/{field}_forward.pvd")
-        adj_outfile = File(f"solid_body_rotation/{field}_adjoint.pvd")
-        for i, mesh in enumerate(mesh_seq):
-            for sol in sols["forward"][i]:
-                fwd_outfile.write(sol)
-            for sol in sols["adjoint"][i]:
-                adj_outfile.write(sol)
+solutions.export(
+    "solid_body_rotation/solutions.pvd", export_field_types=["forward", "adjoint"]
+)
 
-# In the `next demo <./solid_body_rotation_split.py.html>`__,
-# we consider solving the same problem, but splitting the solution
-# field into multiple components.
+# In the `next demo <./gray_scott.py.html>`__, we increase the complexity by considering
+# two concentration fields in an advection-diffusion-reaction problem.
 #
 # This tutorial can be dowloaded as a
 # `Python script <solid_body_rotation.py>`__.

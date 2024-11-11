@@ -13,17 +13,17 @@
 # adaptation functionality from Firedrake, which can be found in ``firedrake.meshadapt``.
 # ::
 
-from firedrake import *
 from animate.adapt import adapt
 from animate.metric import RiemannianMetric
-from goalie import *
+from firedrake import *
 
+from goalie import *
 
 # We again consider the "point discharge with diffusion" test case from the
 # `previous demo <./point_discharge2d.py.html>`__, approximating the tracer concentration
 # :math:`c` in :math:`\mathbb P1` space. ::
 
-fields = ["c"]
+field_names = ["c"]
 
 
 def get_function_spaces(mesh):
@@ -37,8 +37,8 @@ def source(mesh):
 
 
 def get_form(mesh_seq):
-    def form(index, sols):
-        c, c_ = sols["c"]
+    def form(index):
+        c = mesh_seq.fields["c"]
         function_space = mesh_seq.function_spaces["c"][index]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
@@ -68,60 +68,32 @@ def get_form(mesh_seq):
     return form
 
 
-def get_bcs(mesh_seq):
-    def bcs(index):
-        function_space = mesh_seq.function_spaces["c"][index]
-        return DirichletBC(function_space, 0, 1)
-
-    return bcs
-
-
 def get_solver(mesh_seq):
-    def solver(index, ic):
+    def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
-
-        # Ensure dependence on the initial condition
-        c_ = Function(function_space, name="c_old")
-        c_.assign(ic["c"])
-        c = Function(function_space, name="c")
-        c.assign(c_)
+        c = mesh_seq.fields["c"]
 
         # Setup variational problem
-        F = mesh_seq.form(index, {"c": (c, c_)})["c"]
-        bc = mesh_seq.bcs(index)
+        F = mesh_seq.form(index)["c"]
+        bc = DirichletBC(function_space, 0, 1)
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
-        return {"c": c}
+        yield
 
     return solver
 
 
 # Take a relatively coarse initial mesh, a :class:`TimeInstant` (since we have a
-# steady-state problem), and put everything together in a :class:`MeshSeq`. For this
-# demo, we also create a :class:`MetricParameters` object and set the `element_rtol`
-# parameter to 0.005. This means that the fixed point iteration will terminate if the
-# element count changes by less than 0.5% between iterations. As standard, we allow
-# 35 iterations before establishing that the iteration is not going to converge.
-# To cut down the cost of the regresssion tests, we just use three iterations
-# instead. ::
-
-params = MetricParameters(
-    {
-        "element_rtol": 0.005,
-        "maxiter": 35 if os.environ.get("GOALIE_REGRESSION_TEST") is None else 3,
-    }
-)
+# steady-state problem), and put everything together in a :class:`MeshSeq`. ::
 
 mesh = RectangleMesh(50, 10, 50, 10)
-time_partition = TimeInstant(fields)
+time_partition = TimeInstant(field_names)
 mesh_seq = MeshSeq(
     time_partition,
     mesh,
     get_function_spaces=get_function_spaces,
     get_form=get_form,
-    get_bcs=get_bcs,
     get_solver=get_solver,
-    parameters=params,
 )
 
 # Give the initial mesh, we can plot it, solve the PDE on it, and plot the resulting
@@ -214,9 +186,19 @@ def adaptor(mesh_seq, solutions):
 
 # With the adaptor function defined, we can call the fixed point iteration method, which
 # iteratively solves the PDE and calls the adaptor until one of the convergence criteria
-# are met. ::
+# are met. To that end, we create a :class:`AdaptParameters` object and set the
+# `element_rtol` parameter to 0.005. This means that the fixed point iteration will
+# terminate if the element count changes by less than 0.5% between iterations. As
+# standard, we allow 35 iterations before establishing that the iteration is not going
+# to converge. ::
 
-solutions = mesh_seq.fixed_point_iteration(adaptor)
+params = AdaptParameters(
+    {
+        "element_rtol": 0.005,
+        "maxiter": 35,
+    }
+)
+solutions = mesh_seq.fixed_point_iteration(adaptor, parameters=params)
 
 # Mesh adaptation often gives slightly different results on difference machines. However,
 # the output should look something like

@@ -1,8 +1,10 @@
-from firedrake import UnitTriangleMesh
-from goalie.math import *
+import unittest
+
 import numpy as np
 import scipy as sp
-import unittest
+from firedrake import UnitTriangleMesh
+
+from goalie.math import *
 
 
 class TestBessel(unittest.TestCase):

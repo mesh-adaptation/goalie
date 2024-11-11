@@ -1,15 +1,18 @@
 """
 Test adjoint drivers.
 """
-from firedrake import *
-from goalie_adjoint import *
-import pyadjoint
-import pytest
+
 import importlib
 import os
 import sys
 import unittest
 
+import pyadjoint
+import pytest
+from animate.utility import errornorm, norm
+from firedrake import Cofunction, UnitTriangleMesh
+
+from goalie_adjoint import *
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "examples"))
 
@@ -39,7 +42,7 @@ class TestAdjointMeshSeqGeneric(unittest.TestCase):
     def test_get_qoi_notimplemented_error(self):
         mesh_seq = AdjointMeshSeq(self.time_interval, self.meshes, qoi_type="end_time")
         with self.assertRaises(NotImplementedError) as cm:
-            mesh_seq.get_qoi({}, 0)
+            mesh_seq.get_qoi(0)
         msg = "'get_qoi' is not implemented."
         self.assertEqual(str(cm.exception), msg)
 
@@ -114,7 +117,6 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         get_form=test_case.get_form,
         get_solver=test_case.get_solver,
         get_qoi=test_case.get_qoi,
-        get_bcs=test_case.get_bcs,
         qoi_type=qoi_type,
     )
 
@@ -126,8 +128,12 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     tape.clear_tape()
     ic = mesh_seq.initial_condition
     controls = [pyadjoint.Control(value) for key, value in ic.items()]
-    sols = mesh_seq.solver(0, ic)
-    qoi = mesh_seq.get_qoi(sols, 0)
+    mesh_seq._reinitialise_fields(ic)
+    solver = mesh_seq.solver(0)
+    for i in range(len(mesh_seq)):
+        for _ in range(mesh_seq.time_partition.num_timesteps_per_subinterval[i]):
+            next(solver)
+    qoi = mesh_seq.get_qoi(0)
     J = mesh_seq.J if qoi_type == "time_integrated" else qoi()
     m = pyadjoint.enlisting.Enlist(controls)
     assert pyadjoint.annotate_tape()
@@ -137,14 +143,18 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     # FIXME: Using mixed Functions as Controls not correct
     J_expected = float(J)
 
-    # Get expected adjoint solutions and values
+    # Get expected adjoint solutions and values at the timestep corresponding
+    # to the first exported solution in the MeshSeq solution data
+    first_export_idx = test_case.dt_per_export - 1
     adj_sols_expected = {}
     adj_values_expected = {}
     for field, fs in mesh_seq._fs.items():
         solve_blocks = mesh_seq.get_solve_blocks(field, 0)
-        adj_sols_expected[field] = solve_blocks[0].adj_sol.copy(deepcopy=True)
+        adj_sols_expected[field] = solve_blocks[first_export_idx].adj_sol.copy(
+            deepcopy=True
+        )
         if not steady:
-            dep = mesh_seq._dependency(field, 0, solve_blocks[0])
+            dep = mesh_seq._dependency(field, 0, solve_blocks[first_export_idx])
             adj_values_expected[field] = Cofunction(fs[0].dual())
             adj_values_expected[field].assign(dep.adj_value)
 
@@ -169,7 +179,6 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
             get_form=test_case.get_form,
             get_solver=test_case.get_solver,
             get_qoi=test_case.get_qoi,
-            get_bcs=test_case.get_bcs,
             qoi_type=qoi_type,
         )
         solutions = mesh_seq.solve_adjoint(
@@ -180,22 +189,26 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         if not np.isclose(J_expected, mesh_seq.J):
             raise ValueError(f"QoIs do not match ({J_expected} vs. {mesh_seq.J})")
 
-        # Check adjoint solutions at initial time match
-        for field in time_partition.fields:
+        # Check adjoint solutions at first export time match
+        first_export_time = test_case.dt * test_case.dt_per_export
+        for field in time_partition.field_names:
             adj_sol_expected = adj_sols_expected[field]
             expected_norm = norm(adj_sol_expected)
             if np.isclose(expected_norm, 0.0):
-                raise ValueError("'Expected' norm at t=0 is unexpectedly zero.")
+                raise ValueError(
+                    f"'Expected' norm at t={first_export_time} is unexpectedly zero."
+                )
             adj_sol_computed = solutions[field].adjoint[0][0]
             err = errornorm(adj_sol_expected, adj_sol_computed) / expected_norm
             if not np.isclose(err, 0.0):
                 raise ValueError(
-                    f"Adjoint solutions do not match at t=0 (error {err:.4e}.)"
+                    f"Adjoint solutions do not match at t={first_export_time}"
+                    f" (error {err:.4e}.)"
                 )
 
-        # Check adjoint actions at initial time match
+        # Check adjoint actions at first export time match
         if not steady:
-            for field in time_partition.fields:
+            for field in time_partition.field_names:
                 adj_value_expected = adj_values_expected[field]
                 adj_value_computed = solutions[field].adj_value[0][0]
                 err = errornorm(adj_value_expected, adj_value_computed) / norm(
@@ -203,7 +216,8 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
                 )
                 if not np.isclose(err, 0.0):
                     raise ValueError(
-                        f"Adjoint values do not match at t=0 (error {err:.4e}.)"
+                        f"Adjoint values do not match at t={first_export_time}"
+                        f" (error {err:.4e}.)"
                     )
 
     tape = pyadjoint.get_working_tape()
@@ -243,24 +257,23 @@ def plot_solutions(problem, qoi_type, debug=True):
         get_form=test_case.get_form,
         get_solver=test_case.get_solver,
         get_qoi=test_case.get_qoi,
-        get_bcs=test_case.get_bcs,
         qoi_type=qoi_type,
     ).solve_adjoint(get_adj_values=not steady, test_checkpoint_qoi=True)
     output_dir = os.path.join(os.path.dirname(__file__), "outputs", problem)
     outfiles = AttrDict(
         {
-            "forward": File(os.path.join(output_dir, "forward.pvd")),
-            "forward_old": File(os.path.join(output_dir, "forward_old.pvd")),
-            "adjoint": File(os.path.join(output_dir, "adjoint.pvd")),
+            "forward": VTKFile(os.path.join(output_dir, "forward.pvd")),
+            "forward_old": VTKFile(os.path.join(output_dir, "forward_old.pvd")),
+            "adjoint": VTKFile(os.path.join(output_dir, "adjoint.pvd")),
         }
     )
     if not steady:
-        outfiles.adjoint_next = File(os.path.join(output_dir, "adjoint_next.pvd"))
-        outfiles.adj_value = File(os.path.join(output_dir, "adj_value.pvd"))
+        outfiles.adjoint_next = VTKFile(os.path.join(output_dir, "adjoint_next.pvd"))
+        outfiles.adj_value = VTKFile(os.path.join(output_dir, "adj_value.pvd"))
     for label in outfiles:
         for k in range(time_partition.num_exports_per_subinterval[0] - 1):
             to_plot = []
-            for field in time_partition.fields:
+            for field in time_partition.field_names:
                 sol = solutions[field][label][0][k]
                 to_plot += (
                     [sol]

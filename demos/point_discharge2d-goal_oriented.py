@@ -10,16 +10,16 @@
 # We copy over the setup as before. The only difference is that we import from
 # `goalie_adjoint` rather than `goalie`. ::
 
-from firedrake import *
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 from animate.adapt import adapt
 from animate.metric import RiemannianMetric
-from goalie_adjoint import *
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
+from firedrake import *
 from matplotlib import ticker
 
+from goalie_adjoint import *
 
-fields = ["c"]
+field_names = ["c"]
 
 
 def get_function_spaces(mesh):
@@ -33,8 +33,8 @@ def source(mesh):
 
 
 def get_form(mesh_seq):
-    def form(index, sols):
-        c, c_ = sols["c"]
+    def form(index):
+        c = mesh_seq.fields["c"]
         function_space = mesh_seq.function_spaces["c"][index]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
@@ -64,37 +64,24 @@ def get_form(mesh_seq):
     return form
 
 
-def get_bcs(mesh_seq):
-    def bcs(index):
-        function_space = mesh_seq.function_spaces["c"][index]
-        return DirichletBC(function_space, 0, 1)
-
-    return bcs
-
-
 def get_solver(mesh_seq):
-    def solver(index, ic):
+    def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
-
-        # Ensure dependence on the initial condition
-        c_ = Function(function_space, name="c_old")
-        c_.assign(ic["c"])
-        c = Function(function_space, name="c")
-        c.assign(c_)
+        c = mesh_seq.fields["c"]
 
         # Setup variational problem
-        F = mesh_seq.form(index, {"c": (c, c_)})["c"]
-        bc = mesh_seq.bcs(index)
+        F = mesh_seq.form(index)["c"]
+        bc = DirichletBC(function_space, 0, 1)
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
-        return {"c": c}
+        yield
 
     return solver
 
 
-def get_qoi(mesh_seq, sol, index):
+def get_qoi(mesh_seq, index):
     def qoi():
-        c = sol["c"]
+        c = mesh_seq.fields["c"]
         x, y = SpatialCoordinate(mesh_seq[index])
         xr, yr, rr = 20, 7.5, 0.5
         kernel = conditional((x - xr) ** 2 + (y - yr) ** 2 < rr**2, 1, 0)
@@ -104,30 +91,18 @@ def get_qoi(mesh_seq, sol, index):
 
 
 # Since we want to do goal-oriented mesh adaptation, we use a
-# :class:`GoalOrientedMeshSeq`. In addition to the element count convergence criterion,
-# we add another relative tolerance condition for the change in QoI value between
-# iterations. ::
-
-params = GoalOrientedMetricParameters(
-    {
-        "element_rtol": 0.005,
-        "qoi_rtol": 0.005,
-        "maxiter": 35 if os.environ.get("GOALIE_REGRESSION_TEST") is None else 3,
-    }
-)
+# :class:`GoalOrientedMeshSeq`. ::
 
 mesh = RectangleMesh(50, 10, 50, 10)
-time_partition = TimeInstant(fields)
+time_partition = TimeInstant(field_names)
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     mesh,
     get_function_spaces=get_function_spaces,
     get_form=get_form,
-    get_bcs=get_bcs,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="steady",
-    parameters=params,
 )
 
 # Let's solve the adjoint problem on the initial mesh so that we can see what the
@@ -216,9 +191,18 @@ def adaptor(mesh_seq, solutions, indicators):
 # that, in addition to solving the forward problem, this version of the fixed point
 # iteration method solves the adjoint problem, as well as solving the forward problem
 # again on a globally uniformly refined mesh. The latter is particularly expensive, so
-# we should expect the computation to take more time. ::
+# we should expect the computation to take more time.
+# In addition to the element count convergence criterion, we add another relative
+# tolerance condition for the change in QoI value between iterations. ::
 
-solutions, indicators = mesh_seq.fixed_point_iteration(adaptor)
+params = GoalOrientedAdaptParameters(
+    {
+        "element_rtol": 0.005,
+        "qoi_rtol": 0.005,
+        "maxiter": 35,
+    }
+)
+solutions, indicators = mesh_seq.fixed_point_iteration(adaptor, parameters=params)
 
 # This time, we find that the fixed point iteration converges in five iterations.
 # Convergence is reached because the relative change in QoI is found to be smaller than
@@ -226,14 +210,16 @@ solutions, indicators = mesh_seq.fixed_point_iteration(adaptor)
 #
 # .. code-block:: console
 #
-#     1, complexity:  371, dofs:  526, elements:  988
-#     2, complexity:  588, dofs:  729, elements: 1392
-#     3, complexity:  785, dofs:  916, elements: 1754
-#     4, complexity:  982, dofs: 1171, elements: 2264
-#     5, complexity:  984, dofs: 1151, elements: 2225
-#     6, complexity:  988, dofs: 1174, elements: 2269
-#     7, complexity:  985, dofs: 1170, elements: 2264
-#    Element count converged after 7 iterations under relative tolerance 0.005.
+#     1, complexity:  387, dofs:  543, elements: 1025
+#     2, complexity:  585, dofs:  744, elements: 1420
+#     3, complexity:  787, dofs:  932, elements: 1791
+#     4, complexity:  987, dofs: 1129, elements: 2176
+#     5, complexity:  988, dofs: 1171, elements: 2267
+#     6, complexity:  986, dofs: 1144, elements: 2209
+#     7, complexity:  989, dofs: 1190, elements: 2303
+#     8, complexity:  988, dofs: 1163, elements: 2249
+#     9, complexity:  989, dofs: 1168, elements: 2258
+#    Element count converged after 9 iterations under relative tolerance 0.005.
 #
 # ::
 
@@ -343,31 +329,23 @@ mesh_seq = GoalOrientedMeshSeq(
     mesh,
     get_function_spaces=get_function_spaces,
     get_form=get_form,
-    get_bcs=get_bcs,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="steady",
-    parameters=params,
 )
-solutions, indicators = mesh_seq.fixed_point_iteration(adaptor)
+solutions, indicators = mesh_seq.fixed_point_iteration(adaptor, parameters=params)
 
 # .. code-block:: console
 #
-#     1, complexity:  400, dofs:  542, elements: 1030
-#     2, complexity:  600, dofs:  749, elements: 1450
-#     3, complexity:  800, dofs:  977, elements: 1908
-#     4, complexity: 1000, dofs: 1204, elements: 2364
-#     5, complexity: 1000, dofs: 1275, elements: 2506
-#     6, complexity: 1000, dofs: 1254, elements: 2464
-#     7, complexity: 1000, dofs: 1315, elements: 2584
-#     8, complexity: 1000, dofs: 1281, elements: 2519
-#     9, complexity: 1000, dofs: 1351, elements: 2657
-#    10, complexity: 1000, dofs: 1295, elements: 2546
-#    11, complexity: 1000, dofs: 1283, elements: 2523
-#    12, complexity: 1000, dofs: 1336, elements: 2628
-#    13, complexity: 1000, dofs: 1309, elements: 2574
-#    14, complexity: 1000, dofs: 1304, elements: 2564
-#    Element count converged after 14 iterations under relative tolerance 0.005.
+#     1, complexity:  400, dofs:  531, elements: 1007
+#     2, complexity:  600, dofs:  771, elements: 1499
+#     3, complexity:  800, dofs:  977, elements: 1911
+#     4, complexity: 1000, dofs: 1232, elements: 2418
+#     5, complexity: 1000, dofs: 1272, elements: 2498
+#     6, complexity: 1000, dofs: 1246, elements: 2445
+#     7, complexity: 1000, dofs: 1264, elements: 2482
+#     8, complexity: 1000, dofs: 1266, elements: 2486
+#    Element count converged after 8 iterations under relative tolerance 0.005.
 #
 # ::
 
