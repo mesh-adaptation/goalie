@@ -36,7 +36,7 @@ class TestGeneric(unittest.TestCase):
         msg = "Meshes must all have the same topological dimension."
         self.assertEqual(str(cm.exception), msg)
 
-    @parameterized.expand(["get_function_spaces", "get_form", "get_solver"])
+    @parameterized.expand(["get_function_spaces", "get_solver"])
     def test_notimplemented_error(self, function_name):
         mesh_seq = MeshSeq(self.time_interval, UnitSquareMesh(1, 1))
         with self.assertRaises(NotImplementedError) as cm:
@@ -47,54 +47,35 @@ class TestGeneric(unittest.TestCase):
         msg = f"'{function_name}' needs implementing."
         self.assertEqual(str(cm.exception), msg)
 
-    @parameterized.expand(["get_function_spaces", "get_initial_condition", "get_form"])
+    @parameterized.expand(["get_function_spaces", "get_initial_condition"])
     def test_return_dict_error(self, method):
         mesh = UnitSquareMesh(1, 1)
-        methods = ["get_function_spaces", "get_initial_condition", "get_form"]
+        methods = ["get_function_spaces", "get_initial_condition"]
         funcs = [lambda _: 0, lambda _: 0, lambda _: lambda *_: 0]
-        methods_map = dict(zip(methods, funcs))
-        if method == "get_form":
-            kwargs = methods_map
-            f_space = FunctionSpace(mesh, "CG", 1)
-            kwargs["get_function_spaces"] = lambda _: {"field": f_space}
-            kwargs["get_initial_condition"] = lambda _: {"field": Function(f_space)}
-        else:
-            kwargs = {method: methods_map[method]}
+        kwargs = {method: funcs[methods.index(method)]}
         with self.assertRaises(AssertionError) as cm:
             MeshSeq(self.time_interval, mesh, **kwargs)
         msg = f"{method} should return a dict"
         self.assertEqual(str(cm.exception), msg)
 
-    @parameterized.expand(["get_function_spaces", "get_initial_condition", "get_form"])
+    @parameterized.expand(["get_function_spaces", "get_initial_condition"])
     def test_missing_field_error(self, method):
         mesh = UnitSquareMesh(1, 1)
-        methods = ["get_function_spaces", "get_initial_condition", "get_form"]
+        methods = ["get_function_spaces", "get_initial_condition"]
         funcs = [lambda _: {}, lambda _: {}, lambda _: lambda *_: {}]
-        kwargs = dict(zip(methods, funcs))
-        if method == "get_form":
-            f_space = FunctionSpace(mesh, "CG", 1)
-            kwargs["get_function_spaces"] = lambda _: {"field": f_space}
-            kwargs["get_initial_condition"] = lambda _: {"field": Function(f_space)}
-        else:
-            kwargs = {method: kwargs[method]}
+        kwargs = {method: funcs[methods.index(method)]}
         with self.assertRaises(AssertionError) as cm:
             MeshSeq(self.time_interval, mesh, **kwargs)
         msg = "missing fields {'field'} in " + f"{method}"
         self.assertEqual(str(cm.exception), msg)
 
-    @parameterized.expand(["get_function_spaces", "get_initial_condition", "get_form"])
+    @parameterized.expand(["get_function_spaces", "get_initial_condition"])
     def test_unexpected_field_error(self, method):
         mesh = UnitSquareMesh(1, 1)
-        methods = ["get_function_spaces", "get_initial_condition", "get_form"]
+        methods = ["get_function_spaces", "get_initial_condition"]
         out_dict = {"field": None, "extra_field": None}
         funcs = [lambda _: out_dict, lambda _: out_dict, lambda _: lambda *_: out_dict]
-        kwargs = dict(zip(methods, funcs))
-        if method == "get_form":
-            f_space = FunctionSpace(mesh, "CG", 1)
-            kwargs["get_function_spaces"] = lambda _: {"field": f_space}
-            kwargs["get_initial_condition"] = lambda _: {"field": Function(f_space)}
-        else:
-            kwargs = {method: kwargs[method]}
+        kwargs = {method: funcs[methods.index(method)]}
         with self.assertRaises(AssertionError) as cm:
             MeshSeq(self.time_interval, mesh, **kwargs)
         msg = "unexpected fields {'extra_field'} in " + f"{method}"
@@ -106,7 +87,6 @@ class TestGeneric(unittest.TestCase):
         kwargs = {
             "get_function_spaces": lambda _: {"field": f_space},
             "get_initial_condition": lambda _: {"field": Function(f_space)},
-            "get_form": lambda msq: lambda *_: {"field": msq.fields["field"][0]},
             "get_solver": lambda _: lambda *_: {},
         }
         with self.assertRaises(AssertionError) as cm:

@@ -32,29 +32,6 @@ def get_function_spaces(mesh):
     return {"up": VectorFunctionSpace(mesh, "CG", 2) * FunctionSpace(mesh, "CG", 1)}
 
 
-def get_form(self):
-    """
-    Weak form for Stokes equation.
-    """
-
-    def form(i):
-        up = self.fields["up"]
-        W = self.function_spaces["up"][i]
-        R = FunctionSpace(self[i], "R", 0)
-        nu = Function(R).assign(1.0)
-        u, p = split(up)
-        v, q = TestFunctions(W)
-        F = (
-            inner(dot(u, nabla_grad(u)), v) * dx
-            + nu * inner(grad(u), grad(v)) * dx
-            - inner(p, div(v)) * dx
-            - inner(q, div(u)) * dx
-        )
-        return {"up": F}
-
-    return form
-
-
 def get_solver(self):
     """
     Stokes problem solved using a
@@ -66,7 +43,16 @@ def get_solver(self):
         up = self.fields["up"]
 
         # Define variational problem
-        F = self.form(i)["up"]
+        R = FunctionSpace(self[i], "R", 0)
+        nu = Function(R).assign(1.0)
+        u, p = split(up)
+        v, q = TestFunctions(W)
+        F = (
+            inner(dot(u, nabla_grad(u)), v) * dx
+            + nu * inner(grad(u), grad(v)) * dx
+            - inner(p, div(v)) * dx
+            - inner(q, div(u)) * dx
+        )
 
         # Define inflow and no-slip boundary conditions
         y = SpatialCoordinate(self[i])[1]

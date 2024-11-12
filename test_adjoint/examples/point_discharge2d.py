@@ -51,13 +51,17 @@ def source(mesh):
     return 100.0 * exp(-((x - src_x) ** 2 + (y - src_y) ** 2) / src_r**2)
 
 
-def get_form(self):
+def get_solver(self):
     """
-    Advection-diffusion with SUPG stabilisation.
+    Advection-diffusion equation
+    solved using a direct method.
     """
 
-    def form(i):
+    def solver(i):
+        fs = self.function_spaces["tracer_2d"][i]
         c = self.fields["tracer_2d"]
+
+        # Define constants
         fs = self.function_spaces["tracer_2d"][i]
         R = FunctionSpace(self[i], "R", 0)
         D = Function(R).assign(0.1)
@@ -80,23 +84,6 @@ def get_form(self):
             - dot(u, grad(c)) * psi * dx
             - inner(D * grad(c), grad(psi)) * dx
         )
-        return {"tracer_2d": F}
-
-    return form
-
-
-def get_solver(self):
-    """
-    Advection-diffusion equation
-    solved using a direct method.
-    """
-
-    def solver(i):
-        fs = self.function_spaces["tracer_2d"][i]
-        c = self.fields["tracer_2d"]
-
-        # Setup variational problem
-        F = self.form(i)["tracer_2d"]
 
         # Zero Dirichlet condition on the left-hand (inlet) boundary
         bc = DirichletBC(fs, 0, 1)

@@ -28,29 +28,6 @@ def get_function_spaces(mesh):
     return {"uv_2d": VectorFunctionSpace(mesh, "CG", 2)}
 
 
-def get_form(self):
-    """
-    Burgers equation weak form.
-    """
-
-    def form(i):
-        u, u_ = self.fields["uv_2d"]
-        dt = self.time_partition.timesteps[i]
-        fs = self.function_spaces["uv_2d"][i]
-        R = FunctionSpace(self[i], "R", 0)
-        dtc = Function(R).assign(dt)
-        nu = Function(R).assign(0.0001)
-        v = TestFunction(fs)
-        F = (
-            inner((u - u_) / dtc, v) * dx
-            + inner(dot(u, nabla_grad(u)), v) * dx
-            + nu * inner(grad(u), grad(v)) * dx
-        )
-        return {"uv_2d": F}
-
-    return form
-
-
 def get_solver(self):
     """
     Burgers equation solved using a direct method and backward Euler timestepping.
@@ -63,7 +40,17 @@ def get_solver(self):
         u, u_ = self.fields["uv_2d"]
 
         # Setup variational problem
-        F = self.form(i)["uv_2d"]
+        dt = self.time_partition.timesteps[i]
+        fs = self.function_spaces["uv_2d"][i]
+        R = FunctionSpace(self[i], "R", 0)
+        dtc = Function(R).assign(dt)
+        nu = Function(R).assign(0.0001)
+        v = TestFunction(fs)
+        F = (
+            inner((u - u_) / dtc, v) * dx
+            + inner(dot(u, nabla_grad(u)), v) * dx
+            + nu * inner(grad(u), grad(v)) * dx
+        )
 
         # Time integrate from t_start to t_end
         t = t_start
