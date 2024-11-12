@@ -132,19 +132,18 @@ plt.savefig("solid_body_rotation-init.jpg")
 #    :figwidth: 90%
 #    :align: center
 
-# Now let's set up the solver. First, we need to write the
-# :meth:`get_form` method. There is no integration by parts
+# Now let's set up the solver. First, we need to define the
+# variational problem. There is no integration by parts
 # and we apply Crank-Nicolson timestepping with implicitness
 # one half. Since we have a linear PDE, we write the variational
 # problem in terms of a left-hand side and right-hand side and
 # output both of them. ::
 
 
-def get_form(mesh_seq):
-    def form(index):
-        c, c_ = mesh_seq.fields["c"]
+def get_solver(mesh_seq):
+    def solver(index):
         V = mesh_seq.function_spaces["c"][index]
-        mesh = mesh_seq[index]
+        c, c_ = mesh_seq.fields["c"]
 
         # Define velocity field
         x, y = SpatialCoordinate(mesh)
@@ -155,28 +154,14 @@ def get_form(mesh_seq):
         dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
         theta = Function(R).assign(0.5)
 
+        # Setup variational problem
         psi = TrialFunction(V)
         phi = TestFunction(V)
         a = psi * phi * dx + dt * theta * dot(u, grad(psi)) * phi * dx
         L = c_ * phi * dx - dt * (1 - theta) * dot(u, grad(c_)) * phi * dx
-        return {"c": (a, L)}
-
-    return form
-
-
-# The :func:`get_form` function is then used by :func:`get_solver`. ::
-
-
-def get_solver(mesh_seq):
-    def solver(index):
-        function_space = mesh_seq.function_spaces["c"][index]
-        c, c_ = mesh_seq.fields["c"]
-
-        # Setup variational problem
-        a, L = mesh_seq.form(index)["c"]
 
         # Zero Dirichlet condition on the boundary
-        bcs = DirichletBC(function_space, 0, "on_boundary")
+        bcs = DirichletBC(V, 0, "on_boundary")
 
         # Setup the solver object
         lvp = LinearVariationalProblem(a, L, c, bcs=bcs)
@@ -226,7 +211,6 @@ mesh_seq = AdjointMeshSeq(
     mesh,
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
-    get_form=get_form,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="end_time",

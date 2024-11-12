@@ -46,16 +46,14 @@ def get_initial_condition(mesh_seq):
     return {"ab": ab_init}
 
 
-# Since we are using a mixed formulation, the forms for each component equation are
-# summed together. ::
+# For the solver, we just use the default configuration of Firedrake's
+# :class:`NonlinearVariationalSolver`. Since we are using a mixed formulation, the forms
+# for each component equation are summed together. ::
 
 
-def get_form(mesh_seq):
-    def form(index):
+def get_solver(mesh_seq):
+    def solver(index):
         ab, ab_ = mesh_seq.fields["ab"]
-        a, b = split(ab)
-        a_, b_ = split(ab_)
-        psi_a, psi_b = TestFunctions(mesh_seq.function_spaces["ab"][index])
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
@@ -66,6 +64,9 @@ def get_form(mesh_seq):
         kappa = Function(R).assign(0.06)
 
         # Write the two equations in variational form
+        a, b = split(ab)
+        a_, b_ = split(ab_)
+        psi_a, psi_b = TestFunctions(mesh_seq.function_spaces["ab"][index])
         F = (
             psi_a * (a - a_) * dx
             + dt * D_a * inner(grad(psi_a), grad(a)) * dx
@@ -74,21 +75,8 @@ def get_form(mesh_seq):
             + dt * D_b * inner(grad(psi_b), grad(b)) * dx
             - dt * psi_b * (a * b**2 - (gamma + kappa) * b) * dx
         )
-        return {"ab": F}
-
-    return form
-
-
-# For the solver, we just use the default configuration of Firedrake's
-# :class:`NonlinearVariationalSolver`. ::
-
-
-def get_solver(mesh_seq):
-    def solver(index):
-        ab, ab_ = mesh_seq.fields["ab"]
 
         # Setup solver objects
-        F = mesh_seq.form(index)["ab"]
         nlvp = NonlinearVariationalProblem(F, ab)
         nlvs = NonlinearVariationalSolver(nlvp, ad_block_tag="ab")
 
@@ -150,7 +138,6 @@ mesh_seq = AdjointMeshSeq(
     mesh,
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
-    get_form=get_form,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="end_time",
