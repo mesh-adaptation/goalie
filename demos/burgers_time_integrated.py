@@ -12,33 +12,12 @@ from firedrake import *
 
 from goalie_adjoint import *
 
-# Redefine the ``get_initial_condition``, ``get_function_spaces``,
-# and ``get_form`` functions as in the first Burgers demo. ::
+# Redefine the ``get_initial_condition`` and ``get_function_spaces``,
+# functions as in the first Burgers demo. ::
 
 
 def get_function_spaces(mesh):
     return {"u": VectorFunctionSpace(mesh, "CG", 2)}
-
-
-def get_form(mesh_seq):
-    def form(index):
-        u, u_ = mesh_seq.fields["u"]
-
-        # Define constants
-        R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
-        nu = Function(R).assign(0.0001)
-
-        # Setup variational problem
-        v = TestFunction(u.function_space())
-        F = (
-            inner((u - u_) / dt, v) * dx
-            + inner(dot(u, nabla_grad(u)), v) * dx
-            + nu * inner(grad(u), grad(v)) * dx
-        )
-        return {"u": F}
-
-    return form
 
 
 def get_initial_condition(mesh_seq):
@@ -61,8 +40,18 @@ def get_solver(mesh_seq):
     def solver(index):
         u, u_ = mesh_seq.fields["u"]
 
-        # Define form
-        F = mesh_seq.form(index)["u"]
+        # Define constants
+        R = FunctionSpace(mesh_seq[index], "R", 0)
+        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
+        nu = Function(R).assign(0.0001)
+
+        # Setup variational problem
+        v = TestFunction(u.function_space())
+        F = (
+            inner((u - u_) / dt, v) * dx
+            + inner(dot(u, nabla_grad(u)), v) * dx
+            + nu * inner(grad(u), grad(v)) * dx
+        )
 
         # Time integrate from t_start to t_end
         t_start, t_end = mesh_seq.subintervals[index]
@@ -126,7 +115,6 @@ mesh_seq = AdjointMeshSeq(
     meshes,
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
-    get_form=get_form,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="time_integrated",
