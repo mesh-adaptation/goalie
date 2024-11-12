@@ -195,21 +195,16 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             enriched_spaces = {
                 f: enriched_mesh_seq.function_spaces[f][i] for f in self.fields
             }
-            mapping = {}
             for f, fs_e in enriched_spaces.items():
-                u[f] = Function(fs_e)
-                u_[f] = Function(fs_e)
-                mapping[f] = (
-                    (u[f], u_[f])
-                    if enriched_mesh_seq.field_types[f] == "unsteady"
-                    else u[f]
-                )
+                if self.field_types[f] == "steady":
+                    u[f] = u_[f] = enriched_mesh_seq.fields[f]
+                else:
+                    u[f], u_[f] = enriched_mesh_seq.fields[f]
                 u_star[f] = Function(fs_e)
                 u_star_next[f] = Function(fs_e)
                 u_star_e[f] = Function(fs_e)
 
             # Get forms for each equation in enriched space
-            enriched_mesh_seq.fields = mapping
             forms = enriched_mesh_seq.forms
 
             # Loop over each timestep
