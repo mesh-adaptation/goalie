@@ -1,11 +1,11 @@
-# Burgers equation with Goal-based Isotropic mesh adaptation
+# Burgers equation with Goal-oriented mesh adaptation
 # ===================================================
 
-# In the `previous demo <.burgers-hessian.py.html>`__, we applied Hessian-based
-# mesh adaptation to the time-dependent Burgers equation. Here, we consider a
-# goal-oriented error estimation to drive the mesh adaptation. Again, we will
-# choose a :class:`MeshSeq` with multiple subintervals and hence multiple meshes to adapt.
-# We also chose to apply a QoI which integrates in time as well as space.
+# In a `previous demo <.burgers-hessian.py.html>`__, we applied Hessian-based
+# mesh adaptation to the time-dependent Burgers equation. Here, we alternatively consider
+# a goal-oriented error estimation to drive the mesh adaptation. Again, we will
+# choose to partition the problem over multiple subintervals and hence multiple meshes
+# to adapt. We also chose to apply a QoI which integrates in time as well as space.
 #
 # We copy over the setup as before. The only difference is that we import from
 # `goalie_adjoint` rather than `goalie`. ::
@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 from animate.adapt import adapt
 from animate.metric import RiemannianMetric
 from firedrake import *
-from firedrake.__future__ import interpolate
 
 from goalie_adjoint import *
 
@@ -49,11 +48,11 @@ def get_form(mesh_seq):
 def get_initial_condition(mesh_seq):
     fs = mesh_seq.function_spaces["u"][0]
     x, y = SpatialCoordinate(mesh_seq[0])
-    return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
+    return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
-# The solver and QoI account for a time dependent QOI as described
-# in the `previous demo <.burgers_time_integrated.py.html>`__.
+# The solver and QoI account for a time dependent QoI as described
+# in a `previous demo <.burgers_time_integrated.py.html>`__.
 
 
 def get_solver(mesh_seq):
@@ -91,9 +90,9 @@ def get_qoi(mesh_seq, i):
     return time_integrated_qoi
 
 
-# We use the same mesh setup as in `the previous demo <./burgers2.py.html>`__ and the
-# same time partitioning, except that we export every timestep rather than every other
-# timestep. ::
+# We use the mesh setup and time partitioning involving two meshes,
+# as in a `previous demo <./burgers2.py.html>`__, except that we export
+# every timestep rather than every other timestep. ::
 
 n = 32
 meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
@@ -109,6 +108,9 @@ time_partition = TimePartition(
     num_timesteps_per_export=1,
 )
 
+# Since we want to do goal-oriented mesh adaptation, we use a
+# :class:`~.GoalOrientedMeshSeq`. ::
+
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     meshes,
@@ -120,9 +122,10 @@ mesh_seq = GoalOrientedMeshSeq(
     qoi_type="time_integrated",
 )
 
-# Compared to the previous adaptation demo, this adaptor depends on adjoint solution data
-# as well as forward solution data. For simplicity, we begin by using Goalie's inbuilt
-# isotropic metric function. ::
+# Compared to the `previous demo <.burgers-hessian.py.html>`__ involving the Hessian,
+# this adaptor depends on adjoint solution data as well as forward solution data.
+# For simplicity, we begin by using Animate's :class:`~.RiemannianMetric`
+# inbuilt :func:`~.compute_isotropic_metric`. ::
 
 
 def adaptor(mesh_seq, solutions=None, indicators=None):
@@ -170,9 +173,8 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
             # append the metric for the step in the time partition
             metrics_i.append(metric_j)
 
-        # set the first metric to the base
+        # set the first metric as the base and average remaining
         metric = metrics_i[0]
-        # all the other metrics
         metric.average(*metrics_i[1:], weights=[dt] * len(metrics_i))
 
         metrics.append(metric)
@@ -232,16 +234,17 @@ solutions = mesh_seq.fixed_point_iteration(
 #
 # .. code-block:: console
 #
-# fixed point iteration 1:
-#   subinterval 0, complexity:  448, dofs:  606, elements: 1136
-#   subinterval 1, complexity:  351, dofs:  462, elements:  852
-# fixed point iteration 2:
-#   subinterval 0, complexity:  656, dofs:  774, elements: 1445
-#   subinterval 1, complexity:  538, dofs:  630, elements: 1176
-# fixed point iteration 3:
-#   subinterval 0, complexity:  884, dofs:  963, elements: 1823
-#   subinterval 1, complexity:  709, dofs:  804, elements: 1505
-# QoI converged after 4 iterations under relative tolerance 0.001.
+#     fixed point iteration 1:
+#       subinterval 0, complexity:  448, dofs:  606, elements: 1136
+#       subinterval 1, complexity:  351, dofs:  462, elements:  852
+#     fixed point iteration 2:
+#       subinterval 0, complexity:  656, dofs:  774, elements: 1445
+#       subinterval 1, complexity:  538, dofs:  630, elements: 1176
+#     fixed point iteration 3:
+#       subinterval 0, complexity:  884, dofs:  963, elements: 1823
+#       subinterval 1, complexity:  709, dofs:  804, elements: 1505
+#
+#     QoI converged after 4 iterations under relative tolerance 0.001.
 
 # Finally, let's plot the adapted meshes. ::
 
@@ -330,9 +333,8 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
             # append the metric for the step in the time partition
             metrics_i.append(metric_j)
 
-        # set the first metric to the base
+        # set the first metric as the base and average remaining
         metric = metrics_i[0]
-        # all the other metrics
         metric.average(*metrics_i[1:], weights=[dt] * len(metrics_i))
 
         metrics.append(metric)
@@ -363,13 +365,13 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
     fig.savefig(f"burgers-anisotropic_mesh{iteration + 1}.jpg")
     plt.close()
 
-    # Since we have two subintervals, we should check if the target complexity has been
+    # Since we have multiple subintervals, we should check if the target complexity has been
     # (approximately) reached on each subinterval
     continue_unconditionally = np.array(complexities) < 0.90 * target
     return continue_unconditionally
 
 
-# To avoid confusion, we redefine the :class:`GoalOrientedMeshSeq` object before using
+# To avoid confusion, we redefine the :class:`~.GoalOrientedMeshSeq` object before using
 # it. ::
 
 mesh_seq = GoalOrientedMeshSeq(
@@ -393,16 +395,17 @@ solutions = mesh_seq.fixed_point_iteration(
 
 # .. code-block:: console
 #
-# fixed point iteration 1:
-#   subinterval 0, complexity:  457, dofs:  598, elements: 1110
-#   subinterval 1, complexity:  338, dofs:  442, elements:  799
-# fixed point iteration 2:
-#   subinterval 0, complexity:  681, dofs:  726, elements: 1361
-#   subinterval 1, complexity:  510, dofs:  564, elements: 1042
-# fixed point iteration 3:
-#   subinterval 0, complexity:  913, dofs:  971, elements: 1840
-#   subinterval 1, complexity:  676, dofs:  727, elements: 1350
-# QoI converged after 4 iterations under relative tolerance 0.001.
+#     fixed point iteration 1:
+#       subinterval 0, complexity:  457, dofs:  598, elements: 1110
+#       subinterval 1, complexity:  338, dofs:  442, elements:  799
+#     fixed point iteration 2:
+#       subinterval 0, complexity:  681, dofs:  726, elements: 1361
+#       subinterval 1, complexity:  510, dofs:  564, elements: 1042
+#     fixed point iteration 3:
+#       subinterval 0, complexity:  913, dofs:  971, elements: 1840
+#       subinterval 1, complexity:  676, dofs:  727, elements: 1350
+#
+#     QoI converged after 4 iterations under relative tolerance 0.001.
 
 
 # Finally, let's plot the adapted meshes. ::
@@ -417,9 +420,10 @@ plt.close()
 #    :figwidth: 100%
 #    :align: center
 #
-# This time, the elements are clearly anisotropic. This anisotropy is inherited from the
-# Hessian of the adjoint solution. The solution still moves to the right, becoming
-# more densely distributed near to the right-hand boundary.
+# The mesh is similar to the isotropic case but slightly more anisotropic, based on information
+# from the Hessian of the adjoint solution. In this anisotropic mesh there
+# is a larger size and shape range between smaller elements where the solution is moving
+# towards on the right and larger elements on the left, which has little contribution
+# to the overall QoI.
 #
-
 # This demo can also be accessed as a `Python script <burgers-goal_oriented.py>`__.
