@@ -48,6 +48,11 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             UFL forms
         :rtype: :class:`dict`
         """
+        if self._forms is None:
+            raise AttributeError(
+                "Forms have not been read in."
+                " Use read_forms({'field_name': F}) in get_solver to read in the forms."
+            )
         return self._forms
 
     @PETSc.Log.EventDecorator()
