@@ -27,6 +27,28 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.estimator_values = []
+        self._forms = None
+
+    def read_forms(self, forms_dictionary):
+        """
+        Read in the variational form corresponding to each prognostic field.
+
+        :arg forms_dictionary: dictionary where the keys are the field names and the
+            values are the UFL forms
+        :type forms_dictionary: :class:`dict`
+        """
+        self._forms = forms_dictionary
+
+    @property
+    def forms(self):
+        """
+        Get the variational form associated with each prognostic field.
+
+        :returns: dictionary where the keys are the field names and the values are the
+            UFL forms
+        :rtype: :class:`dict`
+        """
+        return self._forms
 
     @PETSc.Log.EventDecorator()
     def get_enriched_mesh_seq(self, enrichment_method="p", num_enrichments=1):
@@ -67,7 +89,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             meshes,
             get_function_spaces=self._get_function_spaces,
             get_initial_condition=self._get_initial_condition,
-            get_form=self._get_form,
             get_solver=self._get_solver,
             get_qoi=self._get_qoi,
             qoi_type=self.qoi_type,
@@ -189,7 +210,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
             # Get forms for each equation in enriched space
             enriched_mesh_seq.fields = mapping
-            forms = enriched_mesh_seq.form(i)
+            forms = enriched_mesh_seq.forms
 
             # Loop over each timestep
             for j in range(self.time_partition.num_exports_per_subinterval[i] - 1):
