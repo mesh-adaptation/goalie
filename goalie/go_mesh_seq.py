@@ -209,9 +209,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 u_star_next[f] = Function(fs_e)
                 u_star_e[f] = Function(fs_e)
 
-            # Get forms for each equation in enriched space
-            forms = enriched_mesh_seq.forms
-
             # Loop over each timestep
             for j in range(self.time_partition.num_exports_per_subinterval[i] - 1):
                 # In case of having multiple solution fields that are solved for one
@@ -242,7 +239,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     u_star_e[f] -= u_star[f]
 
                     # Evaluate error indicator
-                    indi_e = indicator_fn(forms[f], u_star_e[f])
+                    indi_e = indicator_fn(enriched_mesh_seq.forms[f], u_star_e[f])
 
                     # Transfer back to the base space
                     indi = self._transfer(indi_e, P0_spaces[i])
