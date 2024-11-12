@@ -31,7 +31,10 @@ from goalie_adjoint import *
 set_log_level(DEBUG)
 
 # Redefine the ``field_names`` variable and the getter functions as in the first
-# adjoint Burgers demo. ::
+# adjoint Burgers demo. The only difference is the inclusion of the
+# :meth:`GoalOrientedMeshSeq.read_forms()` method in the ``get_solver`` function. The
+# method is used to communicate the variational form to the mesh sequence object so that
+# Goalie can utilise it in the error estimation process described above. ::
 
 field_names = ["u"]
 
@@ -40,8 +43,8 @@ def get_function_spaces(mesh):
     return {"u": VectorFunctionSpace(mesh, "CG", 2)}
 
 
-def get_form(mesh_seq):
-    def form(index):
+def get_solver(mesh_seq):
+    def solver(index):
         u, u_ = mesh_seq.fields["u"]
 
         # Define constants
@@ -56,17 +59,9 @@ def get_form(mesh_seq):
             + inner(dot(u, nabla_grad(u)), v) * dx
             + nu * inner(grad(u), grad(v)) * dx
         )
-        return {"u": F}
 
-    return form
-
-
-def get_solver(mesh_seq):
-    def solver(index):
-        u, u_ = mesh_seq.fields["u"]
-
-        # Define form
-        F = mesh_seq.form(index)["u"]
+        # Communicate variational form to mesh_seq
+        mesh_seq.read_forms({"u": F})
 
         # Time integrate from t_start to t_end
         P = mesh_seq.time_partition
@@ -122,7 +117,6 @@ mesh_seq = GoalOrientedMeshSeq(
     meshes,
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
-    get_form=get_form,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="end_time",
