@@ -1,7 +1,7 @@
 # Burgers equation with Goal-oriented mesh adaptation
 # ===================================================
 
-# In a `previous demo <.burgers-hessian.py.html>`__, we applied Hessian-based
+# In the `Hessian-based adaption  <./burgers-hessian.py.html>`__, we applied a Hessian-based
 # mesh adaptation to the time-dependent Burgers equation. Here, we alternatively consider
 # a goal-oriented error estimation to drive the mesh adaptation. Again, we will
 # choose to partition the problem over multiple subintervals and hence multiple meshes
@@ -51,8 +51,8 @@ def get_initial_condition(mesh_seq):
     return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
-# The solver and QoI account for a time dependent QoI as described
-# in a `previous demo <.burgers_time_integrated.py.html>`__.
+# The solver and QoI are as described in the
+# `Burgers with a time-integrated QoI demo <./burgers_time_integrated.py.html>`__.
 
 
 def get_solver(mesh_seq):
@@ -122,7 +122,7 @@ mesh_seq = GoalOrientedMeshSeq(
     qoi_type="time_integrated",
 )
 
-# Compared to the `previous demo <.burgers-hessian.py.html>`__ involving the Hessian,
+# Compared to the previous `Hessian-based adaption <./burgers-hessian.py.html>`__,
 # this adaptor depends on adjoint solution data as well as forward solution data.
 # For simplicity, we begin by using :meth:`~.RiemannianMetric.compute_isotropic_metric()`.
 # ::
@@ -262,18 +262,18 @@ plt.close()
 
 
 # Goalie also provide support for *anisotropic* goal-oriented mesh adaptation. Here,
-# we consider the :meth:`~.RiemannianMetric.anisotropic_dwr_metric()` driver.
+# we consider the :meth:`~.RiemannianMetric.compute_anisotropic_dwr_metric()` driver.
 # (See documentation for details.) To use it, we just need to define
 # a different adaptor function. The same error indicator is used as
 # for the isotropic approach. Additionly, the Hessian of the forward
-# solution is estimated as in a `previous demo <.burgers-hessian.py.html>`__
+# solution is estimated as in the `Hessian-based adaption <./burgers-hessian.py.html>`__
 # to give anisotropy to the metric.
 #
 # For this driver, normalisation is handled differently than for
 # :meth:`~.RiemannianMetric.compute_isotropic_metric()`, where the
 # :meth:`~.RiemannianMetric.normalise()` method is called after
 # construction. In this case, the metric is already normalised within
-# the call to :meth:`~.RiemannianMetric.anisotropic_dwr_metric()`,
+# the call to :meth:`~.RiemannianMetric.compute_anisotropic_dwr_metric()`,
 # so this is not required. ::
 
 
@@ -386,6 +386,8 @@ solutions = mesh_seq.fixed_point_iteration(
     parameters=params,
 )
 
+# We find that the fixed point iteration again converges in four iterations.
+#
 # .. code-block:: console
 #
 #     fixed point iteration 1:
@@ -414,9 +416,8 @@ plt.close()
 #
 # The mesh is similar to the isotropic case but more anisotropic, based on information
 # from the Hessian of the adjoint solution. In this anisotropic mesh there
-# is a larger size and shape range between smaller elements concentrated where the
-# solution is moving towards on the right and larger elements on the left,
-# where little contribution to the overall QoI. The majority of the element show a
-# preferential elongation in the :math:`x`-direction as expected from the problem.
+# is a larger size and shape range between smaller elements on the right, concentrated
+# where the solution is moving and larger elements on the left, where there is
+# little contribution to the overall QoI.
 #
 # This demo can also be accessed as a `Python script <burgers-goal_oriented.py>`__.
