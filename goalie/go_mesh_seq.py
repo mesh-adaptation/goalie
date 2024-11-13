@@ -37,6 +37,16 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             values are the UFL forms
         :type forms_dictionary: :class:`dict`
         """
+        for field, form in forms_dictionary.items():
+            if field not in self.fields:
+                raise ValueError(
+                    f"Unexpected field '{field}' in forms dictionary."
+                    f" Expected one of {self.time_partition.field_names}."
+                )
+            if not isinstance(form, ufl.Form):
+                raise TypeError(
+                    f"Expected a UFL form for field '{field}', not '{type(form)}'."
+                )
         self._forms = forms_dictionary
 
     @property
