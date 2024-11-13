@@ -50,9 +50,7 @@ class TestGeneric(unittest.TestCase):
     @parameterized.expand(["get_function_spaces", "get_initial_condition"])
     def test_return_dict_error(self, method):
         mesh = UnitSquareMesh(1, 1)
-        methods = ["get_function_spaces", "get_initial_condition"]
-        funcs = [lambda _: 0, lambda _: 0, lambda _: lambda *_: 0]
-        kwargs = {method: funcs[methods.index(method)]}
+        kwargs = {method: lambda _: 0}
         with self.assertRaises(AssertionError) as cm:
             MeshSeq(self.time_interval, mesh, **kwargs)
         msg = f"{method} should return a dict"
@@ -61,9 +59,7 @@ class TestGeneric(unittest.TestCase):
     @parameterized.expand(["get_function_spaces", "get_initial_condition"])
     def test_missing_field_error(self, method):
         mesh = UnitSquareMesh(1, 1)
-        methods = ["get_function_spaces", "get_initial_condition"]
-        funcs = [lambda _: {}, lambda _: {}, lambda _: lambda *_: {}]
-        kwargs = {method: funcs[methods.index(method)]}
+        kwargs = {method: lambda _: {}}
         with self.assertRaises(AssertionError) as cm:
             MeshSeq(self.time_interval, mesh, **kwargs)
         msg = "missing fields {'field'} in " + f"{method}"
@@ -72,10 +68,7 @@ class TestGeneric(unittest.TestCase):
     @parameterized.expand(["get_function_spaces", "get_initial_condition"])
     def test_unexpected_field_error(self, method):
         mesh = UnitSquareMesh(1, 1)
-        methods = ["get_function_spaces", "get_initial_condition"]
-        out_dict = {"field": None, "extra_field": None}
-        funcs = [lambda _: out_dict, lambda _: out_dict, lambda _: lambda *_: out_dict]
-        kwargs = {method: funcs[methods.index(method)]}
+        kwargs = {method: lambda _: {"field": None, "extra_field": None}}
         with self.assertRaises(AssertionError) as cm:
             MeshSeq(self.time_interval, mesh, **kwargs)
         msg = "unexpected fields {'extra_field'} in " + f"{method}"
