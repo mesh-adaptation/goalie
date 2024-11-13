@@ -124,7 +124,7 @@ mesh_seq = GoalOrientedMeshSeq(
 
 # Compared to the `previous demo <.burgers-hessian.py.html>`__ involving the Hessian,
 # this adaptor depends on adjoint solution data as well as forward solution data.
-# For simplicity, we begin by using :meth:`~.RiemannianMetric.compute_isotropic_metric`.
+# For simplicity, we begin by using :meth:`~.RiemannianMetric.compute_isotropic_metric()`.
 # ::
 
 
@@ -141,7 +141,7 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
             "target_complexity": ramp_complexity(base, target, iteration),
             "p": 1.0,
             "h_min": 1.0e-04,
-            "h_max": 1.0e01,
+            "h_max": 2,
         }
     }
 
@@ -213,9 +213,7 @@ params = GoalOrientedAdaptParameters(
 
 solutions = mesh_seq.fixed_point_iteration(
     adaptor,
-    enrichment_kwargs={
-        "enrichment_method": "h",
-    },
+    enrichment_kwargs={"enrichment_method": "h"},
     parameters=params,
 )
 
@@ -226,15 +224,14 @@ solutions = mesh_seq.fixed_point_iteration(
 # .. code-block:: console
 #
 #     fixed point iteration 1:
-#       subinterval 0, complexity:  448, dofs:  606, elements: 1136
-#       subinterval 1, complexity:  351, dofs:  462, elements:  852
+#       subinterval 0, complexity:  448, dofs:  608, elements: 1140
+#       subinterval 1, complexity:  351, dofs:  463, elements:  854
 #     fixed point iteration 2:
-#       subinterval 0, complexity:  656, dofs:  774, elements: 1445
-#       subinterval 1, complexity:  538, dofs:  630, elements: 1176
+#       subinterval 0, complexity:  654, dofs:  772, elements: 1442
+#       subinterval 1, complexity:  539, dofs:  649, elements: 1207
 #     fixed point iteration 3:
-#       subinterval 0, complexity:  884, dofs:  963, elements: 1823
-#       subinterval 1, complexity:  709, dofs:  804, elements: 1505
-#
+#       subinterval 0, complexity:  883, dofs:  988, elements: 1869
+#       subinterval 1, complexity:  710, dofs:  809, elements: 1509
 #     QoI converged after 4 iterations under relative tolerance 0.001.
 
 # Let's plot the final converged and adapted meshes. ::
@@ -265,14 +262,15 @@ plt.close()
 # (See documentation for details.) To use it, we just need to define
 # a different adaptor function. The same error indicator is used as
 # for the isotropic approach. Additionly, the Hessian of the forward
-# solution is estimated as in the `previous demo <.burgers-hessian.py.html>`__
+# solution is estimated as in a `previous demo <.burgers-hessian.py.html>`__
 # to give anisotropy to the metric.
 #
 # For this driver, normalisation is handled differently than for
-# :meth:`~.RiemannianMetric.compute_isotropic_metric`, where the ``normalise`` method
-# is called after construction. In this case, the metrics is already normalised within
-# the call to ``anisotropic_dwr_metric``, so this is not required.
-#::
+# :meth:`~.RiemannianMetric.compute_isotropic_metric()`, where the
+# :meth:`~.RiemannianMetric.normalise()` method is called after
+# construction. In this case, the metric is already normalised within
+# the call to :meth:`~.RiemannianMetric.anisotropic_dwr_metric()`,
+# so this is not required. ::
 
 
 def adaptor(mesh_seq, solutions=None, indicators=None):
@@ -386,12 +384,11 @@ solutions = mesh_seq.fixed_point_iteration(
 #       subinterval 0, complexity:  460, dofs:  596, elements: 1084
 #       subinterval 1, complexity:  337, dofs:  428, elements:  781
 #     fixed point iteration 2:
-#       subinterval 0, complexity:  687, dofs:  838, elements: 1550
+#       subinterval 0, complexity:  687, dofs:  837, elements: 1547
 #       subinterval 1, complexity:  506, dofs:  608, elements: 1122
 #     fixed point iteration 3:
-#       subinterval 0, complexity:  907, dofs:  1073, elements: 2006
-#       subinterval 1, complexity:  682, dofs:  784, elements: 1458
-#
+#       subinterval 0, complexity:  907, dofs:  1062, elements: 1979
+#       subinterval 1, complexity:  682, dofs:  800,  elements: 1490
 #     QoI converged after 4 iterations under relative tolerance 0.001.
 
 
@@ -409,8 +406,9 @@ plt.close()
 #
 # The mesh is similar to the isotropic case but more anisotropic, based on information
 # from the Hessian of the adjoint solution. In this anisotropic mesh there
-# is a larger size and shape range between smaller elements where the solution is moving
-# towards on the right and larger elements on the left, where little contribution
-# to the overall QoI.
+# is a larger size and shape range between smaller elements concentrated where the
+# solution is moving towards on the right and larger elements on the left,
+# where little contribution to the overall QoI. The majority of the element show a
+# preferential elongation in the :math:`x`-direction as expected from the problem.
 #
 # This demo can also be accessed as a `Python script <burgers-goal_oriented.py>`__.
