@@ -150,25 +150,29 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
         dt = mesh_seq.time_partition.timesteps[i]
 
         P1_ten = TensorFunctionSpace(mesh, "CG", 1)
-        metrics_i = []
+        metrics_subinterval = []
 
         # Calculate metric at each timestep
         for indi in indicators["u"][i]:
-            # local instance of Riemanian metric
-            metric_j = RiemannianMetric(P1_ten)
-            metric_j.set_parameters(mp)
+            # timestep instance of Riemanian metric
+            metric_timestep = RiemannianMetric(P1_ten)
+            metric_timestep.set_parameters(mp)
 
             # Deduce an isotropic metric from the error indicator field
-            metric_j.compute_isotropic_metric(error_indicator=indi, interpolant="L2")
-            metric_j.normalise()
+            metric_timestep.compute_isotropic_metric(
+                error_indicator=indi, interpolant="L2"
+            )
+            metric_timestep.normalise()
 
             # append the metric for the step in the time partition
-            metrics_i.append(metric_j)
+            metrics_subinterval.append(metric_timestep)
 
         # set the first metric as the base and average remaining
-        metrics_i[0].average(*metrics_i[1:], weights=[dt] * len(metrics_i))
+        metrics_subinterval[0].average(
+            *metrics_subinterval[1:], weights=[dt] * len(metrics_subinterval)
+        )
 
-        metrics.append(metrics_i[0])
+        metrics.append(metrics_subinterval[0])
 
     # Apply space time normalisation
     space_time_normalise(metrics, mesh_seq.time_partition, mp)
@@ -296,14 +300,14 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
         sols = solutions["u"]["forward"][i]
         dt = mesh_seq.time_partition.timesteps[i]
         P1_ten = TensorFunctionSpace(mesh, "CG", 1)
-        metrics_i = []
+        metrics_subinterval = []
 
         # Calculate metric at each timestep
         for j, sol in enumerate(sols):
-            # get local indicator
+            # get indicator
             indi = indicators["u"][i][j]
-            # local instance of Riemanian metric
-            metric_j = RiemannianMetric(P1_ten)
+            # timestep instance of Riemanian metric
+            metric_timestep = RiemannianMetric(P1_ten)
 
             # At each timestep, recover Hessians of the two components of the solution
             # vector combine with metric intersection.
@@ -313,18 +317,22 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
                 hessian.compute_hessian(sol[k])
                 hessian.enforce_spd(restrict_sizes=True)
             hessians[0].intersect(hessians[1])
-            metric_j.set_parameters(mp)
+            metric_timestep.set_parameters(mp)
 
             # Deduce an anisotropic metric from the error indicator field
-            metric_j.compute_anisotropic_dwr_metric(indi, hessians[0], interpolant="L2")
+            metric_timestep.compute_anisotropic_dwr_metric(
+                indi, hessians[0], interpolant="L2"
+            )
 
             # append the metric for the step in the time partition
-            metrics_i.append(metric_j)
+            metrics_subinterval.append(metric_timestep)
 
         # set the first metric as the base and average remaining
-        metrics_i[0].average(*metrics_i[1:], weights=[dt] * len(metrics_i))
+        metrics_subinterval[0].average(
+            *metrics_subinterval[1:], weights=[dt] * len(metrics_subinterval)
+        )
 
-        metrics.append(metrics_i[0])
+        metrics.append(metrics_subinterval[0])
 
     # Apply space time normalisation
     space_time_normalise(metrics, mesh_seq.time_partition, mp)
