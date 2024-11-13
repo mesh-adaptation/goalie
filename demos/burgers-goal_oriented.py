@@ -124,8 +124,8 @@ mesh_seq = GoalOrientedMeshSeq(
 
 # Compared to the `previous demo <.burgers-hessian.py.html>`__ involving the Hessian,
 # this adaptor depends on adjoint solution data as well as forward solution data.
-# For simplicity, we begin by using Animate's :class:`~.RiemannianMetric`
-# inbuilt :func:`~.compute_isotropic_metric`. ::
+# For simplicity, we begin by using :meth:`~.RiemannianMetric.compute_isotropic_metric`.
+# ::
 
 
 def adaptor(mesh_seq, solutions=None, indicators=None):
@@ -134,14 +134,14 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
 
     indicators = mesh_seq.indicators
 
-    # Ramp the target average metric complexity per timestep
+    # Ramp the target average metric complexity per fixed point iteration
     base, target, iteration = 400, 1000, mesh_seq.fp_iteration
     mp = {
         "dm_plex_metric": {
             "target_complexity": ramp_complexity(base, target, iteration),
             "p": 1.0,
             "h_min": 1.0e-04,
-            "h_max": 1.0,
+            "h_max": 1.0e01,
         }
     }
 
@@ -149,21 +149,13 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
     for i, mesh in enumerate(mesh_seq):
         dt = mesh_seq.time_partition.timesteps[i]
 
-        # Define the Riemannian metric
         P1_ten = TensorFunctionSpace(mesh, "CG", 1)
-
-        # At each timestep, recover metric of the solution
-        # vector. Then time integrate over the contributions
         metrics_i = []
 
         # Calculate metric at each timestep
         for indi in indicators["u"][i]:
-            # get local indicator
-            # indi = indicators["u"][i][j]
             # local instance of Riemanian metric
             metric_j = RiemannianMetric(P1_ten)
-
-            # reset parameters
             metric_j.set_parameters(mp)
 
             # Deduce an isotropic metric from the error indicator field
@@ -174,10 +166,9 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
             metrics_i.append(metric_j)
 
         # set the first metric as the base and average remaining
-        metric = metrics_i[0]
-        metric.average(*metrics_i[1:], weights=[dt] * len(metrics_i))
+        metrics_i[0].average(*metrics_i[1:], weights=[dt] * len(metrics_i))
 
-        metrics.append(metric)
+        metrics.append(metrics_i[0])
 
     # Apply space time normalisation
     space_time_normalise(metrics, mesh_seq.time_partition, mp)
@@ -246,7 +237,7 @@ solutions = mesh_seq.fixed_point_iteration(
 #
 #     QoI converged after 4 iterations under relative tolerance 0.001.
 
-# Finally, let's plot the adapted meshes. ::
+# Let's plot the final converged and adapted meshes. ::
 
 fig, axes = mesh_seq.plot()
 for i, ax in enumerate(axes):
@@ -269,18 +260,21 @@ plt.close()
 # accounts for this anisotopy.
 
 
-# Goalie also provides drivers for *anisotropic* goal-oriented mesh adaptation. Here,
-# we consider the ``anisotropic_dwr_metric`` driver. (See documentation for details.) To
-# use it, we just need to define a different adaptor function. The same error indicator
-# is used as for the isotropic approach. In addition, the Hessian of the forward
+# Goalie also provide support for *anisotropic* goal-oriented mesh adaptation. Here,
+# we consider the :meth:`~.RiemannianMetric.anisotropic_dwr_metric()` driver.
+# (See documentation for details.) To use it, we just need to define
+# a different adaptor function. The same error indicator is used as
+# for the isotropic approach. Additionly, the Hessian of the forward
 # solution is estimated as in the `previous demo <.burgers-hessian.py.html>`__
 # to give anisotropy to the metric.
 #
-# For this driver, normalisation is handled differently than for ``isotropic_metric``,
-# where the ``normalise`` method is called after construction. In this case, the metric
-# is already normalised within the call to ``anisotropic_dwr_metric``, so this is not
-# required. ::
-#
+# For this driver, normalisation is handled differently than for
+# :meth:`~.RiemannianMetric.compute_isotropic_metric`, where the ``normalise`` method
+# is called after construction. In this case, the metrics is already normalised within
+# the call to ``anisotropic_dwr_metric``, so this is not required.
+#::
+
+
 def adaptor(mesh_seq, solutions=None, indicators=None):
     metrics = []
     complexities = []
@@ -294,6 +288,8 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
         "dm_plex_metric": {
             "target_complexity": ramp_complexity(base, target, iteration),
             "p": 1.0,
+            "h_min": 1.0e-04,
+            "h_max": 2,
         }
     }
 
@@ -301,12 +297,7 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
     for i, mesh in enumerate(mesh_seq):
         sols = solutions["u"]["forward"][i]
         dt = mesh_seq.time_partition.timesteps[i]
-
-        # Define the Riemannian metric
         P1_ten = TensorFunctionSpace(mesh, "CG", 1)
-
-        # At each timestep, recover metric of the solution
-        # vector. Then time integrate over the contributions
         metrics_i = []
 
         # Calculate metric at each timestep
@@ -317,27 +308,25 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
             metric_j = RiemannianMetric(P1_ten)
 
             # At each timestep, recover Hessians of the two components of the solution
-            # vector. Then time integrate over the contributions
+            # vector combine with metric intersection.
             hessians = [RiemannianMetric(P1_ten) for _ in range(2)]
             for k, hessian in enumerate(hessians):
                 hessian.set_parameters(mp)
                 hessian.compute_hessian(sol[k])
                 hessian.enforce_spd(restrict_sizes=True)
-
-            # reset parameters as a precaution
+            hessians[0].intersect(hessians[1])
             metric_j.set_parameters(mp)
 
             # Deduce an anisotropic metric from the error indicator field
-            metric_j.compute_anisotropic_dwr_metric(indi, hessian, interpolant="L2")
+            metric_j.compute_anisotropic_dwr_metric(indi, hessians[0], interpolant="L2")
 
             # append the metric for the step in the time partition
             metrics_i.append(metric_j)
 
         # set the first metric as the base and average remaining
-        metric = metrics_i[0]
-        metric.average(*metrics_i[1:], weights=[dt] * len(metrics_i))
+        metrics_i[0].average(*metrics_i[1:], weights=[dt] * len(metrics_i))
 
-        metrics.append(metric)
+        metrics.append(metrics_i[0])
 
     # Apply space time normalisation
     space_time_normalise(metrics, mesh_seq.time_partition, mp)
@@ -387,28 +376,26 @@ mesh_seq = GoalOrientedMeshSeq(
 
 solutions = mesh_seq.fixed_point_iteration(
     adaptor,
-    enrichment_kwargs={
-        "enrichment_method": "h",
-    },
+    enrichment_kwargs={"enrichment_method": "h"},
     parameters=params,
 )
 
 # .. code-block:: console
 #
 #     fixed point iteration 1:
-#       subinterval 0, complexity:  457, dofs:  598, elements: 1110
-#       subinterval 1, complexity:  338, dofs:  442, elements:  799
+#       subinterval 0, complexity:  460, dofs:  596, elements: 1084
+#       subinterval 1, complexity:  337, dofs:  428, elements:  781
 #     fixed point iteration 2:
-#       subinterval 0, complexity:  681, dofs:  726, elements: 1361
-#       subinterval 1, complexity:  510, dofs:  564, elements: 1042
+#       subinterval 0, complexity:  687, dofs:  838, elements: 1550
+#       subinterval 1, complexity:  506, dofs:  608, elements: 1122
 #     fixed point iteration 3:
-#       subinterval 0, complexity:  913, dofs:  971, elements: 1840
-#       subinterval 1, complexity:  676, dofs:  727, elements: 1350
+#       subinterval 0, complexity:  907, dofs:  1073, elements: 2006
+#       subinterval 1, complexity:  682, dofs:  784, elements: 1458
 #
 #     QoI converged after 4 iterations under relative tolerance 0.001.
 
 
-# Finally, let's plot the adapted meshes. ::
+# Finally, let's plot the final converged and adapted meshes. ::
 
 fig, axes = mesh_seq.plot()
 for i, ax in enumerate(axes):
@@ -420,10 +407,10 @@ plt.close()
 #    :figwidth: 100%
 #    :align: center
 #
-# The mesh is similar to the isotropic case but slightly more anisotropic, based on information
+# The mesh is similar to the isotropic case but more anisotropic, based on information
 # from the Hessian of the adjoint solution. In this anisotropic mesh there
 # is a larger size and shape range between smaller elements where the solution is moving
-# towards on the right and larger elements on the left, which has little contribution
+# towards on the right and larger elements on the left, where little contribution
 # to the overall QoI.
 #
 # This demo can also be accessed as a `Python script <burgers-goal_oriented.py>`__.
