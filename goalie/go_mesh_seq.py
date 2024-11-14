@@ -212,7 +212,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             }
             for f, fs_e in enriched_spaces.items():
                 if self.field_types[f] == "steady":
-                    u[f] = u_[f] = enriched_mesh_seq.fields[f]
+                    u[f] = enriched_mesh_seq.fields[f]
                 else:
                     u[f], u_[f] = enriched_mesh_seq.fields[f]
                 u_star[f] = Function(fs_e)
@@ -233,7 +233,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 for f in self.fields:
                     # Transfer solutions associated with the current field f
                     transfer(self.solutions[f][FWD][i][j], u[f])
-                    transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
+                    if self.field_types[f] == "unsteady":
+                        transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
                     transfer(self.solutions[f][ADJ][i][j], u_star[f])
                     transfer(self.solutions[f][ADJ_NEXT][i][j], u_star_next[f])
 
