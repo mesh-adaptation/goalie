@@ -27,6 +27,43 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.estimator_values = []
+        self._forms = None
+
+    def read_forms(self, forms_dictionary):
+        """
+        Read in the variational form corresponding to each prognostic field.
+
+        :arg forms_dictionary: dictionary where the keys are the field names and the
+            values are the UFL forms
+        :type forms_dictionary: :class:`dict`
+        """
+        for field, form in forms_dictionary.items():
+            if field not in self.fields:
+                raise ValueError(
+                    f"Unexpected field '{field}' in forms dictionary."
+                    f" Expected one of {self.time_partition.field_names}."
+                )
+            if not isinstance(form, ufl.Form):
+                raise TypeError(
+                    f"Expected a UFL form for field '{field}', not '{type(form)}'."
+                )
+        self._forms = forms_dictionary
+
+    @property
+    def forms(self):
+        """
+        Get the variational form associated with each prognostic field.
+
+        :returns: dictionary where the keys are the field names and the values are the
+            UFL forms
+        :rtype: :class:`dict`
+        """
+        if self._forms is None:
+            raise AttributeError(
+                "Forms have not been read in."
+                " Use read_forms({'field_name': F}) in get_solver to read in the forms."
+            )
+        return self._forms
 
     @PETSc.Log.EventDecorator()
     def get_enriched_mesh_seq(self, enrichment_method="p", num_enrichments=1):
@@ -67,7 +104,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             meshes,
             get_function_spaces=self._get_function_spaces,
             get_initial_condition=self._get_initial_condition,
-            get_form=self._get_form,
             get_solver=self._get_solver,
             get_qoi=self._get_qoi,
             qoi_type=self.qoi_type,
@@ -174,22 +210,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             enriched_spaces = {
                 f: enriched_mesh_seq.function_spaces[f][i] for f in self.fields
             }
-            mapping = {}
             for f, fs_e in enriched_spaces.items():
-                u[f] = Function(fs_e)
-                u_[f] = Function(fs_e)
-                mapping[f] = (
-                    (u[f], u_[f])
-                    if enriched_mesh_seq.field_types[f] == "unsteady"
-                    else u[f]
-                )
+                if self.field_types[f] == "steady":
+                    u[f] = enriched_mesh_seq.fields[f]
+                else:
+                    u[f], u_[f] = enriched_mesh_seq.fields[f]
                 u_star[f] = Function(fs_e)
                 u_star_next[f] = Function(fs_e)
                 u_star_e[f] = Function(fs_e)
-
-            # Get forms for each equation in enriched space
-            enriched_mesh_seq.fields = mapping
-            forms = enriched_mesh_seq.form(i)
 
             # Loop over each timestep
             for j in range(self.time_partition.num_exports_per_subinterval[i] - 1):
@@ -205,7 +233,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 for f in self.fields:
                     # Transfer solutions associated with the current field f
                     transfer(self.solutions[f][FWD][i][j], u[f])
-                    transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
+                    if self.field_types[f] == "unsteady":
+                        transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
                     transfer(self.solutions[f][ADJ][i][j], u_star[f])
                     transfer(self.solutions[f][ADJ_NEXT][i][j], u_star_next[f])
 
@@ -221,7 +250,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     u_star_e[f] -= u_star[f]
 
                     # Evaluate error indicator
-                    indi_e = indicator_fn(forms[f], u_star_e[f])
+                    indi_e = indicator_fn(enriched_mesh_seq.forms[f], u_star_e[f])
 
                     # Transfer back to the base space
                     indi = self._transfer(indi_e, P0_spaces[i])

@@ -101,29 +101,10 @@ def get_initial_condition(point_seq):
 # because we have a scalar :math:`R`-space it is a summation of a single value. Again,
 # this machinery may seem excessive but it becomes necessary for PDE problems.
 #
-# The Forward Euler scheme may be implemented as follows. ::
+# The Forward Euler scheme may be implemented and solved as follows. ::
 
 
-def get_form_forward_euler(point_seq):
-    def form(index):
-        R = point_seq.function_spaces["u"][index]
-        v = TestFunction(R)
-        u, u_ = point_seq.fields["u"]
-        dt = Function(R).assign(point_seq.time_partition.timesteps[index])
-
-        # Setup variational problem
-        F = (u - u_ - dt * u_) * v * dx
-        return {"u": F}
-
-    return form
-
-
-# We have a method defining the Forward Euler scheme. To put it into practice, we need
-# to define the solver. This boils down to applying the update repeatedly in a time
-# loop. ::
-
-
-def get_solver(point_seq):
+def get_solver_forward_euler(point_seq):
     def solver(index):
         tp = point_seq.time_partition
 
@@ -131,7 +112,10 @@ def get_solver(point_seq):
         u, u_ = point_seq.fields["u"]
 
         # Define the (trivial) form
-        F = point_seq.form(index)["u"]
+        R = point_seq.function_spaces["u"][index]
+        dt = Function(R).assign(tp.timesteps[index])
+        v = TestFunction(R)
+        F = (u - u_ - dt * u_) * v * dx
 
         # Since the form is trivial, we can solve with a single application of a Jacobi
         # preconditioner
@@ -159,8 +143,7 @@ point_seq = PointSeq(
     time_partition,
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
-    get_form=get_form_forward_euler,
-    get_solver=get_solver,
+    get_solver=get_solver_forward_euler,
 )
 
 # We can solve the ODE using the :meth:`~.MeshSeq.solve_forward` method and extract the
@@ -210,32 +193,40 @@ plt.savefig("ode-forward_euler.jpg")
 # .. math::
 #    \int_0^1 (u_{i+1} - u_{i} - \Delta t u_{i+1}) v \mathrm{d}t, \forall v\in R.
 #
-# ::
-
-
-def get_form_backward_euler(point_seq):
-    def form(index):
-        R = point_seq.function_spaces["u"][index]
-        v = TestFunction(R)
-        u, u_ = point_seq.fields["u"]
-        dt = Function(R).assign(point_seq.time_partition.timesteps[index])
-
-        # Setup variational problem
-        F = (u - u_ - u * dt) * v * dx
-        return {"u": F}
-
-    return form
-
-
 # To apply Backward Euler we create the :class:`~.PointSeq` in the same way, just with
-# `get_form_forward_euler` substituted for `get_form_backward_euler`. ::
+# `get_solver_forward_euler` substituted for `get_solver_backward_euler`. ::
+
+
+def get_solver_backward_euler(point_seq):
+    def solver(index):
+        tp = point_seq.time_partition
+        u, u_ = point_seq.fields["u"]
+        R = point_seq.function_spaces["u"][index]
+        dt = Function(R).assign(tp.timesteps[index])
+        v = TestFunction(R)
+
+        # This is the only change from the Forward Euler solver
+        F = (u - u_ - u * dt) * v * dx
+
+        sp = {"ksp_type": "preonly", "pc_type": "jacobi"}
+        dt = tp.timesteps[index]
+        t_start, t_end = tp.subintervals[index]
+        t = t_start
+        while t < t_end - 1.0e-05:
+            solve(F == 0, u, solver_parameters=sp)
+            yield
+
+            u_.assign(u)
+            t += dt
+
+    return solver
+
 
 point_seq = PointSeq(
     time_partition,
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
-    get_form=get_form_backward_euler,
-    get_solver=get_solver,
+    get_solver=get_solver_backward_euler,
 )
 solutions = point_seq.solve_forward()["u"]["forward"]
 
@@ -269,27 +260,37 @@ plt.savefig("ode-backward_euler.jpg")
 # where :math:`\theta\in(0,1)`. The standard choice is to take :math:`\theta=\frac12`. ::
 
 
-def get_form_crank_nicolson(point_seq):
-    def form(index):
-        R = point_seq.function_spaces["u"][index]
-        v = TestFunction(R)
+def get_solver_crank_nicolson(point_seq):
+    def solver(index):
+        tp = point_seq.time_partition
         u, u_ = point_seq.fields["u"]
-        dt = Function(R).assign(point_seq.time_partition.timesteps[index])
+        R = point_seq.function_spaces["u"][index]
+        dt = Function(R).assign(tp.timesteps[index])
+        v = TestFunction(R)
+
+        # This is the only change from the Forward and Backward Euler solvers
         theta = Function(R).assign(0.5)
-
-        # Setup variational problem
         F = (u - u_ - dt * (theta * u + (1 - theta) * u_)) * v * dx
-        return {"u": F}
 
-    return form
+        sp = {"ksp_type": "preonly", "pc_type": "jacobi"}
+        dt = tp.timesteps[index]
+        t_start, t_end = tp.subintervals[index]
+        t = t_start
+        while t < t_end - 1.0e-05:
+            solve(F == 0, u, solver_parameters=sp)
+            yield
+
+            u_.assign(u)
+            t += dt
+
+    return solver
 
 
 point_seq = PointSeq(
     time_partition,
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
-    get_form=get_form_crank_nicolson,
-    get_solver=get_solver,
+    get_solver=get_solver_crank_nicolson,
 )
 
 solutions = point_seq.solve_forward()["u"]["forward"]

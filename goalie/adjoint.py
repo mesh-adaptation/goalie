@@ -85,7 +85,6 @@ class AdjointMeshSeq(MeshSeq):
             :meth:`~.MeshSeq.get_function_spaces`
         :kwarg get_initial_condition: a function as described in
             :meth:`~.MeshSeq.get_initial_condition`
-        :kwarg get_form: a function as described in :meth:`~.MeshSeq.get_form`
         :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
         :kwarg get_qoi: a function as described in :meth:`~.AdjointMeshSeq.get_qoi`
         """
