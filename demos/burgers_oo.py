@@ -30,8 +30,8 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
     def get_function_spaces(mesh):
         return {"u": VectorFunctionSpace(mesh, "CG", 2)}
 
-    def get_form(self):
-        def form(index):
+    def get_solver(self):
+        def solver(index):
             u, u_ = self.fields["u"]
 
             # Define constants
@@ -46,16 +46,9 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
                 + inner(dot(u, nabla_grad(u)), v) * dx
                 + nu * inner(grad(u), grad(v)) * dx
             )
-            return {"u": F}
 
-        return form
-
-    def get_solver(self):
-        def solver(index):
-            u, u_ = self.fields["u"]
-
-            # Define form
-            F = self.form(index)["u"]
+            # Communicate variational form to mesh_seq
+            self.read_forms({"u": F})
 
             # Time integrate from t_start to t_end
             t_start, t_end = self.subintervals[index]

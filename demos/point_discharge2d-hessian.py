@@ -36,10 +36,10 @@ def source(mesh):
     return 100.0 * exp(-((x - x0) ** 2 + (y - y0) ** 2) / r**2)
 
 
-def get_form(mesh_seq):
-    def form(index):
-        c = mesh_seq.fields["c"]
+def get_solver(mesh_seq):
+    def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
+        c = mesh_seq.fields["c"]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
 
@@ -63,18 +63,6 @@ def get_form(mesh_seq):
             + inner(D * grad(c), grad(psi)) * dx
             - S * psi * dx
         )
-        return {"c": F}
-
-    return form
-
-
-def get_solver(mesh_seq):
-    def solver(index):
-        function_space = mesh_seq.function_spaces["c"][index]
-        c = mesh_seq.fields["c"]
-
-        # Setup variational problem
-        F = mesh_seq.form(index)["c"]
         bc = DirichletBC(function_space, 0, 1)
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
@@ -92,7 +80,6 @@ mesh_seq = MeshSeq(
     time_partition,
     mesh,
     get_function_spaces=get_function_spaces,
-    get_form=get_form,
     get_solver=get_solver,
 )
 

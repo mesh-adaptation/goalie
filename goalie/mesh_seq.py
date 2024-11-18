@@ -39,7 +39,6 @@ class MeshSeq:
             :meth:`~.MeshSeq.get_function_spaces`
         :kwarg get_initial_condition: a function as described in
             :meth:`~.MeshSeq.get_initial_condition`
-        :kwarg get_form: a function as described in :meth:`~.MeshSeq.get_form`
         :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
         :kwarg transfer_method: the method to use for transferring fields between
             meshes. Options are "project" (default) and "interpolate". See
@@ -58,7 +57,6 @@ class MeshSeq:
         self._fs = None
         self._get_function_spaces = kwargs.get("get_function_spaces")
         self._get_initial_condition = kwargs.get("get_initial_condition")
-        self._get_form = kwargs.get("get_form")
         self._get_solver = kwargs.get("get_solver")
         self._transfer_method = kwargs.get("transfer_method", "project")
         self._transfer_kwargs = kwargs.get("transfer_kwargs", {})
@@ -267,29 +265,6 @@ class MeshSeq:
             for field, fs in self.function_spaces.items()
         }
 
-    def get_form(self):
-        """
-        Get the function mapping a subinterval index and a solution dictionary to a
-        dictionary containing parts of the PDE weak form corresponding to each solution
-        component.
-
-        Signature for the function to be returned:
-        ```
-        :arg index: the subinterval index
-        :type index: :class:`int`
-        :arg solutions: map from fields to tuples of current and previous solutions
-        :type solutions: :class:`dict` with :class:`str` keys and :class:`tuple` values
-        :return: map from fields to the corresponding forms
-        :rtype: :class:`dict` with :class:`str` keys and :class:`ufl.form.Form` values
-        ```
-
-        :returns: the function for obtaining the form
-        :rtype: see docstring above
-        """
-        if self._get_form is None:
-            raise NotImplementedError("'get_form' needs implementing.")
-        return self._get_form(self)
-
     def get_solver(self):
         """
         Get the function mapping a subinterval index and an initial condition dictionary
@@ -339,10 +314,10 @@ class MeshSeq:
 
     def _outputs_consistent(self):
         """
-        Assert that function spaces, initial conditions, and forms are given in a
+        Assert that function spaces and initial conditions are given in a
         dictionary format with :attr:`MeshSeq.fields` as keys.
         """
-        for method in ["function_spaces", "initial_condition", "form", "solver"]:
+        for method in ["function_spaces", "initial_condition", "solver"]:
             if getattr(self, f"_get_{method}") is None:
                 continue
             method_map = getattr(self, f"get_{method}")
@@ -350,9 +325,6 @@ class MeshSeq:
                 method_map = method_map(self.meshes[0])
             elif method == "initial_condition":
                 method_map = method_map()
-            elif method == "form":
-                self._reinitialise_fields(self.get_initial_condition())
-                method_map = method_map()(0)
             elif method == "solver":
                 self._reinitialise_fields(self.get_initial_condition())
                 solver_gen = method_map()(0)
@@ -434,13 +406,6 @@ class MeshSeq:
             :class:`firedrake.function.Function` values
         """
         return AttrDict(self.get_initial_condition())
-
-    @property
-    def form(self):
-        """
-        See :meth:`~.MeshSeq.get_form`.
-        """
-        return self.get_form()
 
     @property
     def solver(self):

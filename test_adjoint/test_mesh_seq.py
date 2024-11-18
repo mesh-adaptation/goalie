@@ -313,6 +313,32 @@ class TrivialGoalOrientedBaseClass(unittest.TestCase):
         )
 
 
+class TestGoalOrientedMeshSeq(TrivialGoalOrientedBaseClass):
+    """
+    Unit tests for a :class:`GoalOrientedMeshSeq`.
+    """
+
+    def get_function_spaces(self, mesh):
+        return {self.field: FunctionSpace(mesh, "R", 0)}
+
+    def test_read_forms_error_field(self):
+        mesh_seq = self.go_mesh_seq(self.get_function_spaces)
+        with self.assertRaises(ValueError) as cm:
+            mesh_seq.read_forms({"field2": None})
+        msg = (
+            "Unexpected field 'field2' in forms dictionary."
+            f" Expected one of ['{self.field}']."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_read_forms_error_form(self):
+        mesh_seq = self.go_mesh_seq(self.get_function_spaces)
+        with self.assertRaises(TypeError) as cm:
+            mesh_seq.read_forms({self.field: None})
+        msg = f"Expected a UFL form for field '{self.field}', not '<class 'NoneType'>'."
+        self.assertEqual(str(cm.exception), msg)
+
+
 class TestGlobalEnrichment(TrivialGoalOrientedBaseClass):
     """
     Unit tests for global enrichment of a :class:`GoalOrientedMeshSeq`.
@@ -405,11 +431,13 @@ class TestGlobalEnrichment(TrivialGoalOrientedBaseClass):
         mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
             enrichment_method="h", num_enrichments=1
         )
-        element = mesh_seq.function_spaces[self.field][0].ufl_element()
-        enriched_element = mesh_seq_e.function_spaces[self.field][0].ufl_element()
+        fspace = mesh_seq.function_spaces[self.field][0]
+        element = fspace.ufl_element()
+        enriched_fspace = mesh_seq_e.function_spaces[self.field][0]
+        enriched_element = enriched_fspace.ufl_element()
         self.assertEqual(element.family(), enriched_element.family())
         self.assertEqual(element.degree(), enriched_element.degree())
-        self.assertEqual(element.value_shape, enriched_element.value_shape)
+        self.assertEqual(fspace.value_shape, enriched_fspace.value_shape)
 
     def test_p_enrichment_mesh(self):
         mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("CG", 1, 0))
@@ -442,11 +470,13 @@ class TestGlobalEnrichment(TrivialGoalOrientedBaseClass):
         mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
             enrichment_method="p", num_enrichments=num_enrichments
         )
-        element = mesh_seq.function_spaces[self.field][0].ufl_element()
-        enriched_element = mesh_seq_e.function_spaces[self.field][0].ufl_element()
+        fspace = mesh_seq.function_spaces[self.field][0]
+        element = fspace.ufl_element()
+        enriched_fspace = mesh_seq_e.function_spaces[self.field][0]
+        enriched_element = enriched_fspace.ufl_element()
         self.assertEqual(element.family(), enriched_element.family())
         self.assertEqual(element.degree() + num_enrichments, enriched_element.degree())
-        self.assertEqual(element.value_shape, enriched_element.value_shape)
+        self.assertEqual(fspace.value_shape, enriched_fspace.value_shape)
 
     @parameterized.expand(
         [

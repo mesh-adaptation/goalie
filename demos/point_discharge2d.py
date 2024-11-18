@@ -65,13 +65,21 @@ def source(mesh):
 # .. math::
 #    \tau = \min\left(\frac{h}{2\|\mathbf u\|},\frac{h\|\mathbf u\|}{6D}\right),
 #
-# where :math:`h` measures cell size. ::
+# where :math:`h` measures cell size.
+#
+# Note that :attr:`mesh_seq.fields` now returns a single
+# :class:`~firedrake.function.Function` object since the problem is steady, so there is
+# no notion of a lagged solution, unlike in previous (time-dependent) demos.
+# With these ingredients, we can now define the :meth:`get_solver` method. Don't forget
+# to apply the corresponding `ad_block_tag` to the solve call. Additionally, we must
+# communicate the defined variational form to ``mesh_seq`` using the
+# :meth:`mesh_seq.read_form()` method for Goalie to utilise it during error indication. ::
 
 
-def get_form(mesh_seq):
-    def form(index):
-        c = mesh_seq.fields["c"]
+def get_solver(mesh_seq):
+    def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
+        c = mesh_seq.fields["c"]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
 
@@ -95,29 +103,10 @@ def get_form(mesh_seq):
             + inner(D * grad(c), grad(psi)) * dx
             - S * psi * dx
         )
-        return {"c": F}
-
-    return form
-
-
-# Note that :attr:`mesh_seq.fields` now returns a single
-# :class:`~firedrake.function.Function` object since the problem is steady, so there is
-# no notion of a lagged solution, unlike in previous (time-dependent) demos.
-# With these ingredients, we can now define the :meth:`get_solver` method. Don't forget
-# to apply the corresponding `ad_block_tag` to the solve call. ::
-
-
-def get_solver(mesh_seq):
-    def solver(index):
-        function_space = mesh_seq.function_spaces["c"][index]
-
-        c = mesh_seq.fields["c"]
-
-        # Setup variational problem
-        F = mesh_seq.form(index)["c"]
-
-        # Strongly enforce boundary conditions on the inflow, which is indexed by 1
         bc = DirichletBC(function_space, 0, 1)
+
+        # Communicate variational form to mesh_seq
+        mesh_seq.read_forms({"c": F})
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
         yield
@@ -158,7 +147,6 @@ mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     mesh,
     get_function_spaces=get_function_spaces,
-    get_form=get_form,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="steady",
