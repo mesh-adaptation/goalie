@@ -1,14 +1,14 @@
 # Burgers equation with Goal-oriented mesh adaptation
 # ===================================================
 
-# In the `Hessian-based adaption  <./burgers-hessian.py.html>`__, we applied a Hessian-based
+# In the `Hessian-based adaptation  <./burgers-hessian.py.html>`__, we applied a Hessian-based
 # mesh adaptation to the time-dependent Burgers equation. Here, we alternatively consider
 # a goal-oriented error estimation to drive the mesh adaptation. Again, we will
 # choose to partition the problem over multiple subintervals and hence multiple meshes
 # to adapt. We also chose to apply a QoI which integrates in time as well as space.
 #
 # We copy over the setup as before. The only difference is that we import from
-# `goalie_adjoint` rather than `goalie`. ::
+# ``goalie_adjoint`` rather than ``goalie``. ::
 
 import matplotlib.pyplot as plt
 from animate.adapt import adapt
@@ -122,7 +122,7 @@ mesh_seq = GoalOrientedMeshSeq(
     qoi_type="time_integrated",
 )
 
-# Compared to the previous `Hessian-based adaption <./burgers-hessian.py.html>`__,
+# Compared to the previous `Hessian-based adaptation <./burgers-hessian.py.html>`__,
 # this adaptor depends on adjoint solution data as well as forward solution data.
 # For simplicity, we begin by using :meth:`~.RiemannianMetric.compute_isotropic_metric()`.
 # ::
@@ -164,10 +164,10 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
             )
             metric_timestep.normalise()
 
-            # append the metric for the step in the time partition
+            # Append the metric for the step in the time partition
             metrics_subinterval.append(metric_timestep)
 
-        # set the first metric as the base and average remaining
+        # Set the first metric as the base and average remaining
         metrics_subinterval[0].average(
             *metrics_subinterval[1:], weights=[dt] * len(metrics_subinterval)
         )
@@ -265,8 +265,8 @@ plt.close()
 # we consider the :meth:`~.RiemannianMetric.compute_anisotropic_dwr_metric()` driver.
 # (See documentation for details.) To use it, we just need to define
 # a different adaptor function. The same error indicator is used as
-# for the isotropic approach. Additionly, the Hessian of the forward
-# solution is estimated as in the `Hessian-based adaption <./burgers-hessian.py.html>`__
+# for the isotropic approach. Additionally, the Hessian of the forward
+# solution is estimated as in the `Hessian-based adaptation <./burgers-hessian.py.html>`__
 # to give anisotropy to the metric.
 #
 # For this driver, normalisation is handled differently than for
@@ -324,10 +324,10 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
                 indi, hessians[0], interpolant="L2"
             )
 
-            # append the metric for the step in the time partition
+            # Append the metric for the step in the time partition
             metrics_subinterval.append(metric_timestep)
 
-        # set the first metric as the base and average remaining
+        # Set the first metric as the base and average remaining
         metrics_subinterval[0].average(
             *metrics_subinterval[1:], weights=[dt] * len(metrics_subinterval)
         )
