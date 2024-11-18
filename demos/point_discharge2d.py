@@ -9,7 +9,7 @@
 #
 # Consider the same steady-state advection-diffusion test case as in the
 # motivation for the Goalie manual: the "point discharge with diffusion"
-# test case from :cite:`RCJ:14`. In this test case, we solve
+# test case from :cite:`Riadh:2014`. In this test case, we solve
 #
 # .. math::
 #   \left\{\begin{array}{rl}
@@ -39,11 +39,11 @@ def get_function_spaces(mesh):
 
 
 # Point sources are difficult to represent in numerical models. Here we
-# follow :cite:`WBHP:22` in using a Gaussian approximation. Let
+# follow :cite:`Wallwork:2022` in using a Gaussian approximation. Let
 # :math:`(x_0,y_0)=(2,5)` denote the point source location and
 # :math:`r=0.05606388` be a radius parameter, which has been calibrated
 # so that the finite element approximation is as close as possible to the
-# analytical solution, in some sense (see :cite:`WBHP:22` for details). ::
+# analytical solution, in some sense (see :cite:`Wallwork:2022` for details). ::
 
 
 def source(mesh):
@@ -210,3 +210,9 @@ fig.savefig("point_discharge2d-indicator.jpg")
 # metric-based mesh adaptation to the point discharge test case considered here.
 #
 # This tutorial can be dowloaded as a `Python script <point_discharge2d.py>`__.
+#
+#
+# .. rubric:: References
+#
+# .. bibliography::
+#    :filter: docname in docnames

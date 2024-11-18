@@ -160,5 +160,5 @@ solutions.export(
 #
 # .. rubric:: References
 #
-# .. bibliography:: demo_references.bib
+# .. bibliography::
 #    :filter: docname in docnames
