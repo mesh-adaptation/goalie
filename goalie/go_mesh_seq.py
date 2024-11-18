@@ -72,9 +72,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         The following global enrichment methods are supported:
         * h-refinement (``enrichment_method='h'``) - refine each mesh element
-          uniformly in each direction;
+        uniformly in each direction;
         * p-refinement (``enrichment_method='p'``) - increase the function space
-          polynomial order by one globally.
+        polynomial order by one globally.
 
         :kwarg enrichment_method: the method for enriching the mesh sequence
         :type enrichment_method: :class:`str`
@@ -179,8 +179,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             space(s) as arguments to the error indicator
             :class:`firedrake.function.Function`
         :returns: solution and indicator data objects
-        :rtype1: :class:`~.AdjointSolutionData
-        :rtype2: :class:`~.IndicatorData
+        :rtype1: :class:`~.AdjointSolutionData`
+        :rtype2: :class:`~.IndicatorData`
         """
         solver_kwargs = solver_kwargs or {}
         default_enrichment_kwargs = {"enrichment_method": "p", "num_enrichments": 1}
@@ -353,8 +353,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             space(s) as arguments to the error indicator
             :class:`firedrake.function.Function`
         :returns: solution and indicator data objects
-        :rtype1: :class:`~.AdjointSolutionData
-        :rtype2: :class:`~.IndicatorData
+        :rtype1: :class:`~.AdjointSolutionData`
+        :rtype2: :class:`~.IndicatorData`
         """
         # TODO #124: adaptor no longer needs solution and indicator data to be passed
         #            explicitly
