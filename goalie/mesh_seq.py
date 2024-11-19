@@ -272,14 +272,14 @@ class MeshSeq:
 
         Signature for the function to be returned:
         ```
-        :arg index: the subinterval index
-        :type index: :class:`int`
-        :arg ic: map from fields to the corresponding initial condition components
-        :type ic: :class:`dict` with :class:`str` keys and
-            :class:`firedrake.function.Function` values
-        :return: map from fields to the corresponding solutions
-        :rtype: :class:`dict` with :class:`str` keys and
-            :class:`firedrake.function.Function` values
+            :arg index: the subinterval index
+            :type index: :class:`int`
+            :arg ic: map from fields to the corresponding initial condition components
+            :type ic: :class:`dict` with :class:`str` keys and
+                :class:`firedrake.function.Function` values
+            :return: map from fields to the corresponding solutions
+            :rtype: :class:`dict` with :class:`str` keys and
+                :class:`firedrake.function.Function` values
         ```
 
         :returns: the function for obtaining the solver

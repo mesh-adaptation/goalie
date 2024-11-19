@@ -9,7 +9,7 @@ def bessi0(x):
     """
     Modified Bessel function of the first kind.
 
-    Code taken from :cite:`VVP+:92`.
+    Code taken from :cite:`Vetterling:1992`.
     """
     if isinstance(x, np.ndarray):
         if np.isclose(x, 0).any():
