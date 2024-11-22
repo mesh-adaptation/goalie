@@ -23,8 +23,6 @@ class PointSeq(MeshSeq):
             :class:`firedrake.functionspaceimpl.FunctionSpace`\s for each subinterval
         :kwarg get_initial_condition: a function, whose only argument is a
             :class:`~.MeshSeq`, which specifies initial conditions on the first mesh
-        :kwarg get_form: a function, whose only argument is a :class:`~.MeshSeq`, which
-            returns a function that generates the ODE weak form
         :kwarg get_solver: a function, whose only argument is a :class:`~.MeshSeq`,
             which returns a function that integrates initial data over a subinterval
         :kwarg get_bcs: a function, whose only argument is a :class:`~.MeshSeq`, which
