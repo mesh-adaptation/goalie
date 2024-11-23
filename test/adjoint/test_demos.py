@@ -13,7 +13,7 @@ import pytest
 from goalie.log import *
 
 cwd = os.path.abspath(os.path.dirname(__file__))
-demo_dir = os.path.abspath(os.path.join(cwd, "..", "demos"))
+demo_dir = os.path.abspath(os.path.join(cwd, "..", "..", "demos"))
 all_demos = glob.glob(os.path.join(demo_dir, "*.py"))
 
 # Modifications dictionary to cut down run time of demos:
