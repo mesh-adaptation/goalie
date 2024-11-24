@@ -368,6 +368,16 @@ class TestGlobalEnrichment(TrivialGoalOrientedBaseClass):
         msg = "A positive number of enrichments is required."
         self.assertEqual(str(cm.exception), msg)
 
+    def test_form_error(self):
+        mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("R", 0, 0))
+        with self.assertRaises(AttributeError) as cm:
+            mesh_seq.forms()
+        msg = (
+            "Forms have not been read in. Use read_forms({'field_name': F}) in"
+            " get_solver to read in the forms."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
     def test_h_enrichment_error(self):
         end_time = 1.0
         num_subintervals = 2
