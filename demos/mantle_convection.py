@@ -68,49 +68,8 @@ def get_initial_condition(mesh_seq):
     return {"up": up_init, "T": T_init}
 
 
-# The weak forms for the Stokes and energy equations are defined as follows. Note that
-# the mixed field ``up`` does not have a lagged term.
-
-
-def get_form(mesh_seq):
-    def form(index):
-        up = mesh_seq.fields["up"]
-        u, p = split(up)
-        v, w = TestFunctions(mesh_seq.function_spaces["up"][index])
-
-        T, T_ = mesh_seq.fields["T"]
-        q = TestFunction(mesh_seq.function_spaces["T"][index])
-
-        # Crank-Nicolson time discretisation for temperature
-        Ttheta = 0.5 * (T + T_)
-
-        # Stokes equations
-        stress = 2 * mu * sym(grad(u))
-        F_up = (
-            inner(grad(v), stress) * dx
-            - div(v) * p * dx
-            - (dot(v, k) * Ra * Ttheta) * dx
-        )
-        F_up += -w * div(u) * dx  # Continuity equation
-
-        # Energy equation
-        dt = mesh_seq.time_partition.timesteps[index]
-        F_T = (
-            q * (T - T_) / dt * dx
-            + q * dot(u, grad(Ttheta)) * dx
-            + dot(grad(q), kappa * grad(Ttheta)) * dx
-        )
-
-        return {"up": F_up, "T": F_T}
-
-    return form
-
-
-# In the solver, it is important to solve for the fields in the order in which they are
-# defined in the ``fields`` list. This is to ensure that the error indicators are
-# computed correctly. Therefore, in the time integration loop, we first solve the
-# Stokes equations for the velocity and pressure fields, and then solve the energy
-# equation for the temperature field.
+# In the solver, weak forms for the Stokes and energy equations are defined as follows.
+# Note that the mixed field ``up`` does not have a lagged term.
 
 
 def get_solver(mesh_seq):
@@ -119,10 +78,29 @@ def get_solver(mesh_seq):
         Q = mesh_seq.function_spaces["T"][index]
 
         up = mesh_seq.fields["up"]
+        u, p = split(up)
         T, T_ = mesh_seq.fields["T"]
 
-        # Dictionary of weak forms and boundary conditions for both fields
-        F = mesh_seq.form(index)
+        # Crank-Nicolson time discretisation for temperature
+        Ttheta = 0.5 * (T + T_)
+
+        # Variational problem for the Stokes equations
+        v, w = TestFunctions(mesh_seq.function_spaces["up"][index])
+        stress = 2 * mu * sym(grad(u))
+        F_up = (
+            inner(grad(v), stress) * dx
+            - div(v) * p * dx
+            - (dot(v, k) * Ra * Ttheta) * dx
+        )
+        F_up += -w * div(u) * dx  # Continuity equation
+
+        # Variational problem for the energy equation
+        q = TestFunction(mesh_seq.function_spaces["T"][index])
+        F_T = (
+            q * (T - T_) / dt * dx
+            + q * dot(u, grad(Ttheta)) * dx
+            + dot(grad(q), kappa * grad(Ttheta)) * dx
+        )
 
         # Boundary IDs
         left, right, bottom, top = 1, 2, 3, 4
@@ -144,13 +122,13 @@ def get_solver(mesh_seq):
             "pc_factor_mat_solver_type": "mumps",
         }
 
-        nlvp_up = NonlinearVariationalProblem(F["up"], up, bcs=bcs_up)
+        nlvp_up = NonlinearVariationalProblem(F_up, up, bcs=bcs_up)
         nlvs_up = NonlinearVariationalSolver(
             nlvp_up,
             solver_parameters=solver_parameters,
             ad_block_tag="up",
         )
-        nlvp_T = NonlinearVariationalProblem(F["T"], T, bcs=bcs_T)
+        nlvp_T = NonlinearVariationalProblem(F_T, T, bcs=bcs_T)
         nlvs_T = NonlinearVariationalSolver(
             nlvp_T,
             solver_parameters=solver_parameters,
@@ -168,20 +146,7 @@ def get_solver(mesh_seq):
     return solver
 
 
-# Finally, we define the quantity of interest (QoI) as the square of the velocity field
-# :math:`\mathbf{u}`. The QoI will be evaluated at the final time step.
-
-
-def get_qoi(mesh_seq, i):
-    def qoi():
-        up = mesh_seq.fields["up"]
-        u, _ = split(up)
-        return dot(u, u) * dx
-
-    return qoi
-
-
-# We can now create a GoalOrientedMeshSeq object and compute the error indicators.
+# We can now create a MeshSeq object and solve the forward problem.
 # For demonstration purposes, we only consider two subintervals and a low number of
 # timesteps.
 
@@ -197,7 +162,7 @@ dt_per_export = [10 for _ in range(num_subintervals)]
 # ``field_types`` argument of the ``TimePartition`` object to specify that the ``up``
 # field is *steady* (i.e. without a time derivative) and that the ``T`` field is
 # *unsteady* (i.e. involves a time derivative). The order in ``field_types`` must
-# match the order of the fields in the ``fields`` list (see above).
+# match the order of the fields in the ``fields`` list above.
 
 time_partition = TimePartition(
     end_time,
@@ -208,26 +173,24 @@ time_partition = TimePartition(
     field_types=["steady", "unsteady"],
 )
 
-mesh_seq = GoalOrientedMeshSeq(
+mesh_seq = MeshSeq(
     time_partition,
     meshes,
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
-    get_form=get_form,
     get_solver=get_solver,
-    get_qoi=get_qoi,
-    qoi_type="end_time",
+    transfer_method="interpolate",
 )
 
-solutions, indicators = mesh_seq.indicate_errors()
+solutions = mesh_seq.solve_forward()
 
-# We can plot the error indicator fields for exported timesteps using the in-built
+# We can plot the temperature fields for exported timesteps using the in-built
 # plotting function ``plot_indicator_snapshots``.
 
-fig, axes, tcs = plot_indicator_snapshots(indicators, time_partition, "T", levels=50)
+fig, axes, tcs = plot_snapshots(solutions, time_partition, "T", "forward", levels=25)
 fig.savefig("mantle_convection.jpg")
 
-# .. figure:: burgers-ee.jpg
+# .. figure:: mantle_convection.jpg
 #    :figwidth: 90%
 #    :align: center
 #
