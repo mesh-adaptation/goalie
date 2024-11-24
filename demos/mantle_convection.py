@@ -1,5 +1,5 @@
 # Mantle convection modelling
-============================
+# ===========================
 
 # In all demos that we have considered so far, the equations that we have solved all
 # involve a time derivative. Those are clearly *time-dependent* equations. However,
