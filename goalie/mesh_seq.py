@@ -336,7 +336,7 @@ class MeshSeq:
                         self.debug(
                             "Current and lagged solutions are equal. Does the"
                             " solver yield before updating lagged solutions?"
-                        )
+                        )  # noqa
                 break
             assert isinstance(method_map, dict), f"get_{method} should return a dict"
             mesh_seq_fields = set(self.fields)
