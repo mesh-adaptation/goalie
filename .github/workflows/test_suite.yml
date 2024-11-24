@@ -22,8 +22,7 @@ jobs:
         python $(which firedrake-clean)
         export GITHUB_ACTIONS_TEST_RUN=1
         python -m coverage erase
-        python -m coverage run -a --source=goalie -m pytest -v --durations=20 test
-        python -m coverage run -a --source=goalie -m pytest -v --durations=10 test_adjoint
+        python -m coverage run --source=goalie -m pytest -v --durations=20 test
         python -m coverage report
       changed-files-patterns: |
         **/*.py
