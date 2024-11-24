@@ -34,7 +34,7 @@
 
 from firedrake import *
 
-from goalie_adjoint import *
+from goalie import *
 
 Ra, mu, kappa = Constant(1e4), Constant(1.0), Constant(1.0)
 k = Constant((0, 1))
@@ -54,7 +54,7 @@ def get_function_spaces(mesh):
     return {"up": Z, "T": Q}
 
 
-# We must initial conditions to solve the problem. Note that we define the initial
+# We must set initial conditions to solve the problem. Note that we define the initial
 # condition for the mixed field ``up`` despite the equations not involving a time
 # derivative. In this case, the prescribed initial condition should be understood as the
 # *initial guess* for the solver.
@@ -185,7 +185,7 @@ mesh_seq = MeshSeq(
 solutions = mesh_seq.solve_forward()
 
 # We can plot the temperature fields for exported timesteps using the in-built
-# plotting function ``plot_indicator_snapshots``.
+# plotting function ``plot_snapshots``.
 
 fig, axes, tcs = plot_snapshots(solutions, time_partition, "T", "forward", levels=25)
 fig.savefig("mantle_convection.jpg")
