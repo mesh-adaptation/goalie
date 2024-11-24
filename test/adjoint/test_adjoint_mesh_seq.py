@@ -359,14 +359,23 @@ class TestGlobalEnrichment(TrivialGoalOrientedBaseClass):
         mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("R", 0, 0))
         with self.assertRaises(ValueError) as cm:
             mesh_seq.get_enriched_mesh_seq(enrichment_method="q")
-        msg = "Enrichment method 'q' not supported."
-        self.assertEqual(str(cm.exception), msg)
+        self.assertEqual(str(cm.exception), "Enrichment method 'q' not supported.")
 
     def test_num_enrichments_error(self):
         mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("R", 0, 0))
         with self.assertRaises(ValueError) as cm:
             mesh_seq.get_enriched_mesh_seq(num_enrichments=0)
         msg = "A positive number of enrichments is required."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_form_error(self):
+        mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("R", 0, 0))
+        with self.assertRaises(AttributeError) as cm:
+            mesh_seq.forms()
+        msg = (
+            "Forms have not been read in. Use read_forms({'field_name': F}) in"
+            " get_solver to read in the forms."
+        )
         self.assertEqual(str(cm.exception), msg)
 
     def test_h_enrichment_error(self):
