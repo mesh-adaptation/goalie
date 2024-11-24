@@ -63,16 +63,14 @@ class TestExceptions(BaseClasses.MeshSeqTestCase):
                 getattr(mesh_seq, function_name)(mesh_seq[0])
             else:
                 getattr(mesh_seq, function_name)()
-        msg = f"'{function_name}' needs implementing."
-        self.assertEqual(str(cm.exception), msg)
+        self.assertEqual(str(cm.exception), f"'{function_name}' needs implementing.")
 
     @parameterized.expand(["get_function_spaces", "get_initial_condition"])
     def test_return_dict_error(self, method):
         kwargs = {method: lambda _: 0}
         with self.assertRaises(AssertionError) as cm:
             MeshSeq(self.time_interval, self.trivial_mesh(2), **kwargs)
-        msg = f"{method} should return a dict"
-        self.assertEqual(str(cm.exception), msg)
+        self.assertEqual(str(cm.exception), f"{method} should return a dict")
 
     @parameterized.expand(["get_function_spaces", "get_initial_condition"])
     def test_missing_field_error(self, method):
@@ -100,8 +98,7 @@ class TestExceptions(BaseClasses.MeshSeqTestCase):
         }
         with self.assertRaises(AssertionError) as cm:
             MeshSeq(self.time_interval, mesh, **kwargs)
-        msg = "solver should yield"
-        self.assertEqual(str(cm.exception), msg)
+        self.assertEqual(str(cm.exception), "solver should yield")
 
     @parameterized.expand([1, 3])
     def test_plot_dim_error(self, dim):
