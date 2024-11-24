@@ -1,20 +1,19 @@
 # Mantle convection modelling
-#############################
+============================
 
 # In all demos that we have considered so far, the equations that we have solved all
-# involve a time derivative. However, in some cases, we may have a time-dependent
-# problem where an equation might not involve a time derivative, but is still
-# time-dependent in the sense that it depends on other fields that are time-dependent
-# and that have been previously solved for. An example of where this might happen is
-# in a continuous pressure projection approach, ice sheet and glaciological modelling,
-# mantle convection modelling, etc. In this demo, we illustrate how Goalie can be used
+# involve a time derivative. Those are clearly *time-dependent* equations. However,
+# time-dependent equations need not involve a time derivative. For example, they might
+# include fields that vary with time. Examples of where this might happen are
+# in continuous pressure projection approaches, ice sheet and glaciological modelling, and
+# mantle convection modelling. In this demo, we illustrate how Goalie can be used
 # to solve such problems.
 
 # We consider the problem of a mantle convection in a 2D unit square domain. The
 # governing equations and Firedrake implementation are based on the 2D Cartesian
 # incompressible isoviscous case from :cite:`Davies:2022`. We refer the reader to the
 # paper for a detailed description of the problem and implementation. Here we
-# immediately present the governing equations involving a Stokes system and an energy
+# present the governing equations involving a Stokes system and an energy
 # equation, which we solve for the velocity :math:`\mathbf{u}`, pressure :math:`p`, and
 # temperature :math:`T`:
 #
@@ -47,15 +46,15 @@ fields = ["up", "T"]
 
 
 def get_function_spaces(mesh):
-    V = VectorFunctionSpace(mesh, "CG", 2)  # Velocity function space
-    W = FunctionSpace(mesh, "CG", 1)  # Pressure function space
-    Z = MixedFunctionSpace([V, W])  # Mixed function space for velocity and pressure
-    Q = FunctionSpace(mesh, "CG", 1)  # Temperature function space
+    V = VectorFunctionSpace(mesh, "CG", 2, name="velocity")
+    W = FunctionSpace(mesh, "CG", 1, name="pressure")
+    Z = MixedFunctionSpace([V, W], name="velocity-pressure")
+    Q = FunctionSpace(mesh, "CG", 1, name="temperature")
     return {"up": Z, "T": Q}
 
 
 # We must set initial conditions to solve the problem. Note that we define the initial
-# condition for the mixed field ``up`` despite the equations not involving a time
+# condition for the mixed field ``"up"`` despite the equations not involving a time
 # derivative. In this case, the prescribed initial condition should be understood as the
 # *initial guess* for the solver.
 
@@ -69,7 +68,7 @@ def get_initial_condition(mesh_seq):
 
 
 # In the solver, weak forms for the Stokes and energy equations are defined as follows.
-# Note that the mixed field ``up`` does not have a lagged term.
+# Note that the mixed field ``"up"`` does not have a lagged term.
 
 
 def get_solver(mesh_seq):
@@ -159,7 +158,7 @@ end_time = dt * num_timesteps
 dt_per_export = [10 for _ in range(num_subintervals)]
 
 # To account for the lack of time derivative in the Stokes equations, we use the
-# ``field_types`` argument of the ``TimePartition`` object to specify that the ``up``
+# ``field_types`` argument of the ``TimePartition`` object to specify that the ``"up"``
 # field is *steady* (i.e. without a time derivative) and that the ``T`` field is
 # *unsteady* (i.e. involves a time derivative). The order in ``field_types`` must
 # match the order of the fields in the ``fields`` list above.
