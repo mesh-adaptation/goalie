@@ -103,6 +103,13 @@ class TestExceptions(BaseClasses.MeshSeqTestCase):
         msg = "solver should yield"
         self.assertEqual(str(cm.exception), msg)
 
+    @parameterized.expand([1, 3])
+    def test_plot_dim_error(self, dim):
+        mesh_seq = MeshSeq(self.time_interval, self.trivial_mesh(dim))
+        with self.assertRaises(ValueError) as cm:
+            mesh_seq.plot()
+        self.assertEqual(str(cm.exception), "MeshSeq plotting only supported in 2D.")
+
 
 class TestGeneric(BaseClasses.MeshSeqTestCase):
     """

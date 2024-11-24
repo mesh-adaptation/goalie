@@ -203,7 +203,7 @@ class MeshSeq:
         from matplotlib.pyplot import subplots
 
         if self.dim != 2:
-            raise ValueError("MeshSeq plotting only supported in 2D")
+            raise ValueError("MeshSeq plotting only supported in 2D.")
 
         # Process kwargs
         interior_kw = {"edgecolor": "k"}
