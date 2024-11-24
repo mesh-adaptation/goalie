@@ -47,16 +47,14 @@ def get_initial_condition(mesh_seq):
     return {"a": a_init, "b": b_init}
 
 
-# We now see why :func:`get_form` needs to provide a function whose return value is a
-# dictionary: its keys correspond to the different equations being solved. ::
+# Correspondingly the solver needs to be constructed from the two parts and must
+# include two nonlinear solves at each timestep. ::
 
 
-def get_form(mesh_seq):
-    def form(index):
+def get_solver(mesh_seq):
+    def solver(index):
         a, a_ = mesh_seq.fields["a"]
         b, b_ = mesh_seq.fields["b"]
-        psi_a = TestFunction(mesh_seq.function_spaces["a"][index])
-        psi_b = TestFunction(mesh_seq.function_spaces["b"][index])
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
@@ -67,6 +65,8 @@ def get_form(mesh_seq):
         kappa = Function(R).assign(0.06)
 
         # Write the two equations in variational form
+        psi_a = TestFunction(mesh_seq.function_spaces["a"][index])
+        psi_b = TestFunction(mesh_seq.function_spaces["b"][index])
         F_a = (
             psi_a * (a - a_) * dx
             + dt * D_a * inner(grad(psi_a), grad(a)) * dx
@@ -77,24 +77,8 @@ def get_form(mesh_seq):
             + dt * D_b * inner(grad(psi_b), grad(b)) * dx
             - dt * psi_b * (a * b**2 - (gamma + kappa) * b) * dx
         )
-        return {"a": F_a, "b": F_b}
-
-    return form
-
-
-# Correspondingly the solver needs to be constructed from the two parts and must
-# include two nonlinear solves at each timestep. ::
-
-
-def get_solver(mesh_seq):
-    def solver(index):
-        a, a_ = mesh_seq.fields["a"]
-        b, b_ = mesh_seq.fields["b"]
 
         # Setup solver objects
-        forms = mesh_seq.form(index)
-        F_a = forms["a"]
-        F_b = forms["b"]
         nlvp_a = NonlinearVariationalProblem(F_a, a)
         nlvs_a = NonlinearVariationalSolver(nlvp_a, ad_block_tag="a")
         nlvp_b = NonlinearVariationalProblem(F_b, b)
@@ -154,23 +138,16 @@ mesh_seq = AdjointMeshSeq(
     mesh,
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
-    get_form=get_form,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="end_time",
 )
 solutions = mesh_seq.solve_adjoint()
 
-ic = mesh_seq.get_initial_condition()
-for field, sols in solutions.items():
-    fwd_outfile = VTKFile(f"gray_scott_split/{field}_forward.pvd")
-    adj_outfile = VTKFile(f"gray_scott_split/{field}_adjoint.pvd")
-    fwd_outfile.write(ic[field])
-    for i in range(num_subintervals):
-        for sol in sols["forward"][i]:
-            fwd_outfile.write(sol)
-        for sol in sols["adjoint"][i]:
-            adj_outfile.write(sol)
-    adj_outfile.write(Function(ic[field]).assign(0.0))
+solutions.export(
+    "gray_scott_split/solutions.pvd",
+    export_field_types=["forward", "adjoint"],
+    initial_condition=mesh_seq.get_initial_condition(),
+)
 
 # This tutorial can be dowloaded as a `Python script <gray_scott_split.py>`__.

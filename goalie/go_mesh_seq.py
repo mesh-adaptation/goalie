@@ -14,6 +14,7 @@ from .adjoint import AdjointMeshSeq
 from .error_estimation import get_dwr_indicator
 from .function_data import IndicatorData
 from .log import pyrint
+from .options import GoalOrientedAdaptParameters
 
 __all__ = ["GoalOrientedMeshSeq"]
 
@@ -26,6 +27,43 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.estimator_values = []
+        self._forms = None
+
+    def read_forms(self, forms_dictionary):
+        """
+        Read in the variational form corresponding to each prognostic field.
+
+        :arg forms_dictionary: dictionary where the keys are the field names and the
+            values are the UFL forms
+        :type forms_dictionary: :class:`dict`
+        """
+        for field, form in forms_dictionary.items():
+            if field not in self.fields:
+                raise ValueError(
+                    f"Unexpected field '{field}' in forms dictionary."
+                    f" Expected one of {self.time_partition.field_names}."
+                )
+            if not isinstance(form, ufl.Form):
+                raise TypeError(
+                    f"Expected a UFL form for field '{field}', not '{type(form)}'."
+                )
+        self._forms = forms_dictionary
+
+    @property
+    def forms(self):
+        """
+        Get the variational form associated with each prognostic field.
+
+        :returns: dictionary where the keys are the field names and the values are the
+            UFL forms
+        :rtype: :class:`dict`
+        """
+        if self._forms is None:
+            raise AttributeError(
+                "Forms have not been read in."
+                " Use read_forms({'field_name': F}) in get_solver to read in the forms."
+            )
+        return self._forms
 
     @PETSc.Log.EventDecorator()
     def get_enriched_mesh_seq(self, enrichment_method="p", num_enrichments=1):
@@ -34,9 +72,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         The following global enrichment methods are supported:
         * h-refinement (``enrichment_method='h'``) - refine each mesh element
-          uniformly in each direction;
+        uniformly in each direction;
         * p-refinement (``enrichment_method='p'``) - increase the function space
-          polynomial order by one globally.
+        polynomial order by one globally.
 
         :kwarg enrichment_method: the method for enriching the mesh sequence
         :type enrichment_method: :class:`str`
@@ -66,11 +104,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             meshes,
             get_function_spaces=self._get_function_spaces,
             get_initial_condition=self._get_initial_condition,
-            get_form=self._get_form,
             get_solver=self._get_solver,
             get_qoi=self._get_qoi,
             qoi_type=self.qoi_type,
-            parameters=self.params,
         )
         enriched_mesh_seq._update_function_spaces()
 
@@ -143,8 +179,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             space(s) as arguments to the error indicator
             :class:`firedrake.function.Function`
         :returns: solution and indicator data objects
-        :rtype1: :class:`~.AdjointSolutionData
-        :rtype2: :class:`~.IndicatorData
+        :rtype1: :class:`~.AdjointSolutionData`
+        :rtype2: :class:`~.IndicatorData`
         """
         solver_kwargs = solver_kwargs or {}
         default_enrichment_kwargs = {"enrichment_method": "p", "num_enrichments": 1}
@@ -155,36 +191,33 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         # Reinitialise the error indicator data object
         self._create_indicators()
 
-        # Solve the forward and adjoint problems on the MeshSeq and its enriched version
-        self.solve_adjoint(**solver_kwargs)
-        enriched_mesh_seq.solve_adjoint(**solver_kwargs)
+        # Initialise adjoint solver generators on the MeshSeq and its enriched version
+        adj_sol_gen = self._solve_adjoint(**solver_kwargs)
+        adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(**solver_kwargs)
 
         FWD, ADJ = "forward", "adjoint"
         FWD_OLD = "forward" if self.steady else "forward_old"
         ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
         P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
-        for i in range(len(self)):
+        # Loop over each subinterval in reverse
+        for i in reversed(range(len(self))):
+            # Solve the adjoint problem on the current subinterval
+            next(adj_sol_gen)
+            next(adj_sol_gen_enriched)
+
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
             enriched_spaces = {
                 f: enriched_mesh_seq.function_spaces[f][i] for f in self.fields
             }
-            mapping = {}
             for f, fs_e in enriched_spaces.items():
-                u[f] = Function(fs_e)
-                u_[f] = Function(fs_e)
-                mapping[f] = (
-                    (u[f], u_[f])
-                    if enriched_mesh_seq.field_types[f] == "unsteady"
-                    else u[f]
-                )
+                if self.field_types[f] == "steady":
+                    u[f] = enriched_mesh_seq.fields[f]
+                else:
+                    u[f], u_[f] = enriched_mesh_seq.fields[f]
                 u_star[f] = Function(fs_e)
                 u_star_next[f] = Function(fs_e)
                 u_star_e[f] = Function(fs_e)
-
-            # Get forms for each equation in enriched space
-            enriched_mesh_seq.fields = mapping
-            forms = enriched_mesh_seq.form(i)
 
             # Loop over each timestep
             for j in range(self.time_partition.num_exports_per_subinterval[i] - 1):
@@ -200,7 +233,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 for f in self.fields:
                     # Transfer solutions associated with the current field f
                     transfer(self.solutions[f][FWD][i][j], u[f])
-                    transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
+                    if self.field_types[f] == "unsteady":
+                        transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
                     transfer(self.solutions[f][ADJ][i][j], u_star[f])
                     transfer(self.solutions[f][ADJ_NEXT][i][j], u_star_next[f])
 
@@ -216,7 +250,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     u_star_e[f] -= u_star[f]
 
                     # Evaluate error indicator
-                    indi_e = indicator_fn(forms[f], u_star_e[f])
+                    indi_e = indicator_fn(enriched_mesh_seq.forms[f], u_star_e[f])
 
                     # Transfer back to the base space
                     indi = self._transfer(indi_e, P0_spaces[i])
@@ -286,6 +320,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
     def fixed_point_iteration(
         self,
         adaptor,
+        parameters=None,
         update_params=None,
         enrichment_kwargs=None,
         adaptor_kwargs=None,
@@ -299,6 +334,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             sequence and the solution and indicator data objects. It should return
             ``True`` if the convergence criteria checks are to be skipped for this
             iteration. Otherwise, it should return ``False``.
+        :kwarg parameters: parameters to apply to the mesh adaptation process
+        :type parameters: :class:`~.GoalOrientedAdaptParameters`
         :kwarg update_params: function for updating :attr:`~.MeshSeq.params` at each
             iteration. Its arguments are the parameter class and the fixed point
             iteration
@@ -316,11 +353,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             space(s) as arguments to the error indicator
             :class:`firedrake.function.Function`
         :returns: solution and indicator data objects
-        :rtype1: :class:`~.AdjointSolutionData
-        :rtype2: :class:`~.IndicatorData
+        :rtype1: :class:`~.AdjointSolutionData`
+        :rtype2: :class:`~.IndicatorData`
         """
         # TODO #124: adaptor no longer needs solution and indicator data to be passed
         #            explicitly
+        self.params = parameters or GoalOrientedAdaptParameters()
         enrichment_kwargs = enrichment_kwargs or {}
         adaptor_kwargs = adaptor_kwargs or {}
         solver_kwargs = solver_kwargs or {}

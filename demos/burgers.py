@@ -40,25 +40,29 @@ def get_function_spaces(mesh):
     return {"u": VectorFunctionSpace(mesh, "CG", 2)}
 
 
-# In order to solve PDEs using the finite element method, we
-# require a weak form. For this, Goalie requires a function
-# that maps the :class:`MeshSeq` index and a dictionary of
-# solution data to the form. The form should be
-# returned inside its own dictionary, with an entry for each equation
-# being solved for.
-#
 # The solution :class:`Function`\s are automatically built on the function spaces given
 # by the :func:`get_function_spaces` function and are accessed via the :attr:`fields`
 # attribute of the :class:`MeshSeq`. This attribute provides a dictionary of tuples
 # containing the current and lagged solutions for each field.
-# Similarly, timestepping information associated with a given subinterval
-# can be accessed via the :attr:`TimePartition` attribute of
-# the :class:`MeshSeq`. For technical reasons, we need to create a :class:`Function`
-# in the `'R'` space (of real numbers) to hold constants. ::
+#
+# In order to solve the PDE, we need to choose a time integration routine and solver
+# parameters for the underlying linear and nonlinear systems. This is achieved below by
+# using a function :func:`solver` whose input is the :class:`MeshSeq` index. The
+# function should return a generator that yields the solution at each timestep, so
+# that Goalie can efficiently track the solution history. This is done by using the
+# `yield` statement before progressing to the next timestep.
+#
+# The lagged solution is assigned the initial condition for the current subinterval
+# index. For the :math:`0^{th}` index, this will be provided by the initial conditions,
+# otherwise it will be transferred from the previous mesh in the sequence.
+# Timestepping information associated with a given subinterval can be accessed via the
+# :attr:`TimePartition` attribute of the :class:`MeshSeq`. For technical reasons, we
+# need to create a :class:`Function` in the `'R'` space (of real numbers) to hold
+# constants.::
 
 
-def get_form(mesh_seq):
-    def form(index):
+def get_solver(mesh_seq):
+    def solver(index):
         # Get the current and lagged solutions
         u, u_ = mesh_seq.fields["u"]
 
@@ -74,37 +78,6 @@ def get_form(mesh_seq):
             + inner(dot(u, nabla_grad(u)), v) * dx
             + nu * inner(grad(u), grad(v)) * dx
         )
-        return {"u": F}
-
-    return form
-
-
-# We have a weak form. The dictionary usage may seem cumbersome when applied to such a
-# simple problem, but it comes in handy when solving adjoint problems associated with
-# coupled systems of equations.
-
-# In order to solve the PDE, we need to choose
-# a time integration routine and solver parameters for the underlying
-# linear and nonlinear systems. This is achieved below by using a function
-# :func:`solver` whose input is the :class:`MeshSeq` index. As noted above, the solution
-# :class:`Function`\s are automatically initialised and accessed via the
-# :attr:`fields` attribute of the :class:`MeshSeq`. The lagged solution is assigned
-# the initial condition for the current subinterval index. For the :math:`0^{th}` index,
-# this will be provided by the initial conditions, otherwise it will be transferred
-# from the previous mesh in the sequence.
-#
-# The function should return a generator that yields the solution at each timestep, so
-# that Goalie can efficiently track the solution history. This is done by using the
-# `yield` statement before progressing to the next timestep. ::
-
-
-def get_solver(mesh_seq):
-    def solver(index):
-        # Get the current and lagged solutions
-        u, u_ = mesh_seq.fields["u"]
-
-        # Define form
-        F = mesh_seq.form(index)["u"]
 
         # Time integrate from t_start to t_end
         tp = mesh_seq.time_partition
@@ -164,7 +137,6 @@ mesh_seq = MeshSeq(
     meshes,
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
-    get_form=get_form,
     get_solver=get_solver,
 )
 solutions = mesh_seq.solve_forward()

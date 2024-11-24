@@ -36,10 +36,10 @@ def source(mesh):
     return 100.0 * exp(-((x - x0) ** 2 + (y - y0) ** 2) / r**2)
 
 
-def get_form(mesh_seq):
-    def form(index):
-        c = mesh_seq.fields["c"]
+def get_solver(mesh_seq):
+    def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
+        c = mesh_seq.fields["c"]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
 
@@ -63,18 +63,6 @@ def get_form(mesh_seq):
             + inner(D * grad(c), grad(psi)) * dx
             - S * psi * dx
         )
-        return {"c": F}
-
-    return form
-
-
-def get_solver(mesh_seq):
-    def solver(index):
-        function_space = mesh_seq.function_spaces["c"][index]
-        c = mesh_seq.fields["c"]
-
-        # Setup variational problem
-        F = mesh_seq.form(index)["c"]
         bc = DirichletBC(function_space, 0, 1)
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
@@ -84,20 +72,7 @@ def get_solver(mesh_seq):
 
 
 # Take a relatively coarse initial mesh, a :class:`TimeInstant` (since we have a
-# steady-state problem), and put everything together in a :class:`MeshSeq`. For this
-# demo, we also create a :class:`MetricParameters` object and set the `element_rtol`
-# parameter to 0.005. This means that the fixed point iteration will terminate if the
-# element count changes by less than 0.5% between iterations. As standard, we allow
-# 35 iterations before establishing that the iteration is not going to converge.
-# To cut down the cost of the regresssion tests, we just use three iterations
-# instead. ::
-
-params = MetricParameters(
-    {
-        "element_rtol": 0.005,
-        "maxiter": 35,
-    }
-)
+# steady-state problem), and put everything together in a :class:`MeshSeq`. ::
 
 mesh = RectangleMesh(50, 10, 50, 10)
 time_partition = TimeInstant(field_names)
@@ -105,9 +80,7 @@ mesh_seq = MeshSeq(
     time_partition,
     mesh,
     get_function_spaces=get_function_spaces,
-    get_form=get_form,
     get_solver=get_solver,
-    parameters=params,
 )
 
 # Give the initial mesh, we can plot it, solve the PDE on it, and plot the resulting
@@ -200,9 +173,19 @@ def adaptor(mesh_seq, solutions):
 
 # With the adaptor function defined, we can call the fixed point iteration method, which
 # iteratively solves the PDE and calls the adaptor until one of the convergence criteria
-# are met. ::
+# are met. To that end, we create a :class:`AdaptParameters` object and set the
+# `element_rtol` parameter to 0.005. This means that the fixed point iteration will
+# terminate if the element count changes by less than 0.5% between iterations. As
+# standard, we allow 35 iterations before establishing that the iteration is not going
+# to converge. ::
 
-solutions = mesh_seq.fixed_point_iteration(adaptor)
+params = AdaptParameters(
+    {
+        "element_rtol": 0.005,
+        "maxiter": 35,
+    }
+)
+solutions = mesh_seq.fixed_point_iteration(adaptor, parameters=params)
 
 # Mesh adaptation often gives slightly different results on difference machines. However,
 # the output should look something like

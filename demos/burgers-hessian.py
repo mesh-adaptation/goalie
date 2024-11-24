@@ -23,8 +23,8 @@ def get_function_spaces(mesh):
     return {"u": VectorFunctionSpace(mesh, "CG", 2)}
 
 
-def get_form(mesh_seq):
-    def form(index):
+def get_solver(mesh_seq):
+    def solver(index):
         u, u_ = mesh_seq.fields["u"]
 
         # Define constants
@@ -39,17 +39,6 @@ def get_form(mesh_seq):
             + inner(dot(u, nabla_grad(u)), v) * dx
             + nu * inner(grad(u), grad(v)) * dx
         )
-        return {"u": F}
-
-    return form
-
-
-def get_solver(mesh_seq):
-    def solver(index):
-        u, u_ = mesh_seq.fields["u"]
-
-        # Define form
-        F = mesh_seq.form(index)["u"]
 
         # Time integrate from t_start to t_end
         tp = mesh_seq.time_partition
@@ -86,20 +75,12 @@ time_partition = TimePartition(
     num_timesteps_per_export=2,
 )
 
-params = MetricParameters(
-    {
-        "element_rtol": 0.001,
-        "maxiter": 35,
-    }
-)
 mesh_seq = MeshSeq(
     time_partition,
     meshes,
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
-    get_form=get_form,
     get_solver=get_solver,
-    parameters=params,
 )
 
 # As in the previous adaptation demos, the most important part is the adaptor function.
@@ -189,7 +170,13 @@ def adaptor(mesh_seq, solutions):
 
 # With the adaptor function defined, we can call the fixed point iteration method. ::
 
-solutions = mesh_seq.fixed_point_iteration(adaptor)
+params = AdaptParameters(
+    {
+        "element_rtol": 0.001,
+        "maxiter": 35,
+    }
+)
+solutions = mesh_seq.fixed_point_iteration(adaptor, parameters=params)
 
 # Here the output should look something like
 #

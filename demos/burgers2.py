@@ -24,8 +24,8 @@ def get_function_spaces(mesh):
     return {"u": VectorFunctionSpace(mesh, "CG", 2)}
 
 
-def get_form(mesh_seq):
-    def form(index):
+def get_solver(mesh_seq):
+    def solver(index):
         u, u_ = mesh_seq.fields["u"]
 
         # Define constants
@@ -40,17 +40,6 @@ def get_form(mesh_seq):
             + inner(dot(u, nabla_grad(u)), v) * dx
             + nu * inner(grad(u), grad(v)) * dx
         )
-        return {"u": F}
-
-    return form
-
-
-def get_solver(mesh_seq):
-    def solver(index):
-        u, u_ = mesh_seq.fields["u"]
-
-        # Define form
-        F = mesh_seq.form(index)["u"]
 
         # Time integrate from t_start to t_end
         tp = mesh_seq.time_partition
@@ -105,7 +94,6 @@ mesh_seq = AdjointMeshSeq(
     meshes,
     get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
-    get_form=get_form,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="end_time",
