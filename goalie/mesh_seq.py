@@ -493,7 +493,7 @@ class MeshSeq:
                         next(solver_gen)
                     # Update the solution data
                     for field, sol in self.fields.items():
-                        if not self.steady:
+                        if not self.field_types[field] == "steady":
                             assert isinstance(sol, tuple)
                             solutions[field].forward[i][j].assign(sol[0])
                             solutions[field].forward_old[i][j].assign(sol[1])
