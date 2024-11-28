@@ -291,7 +291,8 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
             self.solution_data.transfer(target_solution_data, method="invalid_method")
         self.assertEqual(
             str(cm.exception),
-            "Transfer method 'invalid_method' not supported. Supported methods are 'interpolate' or 'project'.",
+            "Transfer method 'invalid_method' not supported."
+            " Supported methods are 'interpolate' or 'project'.",
         )
 
     def test_transfer_subintervals_error(self):

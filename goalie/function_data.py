@@ -282,16 +282,19 @@ class FunctionData(ABC):
 
     def transfer(self, target, method="interpolate"):
         """
-        Interpolate or project all functions from this :class:`~FunctionData` object to the target :class:`~FunctionData` object.
+        Interpolate or project all functions from this :class:`~FunctionData` object to
+        the target :class:`~FunctionData` object.
 
-        :arg target: the target :class:`~FunctionData` object to which to transfer the data
+        :arg target: the target :class:`~FunctionData` object to which to transfer the
+            data
         :type target: :class:`.FunctionData`
         :arg method: the transfer method to use, either 'interpolate' or 'project'
         :type method: :class:`str`
         """
         if method not in ["interpolate", "project"]:
             raise ValueError(
-                f"Transfer method '{method}' not supported. Supported methods are 'interpolate' or 'project'."
+                f"Transfer method '{method}' not supported."
+                " Supported methods are 'interpolate' or 'project'."
             )
 
         if (
