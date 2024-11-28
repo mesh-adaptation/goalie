@@ -280,6 +280,58 @@ class FunctionData(ABC):
                             f = self._data[field][field_type][i][j]
                             outfile.save_function(f, name=name, idx=j)
 
+    def transfer(self, target, method="interpolate"):
+        """
+        Interpolate or project all functions from this :class:`~FunctionData` object to the target :class:`~FunctionData` object.
+
+        :arg target: the target :class:`~FunctionData` object to which to transfer the data
+        :type target: :class:`.FunctionData`
+        :arg method: the transfer method to use, either 'interpolate' or 'project'
+        :type method: :class:`str`
+        """
+        if method not in ["interpolate", "project"]:
+            raise ValueError(
+                f"Transfer method '{method}' not supported. Supported methods are 'interpolate' or 'project'."
+            )
+
+        if (
+            self.time_partition.num_subintervals
+            != target.time_partition.num_subintervals
+        ):
+            raise ValueError(
+                "Source and target have different numbers of subintervals."
+            )
+        if (
+            self.time_partition.num_exports_per_subinterval
+            != target.time_partition.num_exports_per_subinterval
+        ):
+            raise ValueError(
+                "Source and target have different numbers of exports per subinterval."
+            )
+
+        common_fields = set(self.time_partition.field_names) & set(
+            target.time_partition.field_names
+        )
+        if not common_fields:
+            raise ValueError("No common fields between source and target.")
+
+        common_labels = set(self.labels) & set(target.labels)
+        if not common_labels:
+            raise ValueError("No common labels between source and target.")
+
+        for field in common_fields:
+            for label in common_labels:
+                for i in range(self.time_partition.num_subintervals):
+                    for j in range(
+                        self.time_partition.num_exports_per_subinterval[i] - 1
+                    ):
+                        source_function = self._data[field][label][i][j]
+                        target_function = target._data[field][label][i][j]
+                        if method == "interpolate":
+                            target_function.interpolate(source_function)
+                        elif method == "project":
+                            target_function.project(source_function)
+
 
 class ForwardSolutionData(FunctionData):
     """
