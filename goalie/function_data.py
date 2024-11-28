@@ -291,30 +291,24 @@ class FunctionData(ABC):
         :arg method: the transfer method to use, either 'interpolate' or 'project'
         :type method: :class:`str`
         """
+        stp = self.time_partition
+        ttp = target.time_partition
+
         if method not in ["interpolate", "project"]:
             raise ValueError(
                 f"Transfer method '{method}' not supported."
                 " Supported methods are 'interpolate' or 'project'."
             )
-
-        if (
-            self.time_partition.num_subintervals
-            != target.time_partition.num_subintervals
-        ):
+        if stp.num_subintervals != ttp.num_subintervals:
             raise ValueError(
                 "Source and target have different numbers of subintervals."
             )
-        if (
-            self.time_partition.num_exports_per_subinterval
-            != target.time_partition.num_exports_per_subinterval
-        ):
+        if stp.num_exports_per_subinterval != ttp.num_exports_per_subinterval:
             raise ValueError(
                 "Source and target have different numbers of exports per subinterval."
             )
 
-        common_fields = set(self.time_partition.field_names) & set(
-            target.time_partition.field_names
-        )
+        common_fields = set(stp.field_names) & set(ttp.field_names)
         if not common_fields:
             raise ValueError("No common fields between source and target.")
 
@@ -324,10 +318,8 @@ class FunctionData(ABC):
 
         for field in common_fields:
             for label in common_labels:
-                for i in range(self.time_partition.num_subintervals):
-                    for j in range(
-                        self.time_partition.num_exports_per_subinterval[i] - 1
-                    ):
+                for i in range(stp.num_subintervals):
+                    for j in range(stp.num_exports_per_subinterval[i] - 1):
                         source_function = self._data[field][label][i][j]
                         target_function = target._data[field][label][i][j]
                         if method == "interpolate":
