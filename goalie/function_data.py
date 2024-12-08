@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 
 import firedrake.function as ffunc
 import firedrake.functionspace as ffs
+from firedrake import TransferManager
 from firedrake.checkpointing import CheckpointFile
 from firedrake.output.vtk_output import VTKFile
 
@@ -282,22 +283,23 @@ class FunctionData(ABC):
 
     def transfer(self, target, method="interpolate"):
         """
-        Interpolate or project all functions from this :class:`~.FunctionData` object to
-        the target :class:`~.FunctionData` object.
+        Transfer all functions from this :class:`~.FunctionData` object to the target
+        :class:`~.FunctionData` object by interpolation, projection or prolongation.
 
         :arg target: the target :class:`~.FunctionData` object to which to transfer the
             data
         :type target: :class:`~.FunctionData`
-        :arg method: the transfer method to use, either 'interpolate' or 'project'
+        :arg method: the transfer method to use. Either 'interpolate', 'project' or
+            'prolong'
         :type method: :class:`str`
         """
         stp = self.time_partition
         ttp = target.time_partition
 
-        if method not in ["interpolate", "project"]:
+        if method not in ["interpolate", "project", "prolong"]:
             raise ValueError(
                 f"Transfer method '{method}' not supported."
-                " Supported methods are 'interpolate' or 'project'."
+                " Supported methods are 'interpolate', 'project', and 'prolong'."
             )
         if stp.num_subintervals != ttp.num_subintervals:
             raise ValueError(
@@ -326,6 +328,8 @@ class FunctionData(ABC):
                             target_function.interpolate(source_function)
                         elif method == "project":
                             target_function.project(source_function)
+                        elif method == "prolong":
+                            TransferManager().prolong(source_function, target_function)
 
 
 class ForwardSolutionData(FunctionData):

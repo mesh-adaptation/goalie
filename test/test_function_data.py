@@ -292,7 +292,7 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
         self.assertEqual(
             str(cm.exception),
             "Transfer method 'invalid_method' not supported."
-            " Supported methods are 'interpolate' or 'project'.",
+            " Supported methods are 'interpolate', 'project', and 'prolong'.",
         )
 
     def test_transfer_subintervals_error(self):
@@ -405,6 +405,33 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
         )
         target_solution_data._create_data()
         self.solution_data.transfer(target_solution_data, method="project")
+        for field in self.solution_data.time_partition.field_names:
+            for label in self.solution_data.labels:
+                for i in range(self.solution_data.time_partition.num_subintervals):
+                    for j in range(
+                        self.solution_data.time_partition.num_exports_per_subinterval[i]
+                        - 1
+                    ):
+                        source_function = self.solution_data._data[field][label][i][j]
+                        target_function = target_solution_data._data[field][label][i][j]
+                        self.assertTrue(
+                            source_function.dat.data.all()
+                            == target_function.dat.data.all()
+                        )
+
+    def test_transfer_prolong(self):
+        enriched_mesh = MeshHierarchy(self.mesh, 1)[-1]
+        target_function_spaces = {
+            self.field: [
+                FunctionSpace(enriched_mesh, "DG", 0)
+                for _ in range(self.num_subintervals)
+            ]
+        }
+        target_solution_data = ForwardSolutionData(
+            self.time_partition, target_function_spaces
+        )
+        target_solution_data._create_data()
+        self.solution_data.transfer(target_solution_data, method="prolong")
         for field in self.solution_data.time_partition.field_names:
             for label in self.solution_data.labels:
                 for i in range(self.solution_data.time_partition.num_subintervals):
