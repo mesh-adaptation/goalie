@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 
 import firedrake.function as ffunc
 import firedrake.functionspace as ffs
+from firedrake import TransferManager
 from firedrake.checkpointing import CheckpointFile
 from firedrake.output.vtk_output import VTKFile
 
@@ -279,6 +280,56 @@ class FunctionData(ABC):
                         for j in range(tp.num_exports_per_subinterval[i] - 1):
                             f = self._data[field][field_type][i][j]
                             outfile.save_function(f, name=name, idx=j)
+
+    def transfer(self, target, method="interpolate"):
+        """
+        Transfer all functions from this :class:`~.FunctionData` object to the target
+        :class:`~.FunctionData` object by interpolation, projection or prolongation.
+
+        :arg target: the target :class:`~.FunctionData` object to which to transfer the
+            data
+        :type target: :class:`~.FunctionData`
+        :arg method: the transfer method to use. Either 'interpolate', 'project' or
+            'prolong'
+        :type method: :class:`str`
+        """
+        stp = self.time_partition
+        ttp = target.time_partition
+
+        if method not in ["interpolate", "project", "prolong"]:
+            raise ValueError(
+                f"Transfer method '{method}' not supported."
+                " Supported methods are 'interpolate', 'project', and 'prolong'."
+            )
+        if stp.num_subintervals != ttp.num_subintervals:
+            raise ValueError(
+                "Source and target have different numbers of subintervals."
+            )
+        if stp.num_exports_per_subinterval != ttp.num_exports_per_subinterval:
+            raise ValueError(
+                "Source and target have different numbers of exports per subinterval."
+            )
+
+        common_fields = set(stp.field_names) & set(ttp.field_names)
+        if not common_fields:
+            raise ValueError("No common fields between source and target.")
+
+        common_labels = set(self.labels) & set(target.labels)
+        if not common_labels:
+            raise ValueError("No common labels between source and target.")
+
+        for field in common_fields:
+            for label in common_labels:
+                for i in range(stp.num_subintervals):
+                    for j in range(stp.num_exports_per_subinterval[i] - 1):
+                        source_function = self._data[field][label][i][j]
+                        target_function = target._data[field][label][i][j]
+                        if method == "interpolate":
+                            target_function.interpolate(source_function)
+                        elif method == "project":
+                            target_function.project(source_function)
+                        elif method == "prolong":
+                            TransferManager().prolong(source_function, target_function)
 
 
 class ForwardSolutionData(FunctionData):
