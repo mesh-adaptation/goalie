@@ -282,6 +282,14 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
         )
         self.solution_data._create_data()
 
+    def _assign_one_to_FunctionData(self, fn):
+        tp = self.solution_data.time_partition
+        for field in tp.field_names:
+            for label in self.solution_data.labels:
+                for i in range(tp.num_subintervals):
+                    for j in range(tp.num_exports_per_subinterval[i] - 1):
+                        fn._data[field][label][i][j].assign(1)
+
     def test_transfer_method_error(self):
         target_solution_data = ForwardSolutionData(
             self.time_partition, self.function_spaces
@@ -384,6 +392,7 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
             self.time_partition, self.function_spaces
         )
         target_solution_data._create_data()
+        self._assign_one_to_FunctionData(target_solution_data)
         self.solution_data.transfer(target_solution_data, method="interpolate")
         for field in self.solution_data.time_partition.field_names:
             for label in self.solution_data.labels:
@@ -404,6 +413,7 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
             self.time_partition, self.function_spaces
         )
         target_solution_data._create_data()
+        self._assign_one_to_FunctionData(target_solution_data)
         self.solution_data.transfer(target_solution_data, method="project")
         for field in self.solution_data.time_partition.field_names:
             for label in self.solution_data.labels:
@@ -431,6 +441,7 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
             self.time_partition, target_function_spaces
         )
         target_solution_data._create_data()
+        self._assign_one_to_FunctionData(target_solution_data)
         self.solution_data.transfer(target_solution_data, method="prolong")
         for field in self.solution_data.time_partition.field_names:
             for label in self.solution_data.labels:
