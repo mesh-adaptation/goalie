@@ -28,7 +28,7 @@ class MeshSeq:
     """
 
     @PETSc.Log.EventDecorator()
-    def __init__(self, time_partition, initial_meshes, **kwargs):
+    def __init__(self, time_partition, initial_meshes, solver, **kwargs):
         r"""
         :arg time_partition: a partition of the temporal domain
         :type time_partition: :class:`~.TimePartition`
@@ -55,9 +55,7 @@ class MeshSeq:
         self.num_subintervals = time_partition.num_subintervals
         self.set_meshes(initial_meshes)
         self._fs = None
-        self._get_function_spaces = kwargs.get("get_function_spaces")
-        self._get_initial_condition = kwargs.get("get_initial_condition")
-        self._get_solver = kwargs.get("get_solver")
+        self._solver = solver
         self._transfer_method = kwargs.get("transfer_method", "project")
         self._transfer_kwargs = kwargs.get("transfer_kwargs", {})
         self.steady = time_partition.steady
@@ -245,9 +243,10 @@ class MeshSeq:
         :rtype: :class:`dict` with :class:`str` keys and
             :class:`firedrake.functionspaceimpl.FunctionSpace` values
         """
-        if self._get_function_spaces is None:
-            raise NotImplementedError("'get_function_spaces' needs implementing.")
-        return self._get_function_spaces(mesh)
+        # if self._get_function_spaces is None:
+        #     raise NotImplementedError("'get_function_spaces' needs implementing.")
+        # return self._get_function_spaces(mesh)
+        return self._solver.get_function_spaces(mesh)
 
     def get_initial_condition(self):
         r"""
@@ -258,14 +257,15 @@ class MeshSeq:
         :rtype: :class:`dict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        if self._get_initial_condition is not None:
-            return self._get_initial_condition(self)
-        return {
-            field: firedrake.Function(fs[0])
-            for field, fs in self.function_spaces.items()
-        }
+        # if self._get_initial_condition is not None:
+        #     return self._get_initial_condition(self)
+        # return {
+        #     field: firedrake.Function(fs[0])
+        #     for field, fs in self.function_spaces.items()
+        # }
+        return self._solver.get_initial_condition(self)
 
-    def get_solver(self):
+    def get_solver(self, index):
         """
         Get the function mapping a subinterval index and an initial condition dictionary
         to a dictionary of solutions for the corresponding solver step.
@@ -285,9 +285,10 @@ class MeshSeq:
         :returns: the function for obtaining the solver
         :rtype: see docstring above
         """
-        if self._get_solver is None:
-            raise NotImplementedError("'get_solver' needs implementing.")
-        return self._get_solver(self)
+        # if self._get_solver is None:
+        #     raise NotImplementedError("'get_solver' needs implementing.")
+        # return self._get_solver(self)
+        return self._solver.get_solver(self, index)
 
     def _transfer(self, source, target_space, **kwargs):
         """
@@ -318,8 +319,6 @@ class MeshSeq:
         dictionary format with :attr:`MeshSeq.fields` as keys.
         """
         for method in ["function_spaces", "initial_condition", "solver"]:
-            if getattr(self, f"_get_{method}") is None:
-                continue
             method_map = getattr(self, f"get_{method}")
             if method == "function_spaces":
                 method_map = method_map(self.meshes[0])
@@ -327,7 +326,7 @@ class MeshSeq:
                 method_map = method_map()
             elif method == "solver":
                 self._reinitialise_fields(self.get_initial_condition())
-                solver_gen = method_map()(0)
+                solver_gen = method_map(0)
                 assert hasattr(solver_gen, "__next__"), "solver should yield"
                 if logger.level == DEBUG:
                     next(solver_gen)
@@ -412,7 +411,7 @@ class MeshSeq:
         """
         See :meth:`~.MeshSeq.get_solver`.
         """
-        return self.get_solver()
+        return self.get_solver
 
     def _create_solutions(self):
         """
