@@ -1,0 +1,215 @@
+"""
+Module for handling PDE-constrained optimisation.
+"""
+
+import abc
+
+import numpy as np
+import pyadjoint
+from firedrake.assemble import assemble
+from firedrake.exceptions import ConvergenceError
+import ufl
+
+from .log import log
+from .utility import AttrDict
+
+__all__ = ["OptimisationProgress", "QoIOptimiser"]
+
+
+class OptimisationProgress(AttrDict):
+    """
+    Class for stashing progress of an optimisation routine.
+
+    The class is implemented as an :class:`goalie.utility.AttrDict` so that attributes
+    may be accessed either as class attributes or with dictionary keys.
+
+    The progress of three quantities are tracked as lists:
+    * `qoi`: quantity of interest (QoI), i.e., cost function
+    * `control`: control variable(s)
+    * `gradient`: gradient(s) of QoI with respect to the control variable(s)
+    """
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        """
+        Reset the progress tracks to their initial state as empty lists.
+        """
+        self["qoi"] = []
+        self["control"] = []
+        self["gradient"] = []
+
+    def convert_to_float(self):
+        r"""
+        Convert all progress tracks to be lists of :class:`float`\s.
+
+        This is required because the optimisation algorithms will track progress of
+        :class:`firedrake.function.Function`\s and :class:`~.AdjFloat`\s, whereas
+        post-processing typically expects real values.
+        """
+        for key in self.keys():
+            self[key] = [float(x) for x in self[key]]
+
+
+class QoIOptimiser_Base(abc.ABC):
+    """
+    Base class for handling PDE-constrained optimisation.
+    """
+
+    # TODO: Use Goalie Solver rather than MeshSeq (#239)
+    def __init__(self, mesh_seq, control, params):
+        """
+        :arg mesh_seq: a mesh sequence that implements the forward model and
+            computes the objective functional
+        :type mesh_seq: :class:`~.AdjointMeshSeq`
+        :arg control: name of the field to use as the control
+        :type control: :class:`str`
+        :kwarg params: Class holding parameters for optimisation routine
+        :type params: :class:`~.OptimisationParameters`
+        """
+        self.mesh_seq = mesh_seq
+        self.control = control
+        if control not in mesh_seq.field_metadata:
+            raise ValueError(f"Invalid control '{control}'.")
+        if mesh_seq.field_metadata[control].family != "Real":
+            raise NotImplementedError(
+                "Only controls in R-space are currently implemented."
+            )
+        self.params = params
+        self.progress = OptimisationProgress()
+
+    @abc.abstractmethod
+    def step(self):
+        """
+        Take a step with the chosen optimisation approach.
+
+        This method should be implemented in the subclass.
+        """
+        pass
+
+    @property
+    def converged(self):
+        """
+        Check for convergence of the optimiser.
+
+        :return: `True` if the gradients have converged according to the gradient
+            convergence tolerance, else `False`
+        :rtype: :class:`bool`
+        """
+        dJ = float(self.mesh_seq.gradient[self.control])
+        if abs(dJ / float(self.progress["gradient"][0])) < self.params.gtol:
+            print("Gradient convergence detected.")
+            return True
+        return False
+
+    def check_divergence(self):
+        """
+        Check for divergence of the optimiser.
+
+        :raises: :class:`~.ConvergenceError` if the QoI values have diverged according
+            to the divergence tolerance
+        """
+        if np.abs(self.mesh_seq.J / np.min(self.progress["qoi"])) > self.params.dtol:
+            raise ConvergenceError("QoI divergence detected.")
+
+    def minimise(self):
+        """
+        Custom minimisation routine, where the tape is re-annotated each iteration to
+        support mesh adaptation.
+
+        Progress of the optimisation is tracked by the
+        :class:`goalie.optimisation.OptimisationParameters` instance stashed on the
+        :class:`goalie.optimisation.QoIOptimiser`
+        as :meth:`goalie.optimisation.QoIOptimiser.progress`.
+
+        :raises: :class:`~.ConvergenceError` if the maximum number of iterations are
+            reached.
+        """
+        for it in range(self.params.maxiter):
+            J, dJ, u = self.step()
+            print(
+                f"it={it + 1:2d}, "
+                f"u={float(u):11.4e}, "
+                f"J={J:11.4e}, "
+                f"dJ={float(dJ):11.4e}, "
+                f"lr={self.params.lr:10.4e}"
+            )
+            self.progress["control"].append(u)
+            self.progress["qoi"].append(J)
+            self.progress["gradient"].append(dJ)
+            if it == 0:
+                continue
+            if self.converged:
+                self.progress.convert_to_float()
+                return
+            self.check_divergence()
+        raise ConvergenceError("Reached maximum number of iterations.")
+
+
+class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
+    """
+    Class for handling PDE-constrained optimisation using the gradient descent approach.
+    """
+
+    order = 1
+    method_type = "gradient-based"
+
+    def step(self):
+        """
+        Take one gradient descent step.
+
+        Note that this method modifies
+        :meth:`goalie.mesh_seq.MeshSeq._get_initial_condition` so that the control
+        variable value corresponds to the updated value from this iteration.
+
+        :return: QoI value, gradient, and control value
+        :rtype: :class:`tuple` of :class:`~.AdjFloat`,
+            :class:`firedrake.function.Function`, and
+            :class:`firedrake.function.Function`
+        """
+        tape = pyadjoint.get_working_tape()
+        tape.clear_tape()
+        pyadjoint.continue_annotation()
+        self.mesh_seq.solve_adjoint(compute_gradient=True)
+        pyadjoint.pause_annotation()
+        J = self.mesh_seq.J
+        u = self.mesh_seq.controls[self.control].tape_value()
+        dJ = self.mesh_seq.gradient[self.control]
+
+        # Compute descent direction
+        P = dJ.copy(deepcopy=True)
+        P *= -1
+
+        # Barzilai-Borwein formula
+        if len(self.progress["control"]) > 1:
+            u_prev = self.progress["control"][-2]
+            dJ_prev = self.progress["gradient"][-1]
+            dJ_diff = assemble(ufl.inner(dJ_prev - dJ, dJ_prev - dJ) * ufl.dx)
+            lr = assemble(abs(ufl.inner(u_prev - u, dJ_prev - dJ)) * ufl.dx) / dJ_diff
+            self.params.lr = max(lr, self.params.lr_min)
+
+        # Take a step downhill
+        u.dat.data[:] += self.params.lr * P.dat.data
+
+        # Update initial condition getter
+        ics = self.mesh_seq.get_initial_condition()
+        ics[self.control] = u
+        self.mesh_seq._get_initial_condition = lambda mesh_seq: ics
+
+        return J, dJ, u
+
+
+def QoIOptimiser(mesh_seq, control, params, method="gradient_descent"):
+    """
+    Factory method for constructing handlers for PDE-constrained optimisation.
+
+    :return: Instance of the subclass corresponding to the requested implementation
+    :rtype: Subclass of :class:`goalie.optimisation.QoIOptimiser_Base`
+    """
+    try:
+        return {
+            "gradient_descent": QoIOptimiser_GradientDescent,
+        }[method](mesh_seq, control, params)
+    except KeyError as ke:
+        raise ValueError(f"Method '{method}' not supported.") from ke
