@@ -1,9 +1,6 @@
 from .utility import AttrDict
 
-__all__ = [
-    "AdaptParameters",
-    "GoalOrientedAdaptParameters",
-]
+__all__ = ["AdaptParameters", "GoalOrientedAdaptParameters", "OptimisationParameters"]
 
 
 class AdaptParameters(AttrDict):
@@ -14,7 +11,7 @@ class AdaptParameters(AttrDict):
 
     def __init__(self, parameters=None):
         """
-        :arg parameters: parameters to set
+        :kwarg parameters: parameters to set
         :type parameters: :class:`dict` with :class:`str` keys and values which may take
             various types
         """
@@ -92,7 +89,7 @@ class GoalOrientedAdaptParameters(AdaptParameters):
 
     def __init__(self, parameters=None):
         """
-        :arg parameters: parameters to set
+        :kwarg parameters: parameters to set
         :type parameters: :class:`dict` with :class:`str` keys and values which may take
             various types
         """
@@ -108,3 +105,49 @@ class GoalOrientedAdaptParameters(AdaptParameters):
         self._check_type("estimator_rtol", (float, int))
         self._check_type("convergence_criteria", str)
         self._check_value("convergence_criteria", ["all", "any"])
+
+
+class OptimisationParameters(AttrDict):
+    """
+    A class for holding parameters associated with PDE-constrained optimisation.
+    """
+
+    def __init__(self, parameters=None):
+        """
+        :kwarg parameters: parameters to set
+        :type parameters: :class:`dict` with :class:`str` keys and values which may take
+            various types
+        """
+        parameters = parameters or {}
+
+        self["R_space"] = False  # Is the control variable defined in R-space?
+        self["disp"] = 0  # Level of verbosity
+
+        # Parameters for step length and line search
+        self["lr"] = 0.001  # Learning rate / step length
+        self["lr_min"] = 1.0e-08  # Minimum learning rate
+        self["line_search"] = True  # Toggle whether line search should be used
+        self["ls_rtol"] = 0.1  # Relative tolerance for line search
+        self["ls_frac"] = 0.5  # Fraction to reduce the step by in line search
+        self["ls_maxiter"] = 100  # Maximum iteration count for line search
+
+        # Parameters for optimisation routine
+        self["maxiter"] = 35  # Maximum iteration count
+        self["gtol"] = 1.0e-05  # Relative tolerance for gradient
+        self["gtol_loose"] = 1.0e-05  # TODO: Explanation
+        self["dtol"] = 1.1  # Divergence tolerance
+
+        super().__init__(parameters=parameters)
+
+        self._check_type("Rspace", bool)
+        self._check_type("disp", int)
+        self._check_type("lr", (float, int))
+        self._check_type("lr_min", (float, int))
+        self._check_type("line_search", bool)
+        self._check_type("ls_rtol", (float, int))
+        self._check_type("ls_frac", (float, int))
+        self._check_type("ls_maxiter", int)
+        self._check_type("maxiter", int)
+        self._check_type("gtol", (float, int))
+        self._check_type("gtol_loose", (float, int))
+        self._check_type("dtol", (float, int))
