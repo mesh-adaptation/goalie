@@ -24,71 +24,84 @@ class OptimisationProgress(AttrDict):
         self["hessian"] = []
 
 
-def line_search(forward_run, m, u, P, J, dJ, params):
-    """
-    Apply a backtracking line search method to compute the step length / learning rate
-    (lr).
-
-    :arg forward_run: a Python function that implements the forward model and computes
-        the objective functional
-    :type forward_run: :class:`~.Callable`
-    :arg m: the current mesh
-    :type m: :class:`firedrake.mesh.MeshGeometry`
-    :arg u: the current control value
-    :type u: :class:`~.Control`
-    :arg P: the current descent direction
-    :type P: :class:`firedrake.function.Function`
-    :arg J: the current value of objective function
-    :type J: :class:`~.AdjFloat`
-    :arg dJ: the current gradient value
-    :type dJ: :class:`firedrake.function.Function`
-    :kwarg params: Class holding parameters for optimisation routine
-    :type params: :class:`~.OptimisationParameters`
-    """
-
-    lr = params.lr
-    if not params.line_search:
-        return lr
-    alpha = params.ls_rtol
-    tau = params.ls_frac
-    maxiter = params.ls_maxiter
-
-    # Compute initial slope
-    initial_slope = np.dot(dJ.dat.data, P.dat.data)
-    if np.isclose(initial_slope, 0.0):
-        return params.lr
-
-    # Perform line search
-    log(f"  Applying line search with alpha = {alpha} and tau = {tau}")
-    ext = ""
-    for i in range(maxiter):
-        log(f"  {i:3d}:      lr = {lr:.4e}{ext}")
-        u_plus = u + lr * P
-        # TODO: Use Goalie Solver
-        J_plus, u_plus = forward_run(m, u_plus)
-        ext = f"  diff {J_plus - J:.4e}"
-
-        # Check Armijo rule:
-        if J_plus - J <= alpha * lr * initial_slope:
-            break
-        lr *= tau
-        if lr < params.lr_min:
-            lr = params.lr_min
-            break
-    else:
-        raise Exception("Line search did not converge")
-    log(f"  converged lr = {lr:.4e}")
-    return lr
-
-
 class QoIOptimiser_Base(abc.ABC):
     """
     Base class for handling PDE-constrained optimisation.
     """
 
+    def __init__(self, forward_run, mesh, control, params):
+        """
+        :arg forward_run: a Python function that implements the forward model and computes
+            the objective functional
+        :type forward_run: :class:`~.Callable`
+        :arg mesh: the initial mesh
+        :type mesh: :class:`firedrake.mesh.MeshGeometry`
+        :arg control: the initial control value
+        :type control: :class:`~.Control`
+        :kwarg params: Class holding parameters for optimisation routine
+        :type params: :class:`~.OptimisationParameters`
+        """
+        # TODO: Use Goalie Solver rather than forward_run
+        self.forward_run = forward_run
+        self.mesh = mesh
+        self.control = control
+        self.params = params
+
+    def line_search(self, P, J, dJ):
+        """
+        Apply a backtracking line search method to update the step length (i.e., learning
+        rate).
+
+        :arg P: the current descent direction
+        :type P: :class:`firedrake.function.Function`
+        :arg J: the current value of objective function
+        :type J: :class:`~.AdjFloat`
+        :arg dJ: the current gradient value
+        :type dJ: :class:`firedrake.function.Function`
+        """
+
+        lr = self.params.lr
+        if not self.params.line_search:
+            return lr
+        alpha = self.params.ls_rtol
+        tau = self.params.ls_frac
+        maxiter = self.params.ls_maxiter
+
+        # Compute initial slope
+        initial_slope = np.dot(dJ.dat.data, P.dat.data)
+        if np.isclose(initial_slope, 0.0):
+            return self.params.lr
+
+        # Perform line search
+        log(f"  Applying line search with alpha = {alpha} and tau = {tau}")
+        ext = ""
+        for i in range(maxiter):
+            log(f"  {i:3d}:      lr = {lr:.4e}{ext}")
+            u_plus = self.control + lr * P
+            # TODO: Use Goalie Solver rather than forward_run
+            J_plus, u_plus = self.forward_run(self.mesh, u_plus)
+            ext = f"  diff {J_plus - J:.4e}"
+
+            # Check Armijo rule:
+            if J_plus - J <= alpha * lr * initial_slope:
+                break
+            lr *= tau
+            if lr < self.params.lr_min:
+                lr = self.params.lr_min
+                break
+        else:
+            raise Exception("Line search did not converge")
+        log(f"  converged lr = {lr:.4e}")
+        self.lr = lr
+
     @abc.abstractmethod
-    def __init__(self):
-        pass  # TODO
+    def step(self):
+        """
+        Take a step with the chosen optimisation approach.
+
+        This method should be implemented in the subclass.
+        """
+        pass
 
     def minimise(self):
         raise NotImplementedError  # TODO: Upstream implementation from opt_adapt
