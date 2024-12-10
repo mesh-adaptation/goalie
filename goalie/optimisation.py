@@ -23,13 +23,6 @@ class OptimisationProgress(AttrDict):
         self["hessian"] = []
 
 
-def dotproduct(f, g):
-    """
-    The dot-product of two variables in the same :class:`~.FunctionSpace`.
-    """
-    return np.dot(f.dat.data, g.dat.data)
-
-
 def line_search(forward_run, m, u, P, J, dJ, params):
     """
     Apply a backtracking line search method to compute the step length / learning rate
@@ -61,7 +54,7 @@ def line_search(forward_run, m, u, P, J, dJ, params):
     disp = params.disp
 
     # Compute initial slope
-    initial_slope = dotproduct(dJ, P)
+    initial_slope = np.dot(dJ.dat.data, P.dat.data)
     if np.isclose(initial_slope, 0.0):
         return params.lr
 
