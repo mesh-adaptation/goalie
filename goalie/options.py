@@ -121,7 +121,6 @@ class OptimisationParameters(AttrDict):
         parameters = parameters or {}
 
         self["R_space"] = False  # Is the control variable defined in R-space?
-        self["disp"] = 0  # Level of verbosity
 
         # Parameters for step length and line search
         self["lr"] = 0.001  # Learning rate / step length
@@ -140,7 +139,6 @@ class OptimisationParameters(AttrDict):
         super().__init__(parameters=parameters)
 
         self._check_type("Rspace", bool)
-        self._check_type("disp", int)
         self._check_type("lr", (float, int))
         self._check_type("lr_min", (float, int))
         self._check_type("line_search", bool)
