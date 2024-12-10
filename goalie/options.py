@@ -1,27 +1,26 @@
+"""
+Classes for holding parameters associated with adaptation and optimisation methods.
+"""
+
+import abc
+
 from .utility import AttrDict
 
 __all__ = ["AdaptParameters", "GoalOrientedAdaptParameters", "OptimisationParameters"]
 
 
-class AdaptParameters(AttrDict):
+class Parameters(AttrDict, metaclass=abc.ABCMeta):
     """
-    A class for holding parameters associated with adaptive mesh fixed point iteration
-    loops.
+    Base class for parameter holders.
     """
 
-    def __init__(self, parameters=None):
+    @abc.abstractmethod
+    def __init__(self, parameters):
         """
         :kwarg parameters: parameters to set
         :type parameters: :class:`dict` with :class:`str` keys and values which may take
             various types
         """
-        parameters = parameters or {}
-
-        self["miniter"] = 3  # Minimum iteration count
-        self["maxiter"] = 35  # Maximum iteration count
-        self["element_rtol"] = 0.001  # Relative tolerance for element count
-        self["drop_out_converged"] = False  # Drop out converged subintervals?
-
         if not isinstance(parameters, dict):
             raise TypeError(
                 "Expected 'parameters' keyword argument to be a dictionary, not of"
@@ -33,10 +32,6 @@ class AdaptParameters(AttrDict):
                     f"{self.__class__.__name__} does not have '{key}' attribute."
                 )
         super().__init__(parameters)
-        self._check_type("miniter", int)
-        self._check_type("maxiter", int)
-        self._check_type("element_rtol", (float, int))
-        self._check_type("drop_out_converged", bool)
 
     def _check_type(self, key, expected):
         """
@@ -80,6 +75,32 @@ class AdaptParameters(AttrDict):
         return f"{type(self).__name__}({d})"
 
 
+class AdaptParameters(Parameters):
+    """
+    A class for holding parameters associated with adaptive mesh fixed point iteration
+    loops.
+    """
+
+    def __init__(self, parameters=None):
+        """
+        :kwarg parameters: parameters to set
+        :type parameters: :class:`dict` with :class:`str` keys and values which may take
+            various types
+        """
+        parameters = parameters or {}
+
+        self["miniter"] = 3  # Minimum iteration count
+        self["maxiter"] = 35  # Maximum iteration count
+        self["element_rtol"] = 0.001  # Relative tolerance for element count
+        self["drop_out_converged"] = False  # Drop out converged subintervals?
+
+        super().__init__(parameters)
+        self._check_type("miniter", int)
+        self._check_type("maxiter", int)
+        self._check_type("element_rtol", (float, int))
+        self._check_type("drop_out_converged", bool)
+
+
 class GoalOrientedAdaptParameters(AdaptParameters):
     """
     A class for holding parameters associated with
@@ -107,7 +128,7 @@ class GoalOrientedAdaptParameters(AdaptParameters):
         self._check_value("convergence_criteria", ["all", "any"])
 
 
-class OptimisationParameters(AttrDict):
+class OptimisationParameters(Parameters):
     """
     A class for holding parameters associated with PDE-constrained optimisation.
     """
@@ -124,8 +145,9 @@ class OptimisationParameters(AttrDict):
 
         # Parameters for step length and line search
         self["lr"] = 0.001  # Learning rate / step length
-        self["lr_min"] = 1.0e-08  # Minimum learning rate
+        # TODO: Create separate class for line search parameters
         self["line_search"] = True  # Toggle whether line search should be used
+        self["lr_min"] = 1.0e-08  # Minimum learning rate
         self["ls_rtol"] = 0.1  # Relative tolerance for line search
         self["ls_frac"] = 0.5  # Fraction to reduce the step by in line search
         self["ls_maxiter"] = 100  # Maximum iteration count for line search
@@ -138,7 +160,7 @@ class OptimisationParameters(AttrDict):
 
         super().__init__(parameters=parameters)
 
-        self._check_type("Rspace", bool)
+        self._check_type("R_space", bool)
         self._check_type("lr", (float, int))
         self._check_type("lr_min", (float, int))
         self._check_type("line_search", bool)
