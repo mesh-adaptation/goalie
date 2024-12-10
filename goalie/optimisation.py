@@ -6,6 +6,7 @@ import abc
 
 import numpy as np
 
+from .log import log
 from .utility import AttrDict
 
 __all__ = ["OptimisationProgress", "QoIOptimiser"]
@@ -51,7 +52,6 @@ def line_search(forward_run, m, u, P, J, dJ, params):
     alpha = params.ls_rtol
     tau = params.ls_frac
     maxiter = params.ls_maxiter
-    disp = params.disp
 
     # Compute initial slope
     initial_slope = np.dot(dJ.dat.data, P.dat.data)
@@ -59,12 +59,10 @@ def line_search(forward_run, m, u, P, J, dJ, params):
         return params.lr
 
     # Perform line search
-    if disp > 1:
-        print(f"  Applying line search with alpha = {alpha} and tau = {tau}")
+    log(f"  Applying line search with alpha = {alpha} and tau = {tau}")
     ext = ""
     for i in range(maxiter):
-        if disp > 1:
-            print(f"  {i:3d}:      lr = {lr:.4e}{ext}")
+        log(f"  {i:3d}:      lr = {lr:.4e}{ext}")
         u_plus = u + lr * P
         J_plus, u_plus = forward_run(m, u_plus)
         ext = f"  diff {J_plus - J:.4e}"
@@ -78,8 +76,7 @@ def line_search(forward_run, m, u, P, J, dJ, params):
             break
     else:
         raise Exception("Line search did not converge")
-    if disp > 1:
-        print(f"  converged lr = {lr:.4e}")
+    log(f"  converged lr = {lr:.4e}")
     return lr
 
 
