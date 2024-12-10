@@ -64,6 +64,7 @@ def line_search(forward_run, m, u, P, J, dJ, params):
     for i in range(maxiter):
         log(f"  {i:3d}:      lr = {lr:.4e}{ext}")
         u_plus = u + lr * P
+        # TODO: Use Goalie Solver
         J_plus, u_plus = forward_run(m, u_plus)
         ext = f"  diff {J_plus - J:.4e}"
 
@@ -89,6 +90,9 @@ class QoIOptimiser_Base(abc.ABC):
     def __init__(self):
         pass  # TODO
 
+    def minimise(self):
+        raise NotImplementedError  # TODO: Upstream implementation from opt_adapt
+
 
 class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
     """
@@ -100,7 +104,59 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        raise NotImplementedError  # TODO
+        raise NotImplementedError  # TODO: Upstream gradient descent implementation
+
+
+class QoIOptimiser_Adam(QoIOptimiser_Base):
+    """
+    Class for handling PDE-constrained optimisation using the Adam approach.
+    """
+
+    order = 1
+    method_type = "gradient-based"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        raise NotImplementedError  # TODO: Upstream Adam implementation
+
+
+class QoIOptimiser_Newton(QoIOptimiser_Base):
+    """
+    Class for handling PDE-constrained optimisation using the Newton approach.
+    """
+
+    order = 2
+    method_type = "newton"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        raise NotImplementedError  # TODO: Upstream Newton implementation
+
+
+class QoIOptimiser_BFGS(QoIOptimiser_Base):
+    """
+    Class for handling PDE-constrained optimisation using the BFGS approach.
+    """
+
+    order = 2
+    method_type = "quasi-newton"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        raise NotImplementedError  # TODO: Upstream BFGS implementation
+
+
+class QoIOptimiser_LBFGS(QoIOptimiser_Base):
+    """
+    Class for handling PDE-constrained optimisation using the L-BFGS approach.
+    """
+
+    order = 2
+    method_type = "quasi-newton"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        raise NotImplementedError  # TODO: Upstream L-BFGS implementation
 
 
 def QoIOptimiser(method="gradient_descent"):
@@ -108,6 +164,12 @@ def QoIOptimiser(method="gradient_descent"):
     Factory method for constructing handlers for PDE-constrained optimisation.
     """
     try:
-        return {"gradient_descent": QoIOptimiser_GradientDescent}[method]
+        return {
+            "gradient_descent": QoIOptimiser_GradientDescent,
+            "adam": QoIOptimiser_Adam,
+            "newton": QoIOptimiser_Newton,
+            "bfgs": QoIOptimiser_BFGS,
+            "lbfgs": QoIOptimiser_LBFGS,
+        }[method]
     except KeyError as ke:
         raise ValueError(f"Method {method} not supported.") from ke
