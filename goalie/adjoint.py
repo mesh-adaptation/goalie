@@ -74,19 +74,15 @@ class AdjointMeshSeq(MeshSeq):
     :attr:`~AdjointMeshSeq.J`, which holds the QoI value.
     """
 
-    def __init__(self, time_partition, initial_meshes, **kwargs):
+    def __init__(self, time_partition, initial_meshes, solver, **kwargs):
         r"""
         :arg time_partition: a partition of the temporal domain
         :type time_partition: :class:`~.TimePartition`
         :arg initial_meshes: a list of meshes corresponding to the subinterval of the
             time partition, or a single mesh to use for all subintervals
         :type initial_meshes: :class:`list` or :class:`~.MeshGeometry`
-        :kwarg get_function_spaces: a function as described in
-            :meth:`~.MeshSeq.get_function_spaces`
-        :kwarg get_initial_condition: a function as described in
-            :meth:`~.MeshSeq.get_initial_condition`
-        :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
-        :kwarg get_qoi: a function as described in :meth:`~.AdjointMeshSeq.get_qoi`
+        :arg solver: a solver for the forward problem
+        :type solver: :class:`~.Solver`
         """
         self.qoi_type = kwargs.pop("qoi_type")
         if self.qoi_type not in ["end_time", "time_integrated", "steady"]:
@@ -96,7 +92,7 @@ class AdjointMeshSeq(MeshSeq):
             )
         self._get_qoi = kwargs.get("get_qoi")
         self.J = 0
-        super().__init__(time_partition, initial_meshes, **kwargs)
+        super().__init__(time_partition, initial_meshes, solver, **kwargs)
         if self.qoi_type == "steady" and not self.steady:
             raise ValueError(
                 "QoI type is set to 'steady' but the time partition is not steady."
@@ -137,9 +133,10 @@ class AdjointMeshSeq(MeshSeq):
         :returns: the function for obtaining the QoI
         :rtype: see docstring above
         """
-        if self._get_qoi is None:
-            raise NotImplementedError("'get_qoi' is not implemented.")
-        return self._get_qoi(self, subinterval)
+        # if self._get_qoi is None:
+        #     raise NotImplementedError("'get_qoi' is not implemented.")
+        # return self._get_qoi(self, subinterval)
+        return self._solver.get_qoi(self, subinterval)
 
     @pyadjoint.no_annotations
     @PETSc.Log.EventDecorator()

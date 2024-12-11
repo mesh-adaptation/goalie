@@ -20,12 +20,11 @@ set_log_level(DEBUG)
 field_names = ["u"]
 
 
-def get_function_spaces(mesh):
-    return {"u": VectorFunctionSpace(mesh, "CG", 2)}
+class BurgersSolver(Solver):
+    def get_function_spaces(self, mesh):
+        return {"u": VectorFunctionSpace(mesh, "CG", 2)}
 
-
-def get_solver(mesh_seq):
-    def solver(index):
+    def get_solver(self, mesh_seq, index):
         u, u_ = mesh_seq.fields["u"]
 
         # Define constants
@@ -53,26 +52,23 @@ def get_solver(mesh_seq):
             u_.assign(u)
             t += dt
 
-    return solver
+    def get_initial_condition(self, mesh_seq):
+        fs = mesh_seq.function_spaces["u"][0]
+        x, y = SpatialCoordinate(mesh_seq[0])
+        return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
 
+    def get_qoi(self, mesh_seq, i):
+        def end_time_qoi():
+            u = mesh_seq.fields["u"][0]
+            return inner(u, u) * ds(2)
 
-def get_initial_condition(mesh_seq):
-    fs = mesh_seq.function_spaces["u"][0]
-    x, y = SpatialCoordinate(mesh_seq[0])
-    return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
-
-
-def get_qoi(mesh_seq, i):
-    def end_time_qoi():
-        u = mesh_seq.fields["u"][0]
-        return inner(u, u) * ds(2)
-
-    return end_time_qoi
+        return end_time_qoi
 
 
 # The solver, initial condition and QoI may be imported from the
 # previous demo. The same basic setup is used. The only difference
 # is that the :class:`MeshSeq` contains two meshes. ::
+solver = BurgersSolver()
 
 n = 32
 meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
@@ -92,10 +88,7 @@ time_partition = TimePartition(
 mesh_seq = AdjointMeshSeq(
     time_partition,
     meshes,
-    get_function_spaces=get_function_spaces,
-    get_initial_condition=get_initial_condition,
-    get_solver=get_solver,
-    get_qoi=get_qoi,
+    solver,
     qoi_type="end_time",
 )
 solutions = mesh_seq.solve_adjoint()
