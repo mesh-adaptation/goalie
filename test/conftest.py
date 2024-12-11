@@ -15,15 +15,3 @@ def pytest_configure(config):
         "markers",
         "slow: mark test as slow to run",
     )
-
-
-def pytest_runtest_teardown(item, nextitem):
-    """
-    Clear caches after running a test
-    """
-    from firedrake.tsfc_interface import clear_cache
-    from pyop2.caching import clear_memory_cache
-    from pyop2.mpi import COMM_WORLD
-
-    clear_cache()
-    clear_memory_cache(COMM_WORLD)
