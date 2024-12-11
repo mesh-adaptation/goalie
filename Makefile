@@ -18,7 +18,7 @@ lint:
 test: lint
 	@echo "Running test suite..."
 	@cd test && make
-	@cd adjoint && make
+	@cd test/adjoint && make
 	@echo "PASS"
 
 coverage:
