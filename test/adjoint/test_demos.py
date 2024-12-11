@@ -36,6 +36,10 @@ modifications = {
     "solid_body_rotation.py": {
         r"solutions\.export\((.*?)\)": "",
     },
+    "burgers-goal_oriented.py": {
+        """"maxiter": 35""": """"maxiter": 3""",
+        r"end_time = 0.5": r"end_time = 0.125",
+    },
 }
 
 
