@@ -1,7 +1,7 @@
 """
 Global pytest configuration.
 
-**Disclaimer: some functions copied from firedrake/src/tests/conftest.py
+**Disclaimer: some functions copied from firedrake/tests/firedrake/conftest.py
 """
 
 
@@ -9,7 +9,7 @@ def pytest_configure(config):
     """
     Register an additional marker.
 
-    **Disclaimer: copied from firedrake/src/tests/conftest.py
+    **Disclaimer: copied from firedrake/tests/firedrake/conftest.py
     """
     config.addinivalue_line(
         "markers",
