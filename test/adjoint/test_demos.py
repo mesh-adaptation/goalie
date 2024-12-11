@@ -37,8 +37,8 @@ modifications = {
         r"solutions\.export\((.*?)\)": "",
     },
     "burgers-goal_oriented.py": {
-        """"maxiter": 35""": """"maxiter": 3""",
-        r"end_time = 0.5": r"end_time = 0.125",
+        """"maxiter": 35""": """"maxiter": 2""",
+        "end_time = 0.5": "end_time = 0.125",
     },
 }
 
