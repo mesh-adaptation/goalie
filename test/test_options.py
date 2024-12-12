@@ -3,6 +3,7 @@ import unittest
 from goalie.options import *
 
 
+# TODO: Subclass the test cases to simplify future extension
 class TestAdaptParameters(unittest.TestCase):
     """
     Unit tests for the base :class:`AdaptParameters` class.
@@ -141,6 +142,110 @@ class TestGoalOrientedAdaptParameters(unittest.TestCase):
             "Expected attribute 'estimator_rtol' to be of type 'float' or 'int', not"
             " 'str'."
         )
+        self.assertEqual(str(cm.exception), msg)
+
+
+class TestOptimisationParameters(unittest.TestCase):
+    """
+    Unit tests for the base :class:`~.OptimisationParameters` class.
+    """
+
+    def setUp(self):
+        self.defaults = {
+            "R_space": False,
+            "lr": 0.001,
+            "line_search": True,
+            "lr_min": 1.0e-08,
+            "ls_rtol": 0.1,
+            "ls_frac": 0.5,
+            "ls_maxiter": 100,
+            "maxiter": 35,
+            "gtol": 1.0e-05,
+            "gtol_loose": 1.0e-05,
+            "dtol": 1.1,
+        }
+
+    def test_defaults(self):
+        ap = OptimisationParameters()
+        for key, value in self.defaults.items():
+            self.assertEqual(ap[key], value)
+
+    def test_repr(self):
+        ap = OptimisationParameters()
+        expected = (
+            "OptimisationParameters(R_space=False, lr=0.001, line_search=True,"
+            " lr_min=1e-08, ls_rtol=0.1, ls_frac=0.5, ls_maxiter=100, maxiter=35,"
+            " gtol=1e-05, gtol_loose=1e-05, dtol=1.1)"
+        )
+        print(repr(ap))
+        self.assertEqual(repr(ap), expected)
+
+    def test_R_space_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            OptimisationParameters({"R_space": 0})
+        msg = "Expected attribute 'R_space' to be of type 'bool', not 'int'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_lr_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            OptimisationParameters({"lr": "0.001"})
+        msg = "Expected attribute 'lr' to be of type 'float' or 'int', not 'str'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_line_search_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            OptimisationParameters({"line_search": 0})
+        msg = "Expected attribute 'line_search' to be of type 'bool', not 'int'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_lr_min_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            OptimisationParameters({"lr_min": "1.0e-08"})
+        msg = "Expected attribute 'lr_min' to be of type 'float' or 'int', not 'str'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_ls_rtol_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            OptimisationParameters({"ls_rtol": "0.1"})
+        msg = "Expected attribute 'ls_rtol' to be of type 'float' or 'int', not 'str'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_ls_frac_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            OptimisationParameters({"ls_frac": "0.5"})
+        msg = "Expected attribute 'ls_frac' to be of type 'float' or 'int', not 'str'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_ls_maxiter_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            OptimisationParameters({"ls_maxiter": 100.0})
+        msg = "Expected attribute 'ls_maxiter' to be of type 'int', not 'float'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_maxiter_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            OptimisationParameters({"maxiter": 35.0})
+        msg = "Expected attribute 'maxiter' to be of type 'int', not 'float'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_gtol_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            OptimisationParameters({"gtol": "1.0e-05"})
+        msg = "Expected attribute 'gtol' to be of type 'float' or 'int', not 'str'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_gtol_loose_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            OptimisationParameters({"gtol_loose": "1.0e-05"})
+        msg = (
+            "Expected attribute 'gtol_loose' to be of type 'float' or 'int', not 'str'."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_dtol_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            OptimisationParameters({"dtol": "1.1"})
+        msg = "Expected attribute 'dtol' to be of type 'float' or 'int', not 'str'."
         self.assertEqual(str(cm.exception), msg)
 
 
