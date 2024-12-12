@@ -215,9 +215,9 @@ class FunctionData(ABC):
         outfile = VTKFile(output_fpath, adaptive=True)
         if initial_condition is not None:
             ics = []
-            for field_type in export_field_types:
-                for field, ic in initial_condition.items():
-                    ic = ic.copy(deepcopy=True)
+            for field, ic in initial_condition.items():
+                for field_type in export_field_types:
+                    icc = ic.copy(deepcopy=True)
                     # If the function space is mixed, rename and append each
                     # subfunction separately
                     if hasattr(ic.function_space(), "num_sub_spaces"):
@@ -229,9 +229,9 @@ class FunctionData(ABC):
                             ics.append(sf)
                     else:
                         if field_type != "forward":
-                            ic.assign(float("nan"))
-                        ic.rename(f"{field}_{field_type}")
-                        ics.append(ic)
+                            icc.assign(float("nan"))
+                        icc.rename(f"{field}_{field_type}")
+                        ics.append(icc)
             outfile.write(*ics, time=tp.subintervals[0][0])
 
         for i in range(tp.num_subintervals):
