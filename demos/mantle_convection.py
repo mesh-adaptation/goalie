@@ -150,7 +150,7 @@ def get_solver(mesh_seq):
 # timesteps.
 
 num_subintervals = 2
-meshes = [UnitSquareMesh(32, 32, quadrilateral=True) for _ in range(num_subintervals)]
+meshes = [UnitSquareMesh(32, 32) for _ in range(num_subintervals)]
 
 dt = 1e-3
 num_timesteps = 40
