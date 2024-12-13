@@ -29,7 +29,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         super().__init__(*args, **kwargs)
         self.estimator_values = []
         self._forms = None
-        self._init_form_coeffs = None
+        self._prev_form_coeffs = None
         self._changed_form_coeffs = None
 
     def read_forms(self, forms_dictionary):
@@ -68,33 +68,32 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             )
         return self._forms
 
-    def _reset_changing_coefficients(self):
-        self._init_form_coeffs = None
-        self._changed_form_coeffs = {field: {} for field in self.fields}
-
     @PETSc.Log.EventDecorator()
     def _detect_changing_coefficients(self, export_idx):
         """
         Detect whether coefficients other than the solution in the variational forms
         change over time. If they do, store the changed coefficients so we can update
         them in :meth:`~.GoalOrientedMeshSeq.indicate_errors`.
+
+        :arg export_idx: index of the current export timestep within the subinterval
+        :type export_idx: :class:`int`
         """
-        # Save a copy of the coefficients in the first export timestep
-        if self._init_form_coeffs is None:
-            self._init_form_coeffs = {
+        # Copy coefficients at subinterval's first export timestep
+        if export_idx == 0:
+            self._prev_form_coeffs = {
                 field: deepcopy(form.coefficients())
                 for field, form in self.forms.items()
             }
-        # In latter export timesteps, detect and store coefficients that have changed
-        # since the first export timestep
+            self._changed_form_coeffs = {field: {} for field in self.fields}
+        # Store coefficients that have changed since the previous export timestep
         else:
             for field in self.fields:
                 # Coefficients at the current timestep
                 coeffs = self.forms[field].coefficients()
                 for coeff_idx, (coeff, init_coeff) in enumerate(
-                    zip(coeffs, self._init_form_coeffs[field])
+                    zip(coeffs, self._prev_form_coeffs[field])
                 ):
-                    # Skip solution fields
+                    # Skip solution fields since they are stored separately
                     if coeff.name().split("_old")[0] in self.time_partition.field_names:
                         continue
                     if not np.array_equal(
@@ -252,7 +251,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         for i in reversed(range(len(self))):
             # Solve the adjoint problem on the current subinterval
             next(adj_sol_gen)
-            enriched_mesh_seq._reset_changing_coefficients()
             next(adj_sol_gen_enriched)
 
             # Get Functions
