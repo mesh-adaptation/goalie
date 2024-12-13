@@ -419,6 +419,9 @@ class AdjointMeshSeq(MeshSeq):
         solver = self.solver
         qoi_kwargs = solver_kwargs.get("qoi_kwargs", {})
 
+        # Avoid tracking coeffs for steady problems not using a goal-oriented approach
+        track_coefficients &= type(self) is not AdjointMeshSeq and not self.steady
+
         # Reinitialise the solution data object
         self._create_solutions()
 
