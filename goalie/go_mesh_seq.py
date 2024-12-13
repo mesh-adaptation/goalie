@@ -3,6 +3,7 @@ Drivers for goal-oriented error estimation on sequences of meshes.
 """
 
 from collections.abc import Iterable
+from copy import deepcopy
 
 import numpy as np
 import ufl
@@ -28,6 +29,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         super().__init__(*args, **kwargs)
         self.estimator_values = []
         self._forms = None
+        self._init_form_coeffs = None
+        self._changed_form_coeffs = None
+        self._reset_changing_coefficients()
 
     def read_forms(self, forms_dictionary):
         """
@@ -64,6 +68,43 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 " Use read_forms({'field_name': F}) in get_solver to read in the forms."
             )
         return self._forms
+
+    def _reset_changing_coefficients(self):
+        self._init_form_coeffs = None
+        self._changed_form_coeffs = {field: {} for field in self.fields}
+
+    @PETSc.Log.EventDecorator()
+    def _detect_changing_coefficients(self):
+        """
+        Detect whether coefficients other than the solution in the variational forms
+        change over time. If they do, store the changed coefficients so we can update
+        them in :meth:`~.GoalOrientedMeshSeq.indicate_errors`.
+        """
+        # Save a copy of the coefficients in the first export timestep
+        if self._init_form_coeffs is None:
+            self._init_form_coeffs = {
+                field: deepcopy(form.coefficients())
+                for field, form in self.forms.items()
+            }
+        # In latter export timesteps, detect and store coefficients that have changed
+        # since the first export timestep
+        else:
+            # coeffs = {field: form.coefficients() for field, form in self._forms.items()}
+            for field in self.fields:
+                coeffs = self.forms[field].coefficients()
+                for idx, (coeff, init_coeff) in enumerate(
+                    zip(coeffs, self._init_form_coeffs[field])
+                ):
+                    if coeff.name().split("_old")[0] in self.time_partition.field_names:
+                        continue
+                    if not np.array_equal(
+                        coeff.vector().array(), init_coeff.vector().array()
+                    ):
+                        if idx not in self._changed_form_coeffs[field]:
+                            self._changed_form_coeffs[field][idx] = [
+                                deepcopy(init_coeff)
+                            ]
+                        self._changed_form_coeffs[field][idx].append(deepcopy(coeff))
 
     @PETSc.Log.EventDecorator()
     def get_enriched_mesh_seq(self, enrichment_method="p", num_enrichments=1):
@@ -192,8 +233,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self._create_indicators()
 
         # Initialise adjoint solver generators on the MeshSeq and its enriched version
-        adj_sol_gen = self._solve_adjoint(**solver_kwargs)
-        adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(**solver_kwargs)
+        adj_sol_gen = self._solve_adjoint(track_coefficients=False, **solver_kwargs)
+        # We need to track changes in the form coefficients if the problem is unsteady
+        track_coefficients = not self.steady
+        adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(
+            track_coefficients=track_coefficients, **solver_kwargs
+        )
 
         FWD, ADJ = "forward", "adjoint"
         FWD_OLD = "forward" if self.steady else "forward_old"
@@ -201,6 +246,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
         # Loop over each subinterval in reverse
         for i in reversed(range(len(self))):
+            self._reset_changing_coefficients()
+
             # Solve the adjoint problem on the current subinterval
             next(adj_sol_gen)
             next(adj_sol_gen_enriched)
@@ -248,6 +295,11 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                         )
                     )
                     u_star_e[f] -= u_star[f]
+
+                    # Update other time-dependent form coefficients
+                    if self._changed_form_coeffs[f]:
+                        for idx, coeffs in self._changed_form_coeffs[f].items():
+                            self.forms[f].coefficients()[idx].assign(coeffs[j])
 
                     # Evaluate error indicator
                     indi_e = indicator_fn(enriched_mesh_seq.forms[f], u_star_e[f])
