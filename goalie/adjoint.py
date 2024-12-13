@@ -496,10 +496,10 @@ class AdjointMeshSeq(MeshSeq):
             # sequentially between each export time and save changing coefficients.
             # Otherwise, solve over the entire subinterval in one go.
             if track_coefficients:
-                for _ in range(tp.num_exports_per_subinterval[i] - 1):
+                for j in range(tp.num_exports_per_subinterval[i] - 1):
                     for _ in range(tp.num_timesteps_per_export[i]):
                         next(solver_gen)
-                    self._detect_changing_coefficients()
+                    self._detect_changing_coefficients(j)
             else:
                 for _ in range(tp.num_timesteps_per_subinterval[i]):
                     next(solver_gen)
