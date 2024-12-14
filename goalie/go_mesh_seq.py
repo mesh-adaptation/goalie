@@ -3,10 +3,12 @@ Drivers for goal-oriented error estimation on sequences of meshes.
 """
 
 from collections.abc import Iterable
+from copy import deepcopy
 
 import numpy as np
 import ufl
 from animate.interpolation import interpolate
+from animate.utility import Mesh
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
 from firedrake.petsc import PETSc
 
@@ -96,11 +98,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 )
             meshes = [MeshHierarchy(mesh, num_enrichments)[-1] for mesh in self.meshes]
         else:
-            meshes = self.meshes
+            meshes = [Mesh(mesh) for mesh in self.meshes]
+
+        # Create copy of time_partition
+        time_partition = deepcopy(self.time_partition)
 
         # Construct object to hold enriched spaces
         enriched_mesh_seq = type(self)(
-            self.time_partition,
+            time_partition,
             meshes,
             get_function_spaces=self._get_function_spaces,
             get_initial_condition=self._get_initial_condition,
@@ -199,6 +204,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         FWD_OLD = "forward" if self.steady else "forward_old"
         ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
         P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
+
         # Loop over each subinterval in reverse
         for i in reversed(range(len(self))):
             # Solve the adjoint problem on the current subinterval
@@ -256,6 +262,31 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     indi = self._transfer(indi_e, P0_spaces[i])
                     indi.interpolate(abs(indi))
                     self.indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
+
+            # discard current subinterval duplicate solution fields
+            if not self.steady:
+                for f in self.fields:
+                    self.solutions[f][FWD_OLD].pop(-1)
+                    self.solutions[f][ADJ_NEXT].pop(-1)
+                    enriched_mesh_seq.solutions[f][FWD_OLD].pop(-1)
+                    enriched_mesh_seq.solutions[f][ADJ_NEXT].pop(-1)
+
+            # delete current subinterval enriched mesh to reduce the memory footprint
+            if len(enriched_mesh_seq.meshes) > 1:
+                for f in self.fields:
+                    enriched_mesh_seq._fs[f].pop(-1)
+                enriched_mesh_seq.meshes.pop(-1)
+                enriched_mesh_seq.time_partition.drop_last_subinterval()
+
+        # clear empty labels
+        for f in self.fields:
+            if self.steady:
+                self.solutions.labels = ("forward",)
+                self.solutions[f].pop("forward_old", None)
+            else:
+                self.solutions.labels = ("forward", "adjoint")
+                self.solutions[f].pop("forward_old", None)
+                self.solutions[f].pop("adjoint_next", None)
 
         return self.solutions, self.indicators
 
