@@ -98,7 +98,16 @@ class MeshSeqBaseClass:
     def test_no_late_convergence(self):
         self.parameters.drop_out_converged = True
         mesh_seq = self.mesh_seq(time_partition=TimePartition(1.0, 2, [0.5, 0.5], []))
-        mesh_seq.fixed_point_iteration(oscillating_adaptor0, parameters=self.parameters)
+        solver_kwargs = (
+            {"track_coefficients": False}
+            if type(mesh_seq) is GoalOrientedMeshSeq
+            else {}
+        )
+        mesh_seq.fixed_point_iteration(
+            oscillating_adaptor0,
+            parameters=self.parameters,
+            solver_kwargs=solver_kwargs,
+        )
         expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
         self.assertEqual(mesh_seq.element_counts, expected)
         self.assertTrue(np.allclose(mesh_seq.converged, [False, False]))
@@ -108,7 +117,16 @@ class MeshSeqBaseClass:
     def test_dropout(self, drop_out_converged):
         self.parameters.drop_out_converged = drop_out_converged
         mesh_seq = self.mesh_seq(time_partition=TimePartition(1.0, 2, [0.5, 0.5], []))
-        mesh_seq.fixed_point_iteration(oscillating_adaptor1, parameters=self.parameters)
+        solver_kwargs = (
+            {"track_coefficients": False}
+            if type(mesh_seq) is GoalOrientedMeshSeq
+            else {}
+        )
+        mesh_seq.fixed_point_iteration(
+            oscillating_adaptor1,
+            parameters=self.parameters,
+            solver_kwargs=solver_kwargs,
+        )
         expected = [[1, 1], [1, 2], [1, 1], [1, 2], [1, 1], [1, 2]]
         self.assertEqual(mesh_seq.element_counts, expected)
         self.assertTrue(np.allclose(mesh_seq.converged, [True, False]))
@@ -238,7 +256,14 @@ class TestGoalOrientedMeshSeq(TestAdjointMeshSeq):
     def test_convergence_criteria_all_false(self):
         self.parameters.convergence_criteria = "all"
         mesh_seq = self.mesh_seq(time_partition=TimePartition(1.0, 1, 0.5, []))
-        mesh_seq.fixed_point_iteration(empty_adaptor, parameters=self.parameters)
+        # print(type(mesh_seq))
+        print("starting test")
+        mesh_seq.fixed_point_iteration(
+            empty_adaptor,
+            parameters=self.parameters,
+            solver_kwargs={"track_coefficients": False},
+        )
+        print("ending test")
         self.assertTrue(np.allclose(mesh_seq.element_counts, 1))
         self.assertTrue(np.allclose(mesh_seq.converged, False))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
@@ -250,7 +275,11 @@ class TestGoalOrientedMeshSeq(TestAdjointMeshSeq):
             get_qoi=constant_qoi,
         )
         mesh_seq.error_estimate = MagicMock(return_value=1)
-        mesh_seq.fixed_point_iteration(empty_adaptor, parameters=self.parameters)
+        mesh_seq.fixed_point_iteration(
+            empty_adaptor,
+            parameters=self.parameters,
+            solver_kwargs={"track_coefficients": False},
+        )
         self.assertTrue(np.allclose(mesh_seq.element_counts, 1))
         self.assertTrue(np.allclose(mesh_seq.converged, True))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
@@ -264,5 +293,9 @@ class TestGoalOrientedMeshSeq(TestAdjointMeshSeq):
         mesh_seq.check_element_count_convergence = MagicMock(return_value=element)
         mesh_seq.check_qoi_convergence = MagicMock(return_value=qoi)
         mesh_seq.check_estimator_convergence = MagicMock(return_value=estimator)
-        mesh_seq.fixed_point_iteration(empty_adaptor, parameters=self.parameters)
+        mesh_seq.fixed_point_iteration(
+            empty_adaptor,
+            parameters=self.parameters,
+            solver_kwargs={"track_coefficients": False},
+        )
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
