@@ -75,6 +75,11 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         change over time. If they do, store the changed coefficients so we can update
         them in :meth:`~.GoalOrientedMeshSeq.indicate_errors`.
 
+        Changed coefficients are stored in a dictionary with the following structure:
+        ``{field: {coeff_idx: {export_timestep_idx: coefficient}}}``, where
+        ``coefficient=forms[field].coefficients()[coeff_idx]`` at export timestep
+        ``export_timestep_idx``.
+
         :arg export_idx: index of the current export timestep within the subinterval
         :type export_idx: :class:`int`
         """
