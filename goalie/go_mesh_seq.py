@@ -298,14 +298,11 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
                     # Update other time-dependent form coefficients if they changed
                     # since the previous export timestep
-                    if track_coefficients and enriched_mesh_seq._changed_form_coeffs[f]:
-                        for idx, coeffs in enriched_mesh_seq._changed_form_coeffs[
-                            f
-                        ].items():
+                    emseq = enriched_mesh_seq
+                    if track_coefficients and emseq._changed_form_coeffs[f]:
+                        for idx, coeffs in emseq._changed_form_coeffs[f].items():
                             if j in coeffs:
-                                enriched_mesh_seq.forms[f].coefficients()[idx].assign(
-                                    coeffs[j]
-                                )
+                                emseq.forms[f].coefficients()[idx].assign(coeffs[j])
 
                     # Evaluate error indicator
                     indi_e = indicator_fn(enriched_mesh_seq.forms[f], u_star_e[f])
