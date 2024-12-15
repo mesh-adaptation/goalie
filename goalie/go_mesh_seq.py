@@ -106,7 +106,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     ):
                         if coeff_idx not in self._changed_form_coeffs[field]:
                             self._changed_form_coeffs[field][coeff_idx] = {
-                                0: init_coeff
+                                0: deepcopy(init_coeff)
                             }
                         self._changed_form_coeffs[field][coeff_idx][export_idx] = (
                             deepcopy(coeff)
