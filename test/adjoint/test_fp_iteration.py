@@ -256,14 +256,11 @@ class TestGoalOrientedMeshSeq(TestAdjointMeshSeq):
     def test_convergence_criteria_all_false(self):
         self.parameters.convergence_criteria = "all"
         mesh_seq = self.mesh_seq(time_partition=TimePartition(1.0, 1, 0.5, []))
-        # print(type(mesh_seq))
-        print("starting test")
         mesh_seq.fixed_point_iteration(
             empty_adaptor,
             parameters=self.parameters,
             solver_kwargs={"track_coefficients": False},
         )
-        print("ending test")
         self.assertTrue(np.allclose(mesh_seq.element_counts, 1))
         self.assertTrue(np.allclose(mesh_seq.converged, False))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
