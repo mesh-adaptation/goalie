@@ -403,9 +403,9 @@ class AdjointMeshSeq(MeshSeq):
         :type get_adj_values: :class:`bool`
         :kwarg test_checkpoint_qoi: solve over the final subinterval when checkpointing
             so that the QoI value can be checked across runs
-        :kwarg: track_coefficients: if ``True``, the adjoint solver will track the
-            coefficients in the variational form to detect changes between export times.
-            Only relevant for goal-oriented error estimation on unsteady problems.
+        :kwarg: track_coefficients: if ``True``, coefficients in the variational form
+            will be stored whenever they change between export times. Only relevant for
+            goal-oriented error estimation on unsteady problems.
         :type track_coefficients: :class:`bool`
         :yields: the solution data of the forward and adjoint solves
         :ytype: :class:`~.AdjointSolutionData`
