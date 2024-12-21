@@ -52,7 +52,6 @@ select = [
 ]
 ignore = [
   "C901",  # function is too complex (TODO #165: enable this)
-  "E402",  # module level import not at top of file
   "E741",  # ambiguous variable name
   "F403",  # unable to detect undefined names
   "F405",  # name may be undefined, or defined from star imports
@@ -60,6 +59,9 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "demos/burgers-hessian.py" = [
   "E501",  # line too long
+]
+"demos/*.py" = [
+  "E402",  # module level import not at top of file
 ]
 
 [tool.pytest.ini_options]
