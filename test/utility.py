@@ -8,8 +8,8 @@ import ufl
 from goalie.metric import RiemannianMetric
 
 
-def uniform_mesh(dim, n, l=1, **kwargs):
-    args = [n] * dim + [l]
+def uniform_mesh(dim, n, length=1, **kwargs):
+    args = [n] * dim + [length]
     return (firedrake.SquareMesh if dim == 2 else firedrake.CubeMesh)(*args, **kwargs)
 
 

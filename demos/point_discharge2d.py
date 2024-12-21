@@ -15,7 +15,8 @@
 #   \left\{\begin{array}{rl}
 #       \mathbf u\cdot\nabla c - \nabla\cdot(D\nabla c) = S & \text{in}\:\Omega\\
 #       c=0 & \text{on}\:\partial\Omega_{\mathrm{inflow}}\\
-#       \nabla c\cdot\widehat{\mathbf n}=0 & \text{on}\:\partial\Omega\backslash\partial\Omega_{\mathrm{inflow}}
+#       \nabla c\cdot\widehat{\mathbf n}=0 &
+#           \text{on}\:\partial\Omega\backslash\partial\Omega_{\mathrm{inflow}}
 #   \end{array}\right.,
 #
 # for a tracer concentration :math:`c`, with fluid velocity
@@ -73,7 +74,8 @@ def source(mesh):
 # With these ingredients, we can now define the :meth:`get_solver` method. Don't forget
 # to apply the corresponding `ad_block_tag` to the solve call. Additionally, we must
 # communicate the defined variational form to ``mesh_seq`` using the
-# :meth:`mesh_seq.read_form()` method for Goalie to utilise it during error indication. ::
+# :meth:`mesh_seq.read_form()` method for Goalie to utilise it during error indication.
+# ::
 
 
 def get_solver(mesh_seq):

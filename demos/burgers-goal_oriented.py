@@ -1,11 +1,12 @@
 # Burgers equation with Goal-oriented mesh adaptation
 # ===================================================
 
-# In the `Hessian-based adaptation  <./burgers-hessian.py.html>`__, we applied a Hessian-based
-# mesh adaptation to the time-dependent Burgers equation. Here, we alternatively consider
-# a goal-oriented error estimation to drive the mesh adaptation. Again, we will
-# choose to partition the problem over multiple subintervals and hence multiple meshes
-# to adapt. We also chose to apply a QoI which integrates in time as well as space.
+# In the `Hessian-based adaptation  <./burgers-hessian.py.html>`__, we applied a
+# Hessian-based mesh adaptation to the time-dependent Burgers equation. Here, we
+# alternatively consider a goal-oriented error estimation to drive the mesh adaptation.
+# Again, we will choose to partition the problem over multiple subintervals and hence
+# multiple meshes to adapt. We also chose to apply a QoI which integrates in time as
+# well as space.
 #
 # We copy over the setup as before. The only difference is that we import from
 # ``goalie_adjoint`` rather than ``goalie``. ::
@@ -115,8 +116,8 @@ mesh_seq = GoalOrientedMeshSeq(
 
 # Compared to the previous `Hessian-based adaptation <./burgers-hessian.py.html>`__,
 # this adaptor depends on adjoint solution data as well as forward solution data.
-# For simplicity, we begin by using :meth:`~.RiemannianMetric.compute_isotropic_metric()`.
-# ::
+# For simplicity, we begin by using
+# :meth:`~.RiemannianMetric.compute_isotropic_metric()`. ::
 
 
 def adaptor(mesh_seq, solutions=None, indicators=None):
@@ -257,7 +258,8 @@ plt.close()
 # (See documentation for details.) To use it, we just need to define
 # a different adaptor function. The same error indicator is used as
 # for the isotropic approach. Additionally, the Hessian of the forward
-# solution is estimated as in the `Hessian-based adaptation <./burgers-hessian.py.html>`__
+# solution is estimated as in the
+# `Hessian-based adaptation <./burgers-hessian.py.html>`__
 # to give anisotropy to the metric.
 #
 # For this driver, normalisation is handled differently than for
@@ -351,8 +353,8 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
     fig.savefig(f"burgers-anisotropic_mesh{iteration + 1}.jpg")
     plt.close()
 
-    # Since we have multiple subintervals, we should check if the target complexity has been
-    # (approximately) reached on each subinterval
+    # Since we have multiple subintervals, we should check if the target complexity has
+    # been (approximately) reached on each subinterval
     continue_unconditionally = np.array(complexities) < 0.90 * target
     return continue_unconditionally
 
