@@ -242,11 +242,11 @@ plt.close()
 #
 # Looking at the final adapted mesh, we can make a few observations. Firstly, the mesh
 # elements are indeed isotropic. Secondly, there is clearly increased resolution
-# surrounding the point source, as well as the "receiver region" which the QoI integrates
-# over. There is also a band of increased resolution between these two regions. Finally,
-# the mesh has low resolution downstream of the receiver region. This is to be expected
-# because we have an advection-dominated problem, so the QoI value is independent of the
-# dynamics there.
+# surrounding the point source, as well as the "receiver region" which the QoI
+# integrates over. There is also a band of increased resolution between these two
+# regions. Finally, the mesh has low resolution downstream of the receiver region. This
+# is to be expected because we have an advection-dominated problem, so the QoI value is
+# independent of the dynamics there.
 #
 # Goalie also provides drivers for *anisotropic* goal-oriented mesh adaptation. Here,
 # we consider the ``anisotropic_dwr_metric`` driver. (See documentation for details.) To
@@ -372,4 +372,5 @@ plt.close()
 # In the `next demo <./burgers-hessian.py.html>`__, we consider mesh adaptation in the
 # time-dependent case.
 #
-# This demo can also be accessed as a `Python script <point_discharge2d-goal_oriented.py>`__.
+# This demo can also be accessed as a
+# `Python script <point_discharge2d-goal_oriented.py>`__.

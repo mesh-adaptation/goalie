@@ -70,7 +70,10 @@ class TestAdaptParameters(unittest.TestCase):
     def test_element_rtol_type_error(self):
         with self.assertRaises(TypeError) as cm:
             AdaptParameters({"element_rtol": "0.001"})
-        msg = "Expected attribute 'element_rtol' to be of type 'float' or 'int', not 'str'."
+        msg = (
+            "Expected attribute 'element_rtol' to be of type 'float' or 'int', not"
+            " 'str'."
+        )
         self.assertEqual(str(cm.exception), msg)
 
     def test_drop_out_converged_type_error(self):
@@ -125,7 +128,10 @@ class TestGoalOrientedAdaptParameters(unittest.TestCase):
     def test_convergence_criteria_value_error(self):
         with self.assertRaises(ValueError) as cm:
             GoalOrientedAdaptParameters({"convergence_criteria": "both"})
-        msg = "Unsupported value 'both' for 'convergence_criteria'. Choose from ['all', 'any']."
+        msg = (
+            "Unsupported value 'both' for 'convergence_criteria'. Choose from"
+            " ['all', 'any']."
+        )
         self.assertEqual(str(cm.exception), msg)
 
     def test_qoi_rtol_type_error(self):

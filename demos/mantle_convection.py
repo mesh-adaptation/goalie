@@ -5,8 +5,8 @@
 # involve a time derivative. Those are clearly *time-dependent* equations. However,
 # time-dependent equations need not involve a time derivative. For example, they might
 # include fields that vary with time. Examples of where this might happen are
-# in continuous pressure projection approaches, ice sheet and glaciological modelling, and
-# mantle convection modelling. In this demo, we illustrate how Goalie can be used
+# in continuous pressure projection approaches, ice sheet and glaciological modelling,
+# and mantle convection modelling. In this demo, we illustrate how Goalie can be used
 # to solve such problems.
 
 # We consider the problem of a mantle convection in a 2D unit square domain. The
@@ -19,8 +19,10 @@
 #
 # .. math::
 #    \begin{align}
-#        \nabla \cdot \mu \left[\nabla \mathbf{u} + (\nabla \mathbf{u})^T \right] - \nabla p + \mathrm{Ra}\,T\,\mathbf{k} &= 0, \\
-#        \frac{\partial T}{\partial t} \cdot \mathbf{u}\cdot\nabla T - \nabla \cdot (\kappa\nabla T) &= 0,
+#        \nabla \cdot \mu \left[\nabla \mathbf{u} + (\nabla \mathbf{u})^T \right] -
+#           \nabla p + \mathrm{Ra}\,T\,\mathbf{k} &= 0, \\
+#        \frac{\partial T}{\partial t} \cdot \mathbf{u}\cdot\nabla T
+#           - \nabla \cdot (\kappa\nabla T) &= 0,
 #    \end{align}
 #
 # where :math:`\mu`, :math:`\kappa`, and :math:`\mathrm{Ra}` are constant viscosity,

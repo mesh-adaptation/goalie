@@ -171,8 +171,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :type enrichment_kwargs: :class:`dict` with :class:`str` keys and values which
             may take various types
         :kwarg solver_kwargs: parameters for the forward solver, as well as any
-            parameters for the QoI, which should be included as a sub-dictionary with key
-            'qoi_kwargs'
+            parameters for the QoI, which should be included as a sub-dictionary with
+            key 'qoi_kwargs'
         :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
             take various types
         :kwarg indicator_fn: function which maps the form, adjoint error and enriched
@@ -330,8 +330,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         r"""
         Apply goal-oriented mesh adaptation using a fixed point iteration loop approach.
 
-        :arg adaptor: function for adapting the mesh sequence. Its arguments are the mesh
-            sequence and the solution and indicator data objects. It should return
+        :arg adaptor: function for adapting the mesh sequence. Its arguments are the
+            mesh sequence and the solution and indicator data objects. It should return
             ``True`` if the convergence criteria checks are to be skipped for this
             iteration. Otherwise, it should return ``False``.
         :kwarg parameters: parameters to apply to the mesh adaptation process

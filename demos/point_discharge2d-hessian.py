@@ -10,7 +10,7 @@
 # before progressing with this demo.
 #
 # In addition to importing from Firedrake and Goalie, we also import the mesh
-# adaptation functionality from Firedrake, which can be found in ``firedrake.meshadapt``.
+# adaptation functionality from Animate, which can be found in ``animate.adapt``.
 # ::
 
 from animate.adapt import adapt
@@ -20,8 +20,8 @@ from firedrake import *
 from goalie import *
 
 # We again consider the "point discharge with diffusion" test case from the
-# `previous demo <./point_discharge2d.py.html>`__, approximating the tracer concentration
-# :math:`c` in :math:`\mathbb P1` space. ::
+# `previous demo <./point_discharge2d.py.html>`__, approximating the tracer
+# concentration :math:`c` in :math:`\mathbb P1` space. ::
 
 field_names = ["c"]
 
@@ -187,8 +187,8 @@ params = AdaptParameters(
 )
 solutions = mesh_seq.fixed_point_iteration(adaptor, parameters=params)
 
-# Mesh adaptation often gives slightly different results on difference machines. However,
-# the output should look something like
+# Mesh adaptation often gives slightly different results on difference machines.
+# However, the output should look something like
 #
 # .. code-block:: console
 #
