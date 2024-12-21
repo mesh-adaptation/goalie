@@ -52,7 +52,6 @@ select = [
 ]
 ignore = [
   "C901",  # function is too complex (TODO #165: enable this)
-  "E741",  # ambiguous variable name
   "F403",  # unable to detect undefined names
   "F405",  # name may be undefined, or defined from star imports
 ]

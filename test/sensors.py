@@ -32,7 +32,7 @@ def interweaved(x, y):
 
 
 def mesh_for_sensors(dim, n):
-    mesh = uniform_mesh(dim, n, l=2)
+    mesh = uniform_mesh(dim, n, length=2)
     coords = firedrake.Function(mesh.coordinates)
     coords.interpolate(coords - as_vector([1] * dim))
     return firedrake.Mesh(coords)
