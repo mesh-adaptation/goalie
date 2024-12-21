@@ -98,7 +98,7 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
     elif not isinstance(adjoint_error, dict):
         raise TypeError(
             "Expected 'adjoint_error' to be a Function or dict, not"
-            " '{type(adjoint_error)}'."
+            f" '{type(adjoint_error)}'."
         )
 
     # Process input for test_space as a dictionary
@@ -111,7 +111,7 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
     elif not isinstance(test_space, dict):
         raise TypeError(
             "Expected 'test_space' to be a FunctionSpace or dict, not"
-            " '{type(test_space)}'."
+            f" '{type(test_space)}'."
         )
 
     # Construct the mapping for each component
@@ -122,7 +122,7 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
         if not isinstance(fs, WithGeometry):
             raise TypeError(
                 f"Expected 'test_space['{key}']' to be a FunctionSpace, not"
-                " '{type(fs)}'."
+                f" '{type(fs)}'."
             )
         if F.ufl_domain() != err.function_space().mesh():
             raise ValueError(

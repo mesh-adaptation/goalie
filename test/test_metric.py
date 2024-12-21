@@ -6,14 +6,19 @@ import unittest
 
 import numpy as np
 import pytest
+import sensors
 from animate.metric import RiemannianMetric
 from animate.utility import errornorm
-from firedrake import *
+from firedrake.functionspace import TensorFunctionSpace
 from parameterized import parameterized
-from sensors import *
-from utility import uniform_mesh
+from utility import mesh_for_sensors, uniform_mesh
 
-from goalie import *
+from goalie.metric import (
+    enforce_variable_constraints,
+    ramp_complexity,
+    space_time_normalise,
+)
+from goalie.time_partition import TimeInterval, TimePartition
 
 
 class BaseClasses:
@@ -127,18 +132,18 @@ class TestMetricNormalisation(BaseClasses.MetricTestCase):
     @pytest.mark.slow
     @parameterized.expand(
         [
-            (bowl, 1),
-            (bowl, 2),
-            (bowl, np.inf),
-            (hyperbolic, 1),
-            (hyperbolic, 2),
-            (hyperbolic, np.inf),
-            (multiscale, 1),
-            (multiscale, 2),
-            (multiscale, np.inf),
-            (interweaved, 1),
-            (interweaved, 2),
-            (interweaved, np.inf),
+            (sensors.bowl, 1),
+            (sensors.bowl, 2),
+            (sensors.bowl, np.inf),
+            (sensors.hyperbolic, 1),
+            (sensors.hyperbolic, 2),
+            (sensors.hyperbolic, np.inf),
+            (sensors.multiscale, 1),
+            (sensors.multiscale, 2),
+            (sensors.multiscale, np.inf),
+            (sensors.interweaved, 1),
+            (sensors.interweaved, 2),
+            (sensors.interweaved, np.inf),
         ]
     )
     def test_consistency(self, sensor, degree):

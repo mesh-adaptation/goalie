@@ -1,32 +1,28 @@
 """
-Problem specification for a simple
-advection-diffusion test case with a
-point source. Extended from
-[Riadh et al. 2014] as in
-[Wallwork et al. 2020].
+Problem specification for a simple advection-diffusion test case with a point source.
+Extended from [Riadh et al. 2014] as in [Wallwork et al. 2020].
 
-This test case is notable for Goalie
-because it is in 3D and has an
-analytical solution, meaning the
-effectivity index can be computed.
+This test case is notable for Goalie because it is in 3D and has an analytical solution,
+meaning the effectivity index can be computed.
 
-[Riadh et al. 2014] A. Riadh, G.
-    Cedric, M. Jean, "TELEMAC modeling
-    system: 2D hydrodynamics TELEMAC-2D
-    software release 7.0 user manual."
-    Paris: R&D, Electricite de France,
-    p. 134 (2014).
+[Riadh et al. 2014] A. Riadh, G. Cedric, M. Jean, "TELEMAC modeling system: 2D
+    hydrodynamics TELEMAC-2D software release 7.0 user manual." Paris: R&D, Electricite
+    de France, p. 134 (2014).
 
-[Wallwork et al. 2020] J.G. Wallwork,
-    N. Barral, D.A. Ham, M.D. Piggott,
-    "Anisotropic Goal-Oriented Mesh
-    Adaptation in Firedrake". In:
-    Proceedings of the 28th International
-    Meshing Roundtable (2020).
+[Wallwork et al. 2020] J.G. Wallwork, N. Barral, D.A. Ham, M.D. Piggott, "Anisotropic
+    Goal-Oriented Mesh Adaptation in Firedrake". In: Proceedings of the 28th
+    International Meshing Roundtable (2020).
 """
 
 import numpy as np
-from firedrake import *
+import ufl
+from firedrake.assemble import assemble
+from firedrake.bcs import DirichletBC
+from firedrake.function import Function
+from firedrake.functionspace import FunctionSpace
+from firedrake.solving import solve
+from firedrake.ufl_expr import TestFunction
+from firedrake.utility_meshes import BoxMesh
 
 from goalie.math import bessk0
 
@@ -44,29 +40,23 @@ get_initial_condition = None
 
 
 def get_function_spaces(mesh):
-    r"""
-    :math:`\mathbb P1` space.
-    """
+    r""":math:`\mathbb P1` space."""
     return {"tracer_3d": FunctionSpace(mesh, "CG", 1)}
 
 
 def source(mesh):
     """
-    Gaussian approximation to a point source
-    at (2, 5, 5) with discharge rate 100 on a
+    Gaussian approximation to a point source at (2, 5, 5) with discharge rate 100 on a
     given mesh.
     """
-    x, y, z = SpatialCoordinate(mesh)
-    return 100.0 * exp(
+    x, y, z = ufl.SpatialCoordinate(mesh)
+    return 100.0 * ufl.exp(
         -((x - src_x) ** 2 + (y - src_y) ** 2 + (z - src_z) ** 2) / src_r**2
     )
 
 
 def get_solver(self):
-    """
-    Advection-diffusion equation
-    solved using a direct method.
-    """
+    """Advection-diffusion equation solved using a direct method."""
 
     def solver(i):
         fs = self.function_spaces["tracer_3d"][i]
@@ -79,22 +69,22 @@ def get_solver(self):
         u_x = Function(R).assign(1.0)
         u_y = Function(R).assign(0.0)
         u_z = Function(R).assign(0.0)
-        u = as_vector([u_x, u_y, u_z])
-        h = CellSize(self[i])
+        u = ufl.as_vector([u_x, u_y, u_z])
+        h = ufl.CellSize(self[i])
         S = source(self[i])
 
         # Stabilisation parameter
-        unorm = sqrt(dot(u, u))
+        unorm = ufl.sqrt(ufl.dot(u, u))
         tau = 0.5 * h / unorm
-        tau = min_value(tau, unorm * h / (6 * D))
+        tau = ufl.min_value(tau, unorm * h / (6 * D))
 
         # Setup variational problem
         psi = TestFunction(fs)
-        psi = psi + tau * dot(u, grad(psi))
+        psi = psi + tau * ufl.dot(u, ufl.grad(psi))
         F = (
-            S * psi * dx
-            - dot(u, grad(c)) * psi * dx
-            - inner(D * grad(c), grad(psi)) * dx
+            S * psi * ufl.dx
+            - ufl.dot(u, ufl.grad(c)) * psi * ufl.dx
+            - ufl.inner(D * ufl.grad(c), ufl.grad(psi)) * ufl.dx
         )
 
         # Zero Dirichlet condition on the left-hand (inlet) boundary
@@ -116,34 +106,32 @@ def get_solver(self):
 
 def get_qoi(self, i):
     """
-    Quantity of interest which integrates
-    the tracer concentration over an offset
+    Quantity of interest which integrates the tracer concentration over an offset
     receiver region.
     """
 
     def steady_qoi():
         c = self.fields["tracer_3d"]
-        x, y, z = SpatialCoordinate(self[i])
-        kernel = conditional(
+        x, y, z = ufl.SpatialCoordinate(self[i])
+        kernel = ufl.conditional(
             (x - rec_x) ** 2 + (y - rec_y) ** 2 + (z - rec_z) ** 2 < rec_r**2, 1, 0
         )
-        area = assemble(kernel * dx)
-        area_analytical = pi * rec_r**2
+        area = assemble(kernel * ufl.dx)
+        area_analytical = ufl.pi * rec_r**2
         scaling = 1.0 if np.allclose(area, 0.0) else area_analytical / area
-        return scaling * kernel * c * dx
+        return scaling * kernel * c * ufl.dx
 
     return steady_qoi
 
 
 def analytical_solution(mesh):
-    """
-    Analytical solution as represented on
-    a given mesh.
-    """
-    x, y, z = SpatialCoordinate(mesh)
+    """Analytical solution as represented on a given mesh."""
+    x, y, z = ufl.SpatialCoordinate(mesh)
     R = FunctionSpace(mesh, "R", 0)
     u = Function(R).assign(1.0)
     D = Function(R).assign(0.1)
     Pe = 0.5 * u / D
-    r = max_value(sqrt((x - src_x) ** 2 + (y - src_y) ** 2 + (z - src_z) ** 2), src_r)
-    return 0.5 / (pi * D) * exp(Pe * (x - src_x)) * bessk0(Pe * r)
+    r = ufl.max_value(
+        ufl.sqrt((x - src_x) ** 2 + (y - src_y) ** 2 + (z - src_z) ** 2), src_r
+    )
+    return 0.5 / (ufl.pi * D) * ufl.exp(Pe * (x - src_x)) * bessk0(Pe * r)

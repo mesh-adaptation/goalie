@@ -1,6 +1,6 @@
 import unittest
 
-from goalie.options import *
+from goalie.options import AdaptParameters, GoalOrientedAdaptParameters
 
 
 class TestAdaptParameters(unittest.TestCase):
@@ -148,7 +148,3 @@ class TestGoalOrientedAdaptParameters(unittest.TestCase):
             " 'str'."
         )
         self.assertEqual(str(cm.exception), msg)
-
-
-if __name__ == "__main__":
-    unittest.main()

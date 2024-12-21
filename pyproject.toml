@@ -52,7 +52,6 @@ select = [
 ]
 ignore = [
   "C901",  # function is too complex (TODO #165: enable this)
-  "F403",  # unable to detect undefined names
   "F405",  # name may be undefined, or defined from star imports
 ]
 [tool.ruff.lint.per-file-ignores]
@@ -61,6 +60,7 @@ ignore = [
 ]
 "demos/*.py" = [
   "E402",  # module level import not at top of file
+  "F403",  # unable to detect undefined names
 ]
 
 [tool.pytest.ini_options]

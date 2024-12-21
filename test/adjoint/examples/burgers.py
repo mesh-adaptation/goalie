@@ -7,8 +7,14 @@ Code here is based on that found at
     https://firedrakeproject.org/demos/burgers.py.html
 """
 
-from firedrake import *
+import ufl
 from firedrake.__future__ import interpolate
+from firedrake.assemble import assemble
+from firedrake.function import Function
+from firedrake.functionspace import FunctionSpace, VectorFunctionSpace
+from firedrake.solving import solve
+from firedrake.ufl_expr import TestFunction
+from firedrake.utility_meshes import UnitSquareMesh
 
 # Problem setup
 n = 32
@@ -22,9 +28,7 @@ get_bcs = None
 
 
 def get_function_spaces(mesh):
-    r"""
-    :math:`\mathbb P2` space.
-    """
+    r""":math:`\mathbb P2` space."""
     return {"uv_2d": VectorFunctionSpace(mesh, "CG", 2)}
 
 
@@ -47,9 +51,9 @@ def get_solver(self):
         nu = Function(R).assign(0.0001)
         v = TestFunction(fs)
         F = (
-            inner((u - u_) / dtc, v) * dx
-            + inner(dot(u, nabla_grad(u)), v) * dx
-            + nu * inner(grad(u), grad(v)) * dx
+            ufl.inner((u - u_) / dtc, v) * ufl.dx
+            + ufl.inner(ufl.dot(u, ufl.nabla_grad(u)), v) * ufl.dx
+            + nu * ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
         )
 
         # Time integrate from t_start to t_end
@@ -72,8 +76,10 @@ def get_initial_condition(self):
     Initial condition which is sinusoidal in the x-direction.
     """
     init_fs = self.function_spaces["uv_2d"][0]
-    x, y = SpatialCoordinate(self.meshes[0])
-    return {"uv_2d": assemble(interpolate(as_vector([sin(pi * x), 0]), init_fs))}
+    x, y = ufl.SpatialCoordinate(self.meshes[0])
+    return {
+        "uv_2d": assemble(interpolate(ufl.as_vector([ufl.sin(ufl.pi * x), 0]), init_fs))
+    }
 
 
 def get_qoi(self, i):
@@ -86,7 +92,7 @@ def get_qoi(self, i):
 
     def time_integrated_qoi(t):
         u = self.fields["uv_2d"][0]
-        return dtc * inner(u, u) * ds(2)
+        return dtc * ufl.inner(u, u) * ufl.ds(2)
 
     def end_time_qoi():
         return time_integrated_qoi(end_time)

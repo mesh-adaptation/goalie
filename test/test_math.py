@@ -4,7 +4,7 @@ import numpy as np
 import scipy as sp
 from firedrake import UnitTriangleMesh
 
-from goalie.math import *
+from goalie.math import bessi0, bessk0
 
 
 class TestBessel(unittest.TestCase):
