@@ -104,7 +104,7 @@ class AdjointMeshSeq(MeshSeq):
         elif self.qoi_type != "steady" and self.steady:
             raise ValueError(
                 "Time partition is steady but the QoI type is set to"
-                " '{self.qoi_type}'."
+                f" '{self.qoi_type}'."
             )
         self._controls = None
         self.qoi_values = []
