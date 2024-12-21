@@ -598,19 +598,17 @@ class TestDetectChangedCoefficients(GoalOrientedBaseClass):
 
     def test_constant_coefficients(self):
         mesh_seq = self.go_mesh_seq()
-        adj_gen = mesh_seq._solve_adjoint(track_coefficients=True)
         # Solve over the first (only) subinterval
-        next(adj_gen)
-        # No coefficients have changed
+        next(mesh_seq._solve_adjoint(track_coefficients=True))
+        # Check no coefficients have changed
         self.assertEqual(mesh_seq._changed_form_coeffs, {self.field: {}})
 
     def test_changed_coefficients(self):
         # Change coefficient f by coeff_diff every timestep
         coeff_diff = 1.1
         mesh_seq = self.go_mesh_seq(coeff_diff=coeff_diff)
-        adj_gen = mesh_seq._solve_adjoint(track_coefficients=True)
         # Solve over the first (only) subinterval
-        next(adj_gen)
+        next(mesh_seq._solve_adjoint(track_coefficients=True))
         changed_coeffs_dict = mesh_seq._changed_form_coeffs[self.field]
         coeff_idx = next(iter(changed_coeffs_dict))
         for export_idx, f in changed_coeffs_dict[coeff_idx].items():

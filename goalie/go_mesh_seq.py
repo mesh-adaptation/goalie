@@ -83,15 +83,15 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :arg export_idx: index of the current export timestep within the subinterval
         :type export_idx: :class:`int`
         """
-        # Copy coefficients at subinterval's first export timestep
         if export_idx == 0:
+            # Copy coefficients at subinterval's first export timestep
             self._prev_form_coeffs = {
                 field: deepcopy(form.coefficients())
                 for field, form in self.forms.items()
             }
             self._changed_form_coeffs = {field: {} for field in self.fields}
-        # Store coefficients that have changed since the previous export timestep
         else:
+            # Store coefficients that have changed since the previous export timestep
             for field in self.fields:
                 # Coefficients at the current timestep
                 coeffs = self.forms[field].coefficients()
@@ -243,7 +243,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         # Initialise adjoint solver generators on the MeshSeq and its enriched version
         adj_sol_gen = self._solve_adjoint(track_coefficients=False, **solver_kwargs)
-        # We need to track changes in the form coefficients if the problem is unsteady
+        # We need to track changes of the form coefficients in the enriched problem if the problem is unsteady
         solver_kwargs["track_coefficients"] = track_coefficients
         adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(**solver_kwargs)
 
