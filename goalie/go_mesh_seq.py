@@ -232,7 +232,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :rtype2: :class:`~.IndicatorData`
         """
         solver_kwargs = deepcopy(solver_kwargs or {})
-        track_coefficients = solver_kwargs.pop("track_coefficients", not self.steady)
         default_enrichment_kwargs = {"enrichment_method": "p", "num_enrichments": 1}
         enrichment_kwargs = dict(default_enrichment_kwargs, **(enrichment_kwargs or {}))
         enriched_mesh_seq = self.get_enriched_mesh_seq(**enrichment_kwargs)
@@ -242,10 +241,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self._create_indicators()
 
         # Initialise adjoint solver generators on the MeshSeq and its enriched version
-        adj_sol_gen = self._solve_adjoint(track_coefficients=False, **solver_kwargs)
-        # We need to track changes of the form coefficients in the enriched problem if the problem is unsteady
-        solver_kwargs["track_coefficients"] = track_coefficients
-        adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(**solver_kwargs)
+        adj_sol_gen = self._solve_adjoint(**solver_kwargs)
+        # Track form coefficient changes in the enriched problem if the problem is unsteady
+        adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(
+            track_coefficients=not self.steady,
+            **solver_kwargs,
+        )
 
         FWD, ADJ = "forward", "adjoint"
         FWD_OLD = "forward" if self.steady else "forward_old"
@@ -304,7 +305,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     # Update other time-dependent form coefficients if they changed
                     # since the previous export timestep
                     emseq = enriched_mesh_seq
-                    if track_coefficients and emseq._changed_form_coeffs[f]:
+                    if not self.steady and emseq._changed_form_coeffs[f]:
                         for idx, coeffs in emseq._changed_form_coeffs[f].items():
                             if j in coeffs:
                                 emseq.forms[f].coefficients()[idx].assign(coeffs[j])
