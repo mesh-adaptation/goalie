@@ -231,7 +231,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :rtype1: :class:`~.AdjointSolutionData`
         :rtype2: :class:`~.IndicatorData`
         """
-        solver_kwargs = deepcopy(solver_kwargs or {})
+        solver_kwargs = solver_kwargs or {}
         default_enrichment_kwargs = {"enrichment_method": "p", "num_enrichments": 1}
         enrichment_kwargs = dict(default_enrichment_kwargs, **(enrichment_kwargs or {}))
         enriched_mesh_seq = self.get_enriched_mesh_seq(**enrichment_kwargs)
