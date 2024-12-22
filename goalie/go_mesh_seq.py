@@ -101,7 +101,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     # Skip solution fields since they are stored separately
                     if coeff.name().split("_old")[0] in self.time_partition.field_names:
                         continue
-                    if not np.array_equal(
+                    if not np.allclose(
                         coeff.vector().array(), init_coeff.vector().array()
                     ):
                         if coeff_idx not in self._changed_form_coeffs[field]:
