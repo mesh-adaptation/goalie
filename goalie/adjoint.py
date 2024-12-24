@@ -381,6 +381,7 @@ class AdjointMeshSeq(MeshSeq):
         adj_solver_kwargs=None,
         get_adj_values=False,
         test_checkpoint_qoi=False,
+        track_coefficients=False,
     ):
         """
         A generator for solving an adjoint problem on a sequence of subintervals.
@@ -402,6 +403,10 @@ class AdjointMeshSeq(MeshSeq):
         :type get_adj_values: :class:`bool`
         :kwarg test_checkpoint_qoi: solve over the final subinterval when checkpointing
             so that the QoI value can be checked across runs
+        :kwarg: track_coefficients: if ``True``, coefficients in the variational form
+            will be stored whenever they change between export times. Only relevant for
+            goal-oriented error estimation on unsteady problems.
+        :type track_coefficients: :class:`bool`
         :yields: the solution data of the forward and adjoint solves
         :ytype: :class:`~.AdjointSolutionData`
         """
@@ -484,9 +489,20 @@ class AdjointMeshSeq(MeshSeq):
             # Initialise the solver generator
             solver_gen = wrapped_solver(i, checkpoints[i], **solver_kwargs)
 
-            # Annotate tape on current subinterval
-            for _ in range(tp.num_timesteps_per_subinterval[i]):
-                next(solver_gen)
+            # Annotate tape on current subinterval.
+            # If we are using a goal-oriented approach on an unsteady problem, we need
+            # to keep track of the coefficients in the variational form to detect their
+            # changes between export times. In that case, we solve the forward problem
+            # sequentially between each export time and save changing coefficients.
+            # Otherwise, solve over the entire subinterval in one go.
+            if track_coefficients:
+                for j in range(tp.num_exports_per_subinterval[i] - 1):
+                    for _ in range(tp.num_timesteps_per_export[i]):
+                        next(solver_gen)
+                    self._detect_changing_coefficients(j)
+            else:
+                for _ in range(tp.num_timesteps_per_subinterval[i]):
+                    next(solver_gen)
             pyadjoint.pause_annotation()
 
             # Final solution is used as the initial condition for the next subinterval
