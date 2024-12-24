@@ -19,6 +19,7 @@ from firedrake import (
     UnitTriangleMesh,
     VectorFunctionSpace,
     dx,
+    inner,
     solve,
 )
 from parameterized import parameterized
@@ -531,3 +532,84 @@ class TestGlobalEnrichment(TrivialGoalOrientedBaseClass):
         target = Function(mesh_seq_e.function_spaces["field"][0])
         transfer(source, target)
         self.assertAlmostEqual(norm(source), norm(target))
+
+
+class GoalOrientedBaseClass(unittest.TestCase):
+    """
+    Base class for tests with a complete :class:`GoalOrientedMeshSeq`.
+    """
+
+    def setUp(self):
+        self.field = "field"
+        self.time_partition = TimePartition(1.0, 1, 0.5, [self.field])
+        self.meshes = [UnitSquareMesh(1, 1)]
+
+    def go_mesh_seq(self, coeff_diff=0.0):
+        def get_function_spaces(mesh):
+            return {self.field: FunctionSpace(mesh, "R", 0)}
+
+        def get_initial_condition(mesh_seq):
+            return {self.field: Function(mesh_seq.function_spaces[self.field][0])}
+
+        def get_solver(mesh_seq):
+            def solver(index):
+                tp = mesh_seq.time_partition
+                R = FunctionSpace(mesh_seq[index], "R", 0)
+                dt = Function(R).assign(tp.timesteps[index])
+
+                u, u_ = mesh_seq.fields[self.field]
+                f = Function(R).assign(1.0001)
+                v = TestFunction(u.function_space())
+                F = (u - u_) / dt * v * dx - f * v * dx
+                mesh_seq.read_forms({self.field: F})
+
+                for _ in range(tp.num_timesteps_per_subinterval[index]):
+                    solve(F == 0, u, ad_block_tag=self.field)
+                    yield
+
+                    u_.assign(u)
+                    f += coeff_diff
+
+            return solver
+
+        def get_qoi(mesh_seq, i):
+            def end_time_qoi():
+                u = mesh_seq.fields[self.field][0]
+                return inner(u, u) * dx
+
+            return end_time_qoi
+
+        return GoalOrientedMeshSeq(
+            self.time_partition,
+            self.meshes,
+            get_initial_condition=get_initial_condition,
+            get_function_spaces=get_function_spaces,
+            get_solver=get_solver,
+            get_qoi=get_qoi,
+            qoi_type="end_time",
+        )
+
+
+class TestDetectChangedCoefficients(GoalOrientedBaseClass):
+    """
+    Unit tests for detecting changed coefficients using
+    :meth:`GoalOrientedMeshSeq._detect_changing_coefficients`.
+    """
+
+    def test_constant_coefficients(self):
+        mesh_seq = self.go_mesh_seq()
+        # Solve over the first (only) subinterval
+        next(mesh_seq._solve_adjoint(track_coefficients=True))
+        # Check no coefficients have changed
+        self.assertEqual(mesh_seq._changed_form_coeffs, {self.field: {}})
+
+    def test_changed_coefficients(self):
+        # Change coefficient f by coeff_diff every timestep
+        coeff_diff = 1.1
+        mesh_seq = self.go_mesh_seq(coeff_diff=coeff_diff)
+        # Solve over the first (only) subinterval
+        next(mesh_seq._solve_adjoint(track_coefficients=True))
+        changed_coeffs_dict = mesh_seq._changed_form_coeffs[self.field]
+        coeff_idx = next(iter(changed_coeffs_dict))
+        for export_idx, f in changed_coeffs_dict[coeff_idx].items():
+            self.assertTrue(f.vector().gather() == [1.0001 + export_idx * coeff_diff])
