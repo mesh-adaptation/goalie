@@ -242,7 +242,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         # Initialise adjoint solver generators on the MeshSeq and its enriched version
         adj_sol_gen = self._solve_adjoint(**solver_kwargs)
-        # Track form coefficient changes in the enriched problem if the problem is unsteady
+        # Track form coefficient changes in the enriched problem if the problem is
+        # unsteady
         adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(
             track_coefficients=not self.steady,
             **solver_kwargs,
