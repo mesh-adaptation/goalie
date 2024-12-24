@@ -158,7 +158,10 @@ class TestStringFormatting(BaseClasses.MeshSeqTestCase):
 
     def test_mesh_seq_time_interval_repr(self):
         mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)])
-        expected = "MeshSeq([Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*)])"
+        expected = (
+            "MeshSeq([Mesh(VectorElement("
+            "FiniteElement('Lagrange', triangle, 1), dim=2), .*)])"
+        )
         self.assertTrue(re.match(repr(mesh_seq), expected))
 
     def test_mesh_seq_time_partition_2_repr(self):

@@ -25,10 +25,10 @@ from firedrake import (
 from parameterized import parameterized
 from pyadjoint.block_variable import BlockVariable
 
+from goalie.adjoint import AdjointMeshSeq
 from goalie.go_mesh_seq import GoalOrientedMeshSeq
-from goalie.log import *
+from goalie.log import WARNING
 from goalie.time_partition import TimeInterval, TimePartition
-from goalie_adjoint import *
 
 
 class TestBlockLogic(unittest.TestCase):

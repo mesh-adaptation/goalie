@@ -1,6 +1,11 @@
 import unittest
 
-from firedrake import *
+import numpy as np
+import ufl
+from firedrake.function import Function
+from firedrake.functionspace import FunctionSpace
+from firedrake.ufl_expr import TestFunction, TrialFunction
+from firedrake.utility_meshes import UnitSquareMesh, UnitTriangleMesh
 from parameterized import parameterized
 
 from goalie.error_estimation import (
@@ -38,20 +43,20 @@ class TestForm2Indicator(ErrorEstimationTestCase):
         self.assertEqual(str(cm.exception), msg)
 
     def test_exterior_facet_integral(self):
-        F = self.one * ds(1) - self.one * ds(2)
+        F = self.one * ufl.ds(1) - self.one * ufl.ds(2)
         indicator = form2indicator(F)
         self.assertAlmostEqual(indicator.dat.data[0], -1)
         self.assertAlmostEqual(indicator.dat.data[1], 1)
 
     def test_interior_facet_integral(self):
-        F = avg(self.one) * dS
+        F = ufl.avg(self.one) * ufl.dS
         indicator = form2indicator(F)
-        self.assertAlmostEqual(indicator.dat.data[0], sqrt(2))
-        self.assertAlmostEqual(indicator.dat.data[1], sqrt(2))
+        self.assertAlmostEqual(indicator.dat.data[0], np.sqrt(2))
+        self.assertAlmostEqual(indicator.dat.data[1], np.sqrt(2))
 
     def test_cell_integral(self):
-        x, y = SpatialCoordinate(self.mesh)
-        F = conditional(x + y < 1, 1, 0) * dx
+        x, y = ufl.SpatialCoordinate(self.mesh)
+        F = ufl.conditional(x + y < 1, 1, 0) * ufl.dx
         indicator = form2indicator(F)
         self.assertAlmostEqual(indicator.dat.data[0], 0)
         self.assertAlmostEqual(indicator.dat.data[1], 0.5)
@@ -88,14 +93,14 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
 
     def test_unit_time_instant(self):
         mesh_seq = self.mesh_seq(time_partition=TimeInstant("field", time=1.0))
-        mesh_seq.indicators["field"][0][0].assign(form2indicator(self.one * dx))
+        mesh_seq.indicators["field"][0][0].assign(form2indicator(self.one * ufl.dx))
         estimator = mesh_seq.error_estimate()
         self.assertAlmostEqual(estimator, 1)  # 1 * (0.5 + 0.5)
 
     @parameterized.expand([[False], [True]])
     def test_unit_time_instant_abs(self, absolute_value):
         mesh_seq = self.mesh_seq(time_partition=TimeInstant("field", time=1.0))
-        mesh_seq.indicators["field"][0][0].assign(form2indicator(-self.one * dx))
+        mesh_seq.indicators["field"][0][0].assign(form2indicator(-self.one * ufl.dx))
         estimator = mesh_seq.error_estimate(absolute_value=absolute_value)
         self.assertAlmostEqual(
             estimator, 1 if absolute_value else -1
@@ -103,7 +108,7 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
 
     def test_half_time_instant(self):
         mesh_seq = self.mesh_seq(time_partition=TimeInstant("field", time=0.5))
-        mesh_seq.indicators["field"][0][0].assign(form2indicator(self.one * dx))
+        mesh_seq.indicators["field"][0][0].assign(form2indicator(self.one * ufl.dx))
         estimator = mesh_seq.error_estimate()
         self.assertAlmostEqual(estimator, 0.5)  # 0.5 * (0.5 + 0.5)
 
@@ -111,7 +116,7 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         mesh_seq = self.mesh_seq(
             time_partition=TimePartition(1.0, 2, [0.5, 0.5], ["field"])
         )
-        mesh_seq.indicators["field"][0][0].assign(form2indicator(2 * self.one * dx))
+        mesh_seq.indicators["field"][0][0].assign(form2indicator(2 * self.one * ufl.dx))
         estimator = mesh_seq.error_estimate()
         self.assertAlmostEqual(estimator, 1)  # 2 * 0.5 * (0.5 + 0.5)
 
@@ -119,7 +124,7 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         mesh_seq = self.mesh_seq(
             time_partition=TimePartition(1.0, 2, [0.5, 0.25], ["field"])
         )
-        indicator = form2indicator(self.one * dx)
+        indicator = form2indicator(self.one * ufl.dx)
         mesh_seq.indicators["field"][0][0].assign(indicator)
         mesh_seq.indicators["field"][1][0].assign(indicator)
         mesh_seq.indicators["field"][1][1].assign(indicator)
@@ -132,7 +137,7 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         mesh_seq = self.mesh_seq(
             time_partition=TimeInstant(["field1", "field2"], time=1.0)
         )
-        indicator = form2indicator(self.one * dx)
+        indicator = form2indicator(self.one * ufl.dx)
         mesh_seq.indicators["field1"][0][0].assign(indicator)
         mesh_seq.indicators["field2"][0][0].assign(indicator)
         estimator = mesh_seq.error_estimate()
@@ -148,7 +153,7 @@ class TestGetDWRIndicator(ErrorEstimationTestCase):
         super().setUp()
         self.two = Function(self.fs, name="Dos")
         self.two.assign(2)
-        self.F = self.one * self.test * dx
+        self.F = self.one * self.test * ufl.dx
 
     def test_form_type_error(self):
         with self.assertRaises(TypeError) as cm:
@@ -248,7 +253,3 @@ class TestGetDWRIndicator(ErrorEstimationTestCase):
             get_dwr_indicator(self.F, self.two, test_space=test_space)
         msg = "Key 'Dos' does not exist in the test space provided."
         self.assertEqual(str(cm.exception), msg)
-
-
-if __name__ == "__main__":
-    unittest.main()  # pragma: no cover

@@ -2,23 +2,25 @@ import abc
 import unittest
 from unittest.mock import MagicMock, patch
 
-from firedrake import (
-    Function,
-    FunctionSpace,
-    UnitSquareMesh,
-    UnitTriangleMesh,
-    dx,
-)
+import numpy as np
+import ufl
+from firedrake.function import Function
+from firedrake.functionspace import FunctionSpace
+from firedrake.utility_meshes import UnitSquareMesh, UnitTriangleMesh
 from parameterized import parameterized
 
-from goalie_adjoint import *
+from goalie.adjoint import AdjointMeshSeq
+from goalie.go_mesh_seq import GoalOrientedAdaptParameters, GoalOrientedMeshSeq
+from goalie.mesh_seq import MeshSeq
+from goalie.options import AdaptParameters
+from goalie.time_partition import TimeInstant, TimePartition
 
 
 def constant_qoi(mesh_seq, index):
     R = FunctionSpace(mesh_seq[index], "R", 0)
 
     def qoi():
-        return Function(R).assign(1) * dx
+        return Function(R).assign(1) * ufl.dx
 
     return qoi
 
@@ -27,7 +29,7 @@ def oscillating_qoi(mesh_seq, index):
     R = FunctionSpace(mesh_seq[index], "R", 0)
 
     def qoi():
-        return Function(R).assign(1 if mesh_seq.fp_iteration % 2 == 0 else 2) * dx
+        return Function(R).assign(1 if mesh_seq.fp_iteration % 2 == 0 else 2) * ufl.dx
 
     return qoi
 

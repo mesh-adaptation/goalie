@@ -110,7 +110,8 @@ solutions, indicators = mesh_seq.indicate_errors(
     enrichment_kwargs={"enrichment_method": "h"}
 )
 
-# Plotting this, we find that the results are consistent with those generated previously. ::
+# Plotting this, we find that the results are consistent with those generated
+# previously. ::
 
 fig, axes, tcs = plot_indicator_snapshots(indicators, time_partition, "u", levels=50)
 fig.savefig("burgers-oo_ee.jpg")

@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from animate.adapt import adapt
 from animate.metric import RiemannianMetric
 from firedrake import *
+from firedrake.__future__ import interpolate
 
 from goalie import *
 

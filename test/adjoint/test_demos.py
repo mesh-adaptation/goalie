@@ -10,7 +10,7 @@ from os.path import splitext
 
 import pytest
 
-from goalie.log import *
+from goalie.log import WARNING, set_log_level
 
 cwd = os.path.abspath(os.path.dirname(__file__))
 demo_dir = os.path.abspath(os.path.join(cwd, "..", "..", "demos"))

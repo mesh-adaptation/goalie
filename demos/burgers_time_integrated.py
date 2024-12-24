@@ -1,19 +1,20 @@
 # Adjoint Burgers equation with a time integrated QoI
 # ======================================================
 #
-# So far, we only considered a quantity of interest
-# corresponding to a spatial integral at the end time.
-# For some problems, it is more suitable to have a QoI
-# which integrates in time as well as space.
+# So far, we only considered a quantity of interest corresponding to a spatial integral
+# at the end time. For some problems, it is more suitable to have a QoI which integrates
+# in time as well as space.
 #
-# Begin by importing from Goalie and the first Burgers demo. ::
+# Begin by importing from Firedrake and Goalie. Note that we use the *future* version
+# Firedrake's `interpolate` function: :function:`firedrake.__future__.interpolate`. ::
 
 from firedrake import *
+from firedrake.__future__ import interpolate
 
 from goalie_adjoint import *
 
-# Redefine the ``get_initial_condition`` and ``get_function_spaces``,
-# functions as in the first Burgers demo. ::
+# Redefine the ``get_initial_condition`` and ``get_function_spaces``, functions as in
+# the first Burgers demo. ::
 
 
 def get_function_spaces(mesh):
@@ -26,14 +27,12 @@ def get_initial_condition(mesh_seq):
     return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
 
 
-# The solver needs to be modified slightly in order to take
-# account of time dependent QoIs. The Burgers solver
-# uses backward Euler timestepping. The corresponding
-# quadrature routine is like the midpoint rule, but takes
-# the value from the next timestep, rather than the average
-# between that and the current value. As such, the QoI may
-# be computed by simply incrementing the :attr:`J` attribute
-# of the :class:`AdjointMeshSeq` as follows. ::
+# The solver needs to be modified slightly in order to take account of time dependent
+# QoIs. The Burgers solver uses backward Euler timestepping. The corresponding
+# quadrature routine is like the midpoint rule, but takes the value from the next
+# timestep, rather than the average between that and the current value. As such, the QoI
+# may be computed by simply incrementing the :attr:`J` attribute of the
+# :class:`AdjointMeshSeq` as follows. ::
 
 
 def get_solver(mesh_seq):
@@ -69,17 +68,15 @@ def get_solver(mesh_seq):
     return solver
 
 
-# The QoI is effectively just a time-integrated version
-# of the one previously seen.
+# The QoI is effectively just a time-integrated version of the one previously seen.
 #
 # .. math::
 #    J(u) = \int_0^{T_{\mathrm{end}}} \int_0^1
 #    \mathbf u(1,y,t) \cdot \mathbf u(1,y,t)
 #    \;\mathrm dy\;\mathrm dt.
 #
-# Note that in this case we multiply by the timestep.
-# It is wrapped in a :class:`Function` from `'R'` space to avoid
-# recompilation if the value is changed. ::
+# Note that in this case we multiply by the timestep. It is wrapped in a
+# :class:`Function` from `'R'` space to avoid recompilation if the value is changed. ::
 
 
 def get_qoi(mesh_seq, i):
@@ -106,9 +103,8 @@ time_partition = TimePartition(
     end_time, num_subintervals, dt, ["u"], num_timesteps_per_export=1
 )
 
-# The only difference when defining the :class:`AdjointMeshSeq`
-# is that we specify ``qoi_type="time_integrated"``, rather than
-# ``qoi_type="end_time"``. ::
+# The only difference when defining the :class:`AdjointMeshSeq` is that we specify
+# ``qoi_type="time_integrated"``, rather than ``qoi_type="end_time"``. ::
 
 mesh_seq = AdjointMeshSeq(
     time_partition,
@@ -128,14 +124,12 @@ fig.savefig("burgers-time_integrated.jpg")
 #    :figwidth: 90%
 #    :align: center
 #
-# With a time-integrated QoI, the adjoint problem
-# has a source term at the right-hand boundary, rather
-# than a instantaneous pulse at the terminal time. As such,
-# the adjoint solution field accumulates at the right-hand
-# boundary, as well as propagating westwards.
+# With a time-integrated QoI, the adjoint problem has a source term at the right-hand
+# boundary, rather than a instantaneous pulse at the terminal time. As such, the adjoint
+# solution field accumulates at the right-hand boundary, as well as propagating
+# westwards.
 #
-# In the `next demo <./burgers_oo.py.html>`__, we solve
-# the Burgers problem one last time, but using an
-# object-oriented approach.
+# In the `next demo <./burgers_oo.py.html>`__, we solve the Burgers problem one last
+# time, but using an object-oriented approach.
 #
 # This demo can also be accessed as a `Python script <burgers_time_integrated.py>`__.

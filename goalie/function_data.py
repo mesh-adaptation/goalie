@@ -83,8 +83,8 @@ class FunctionData(ABC):
         """
         Extract field data array in an alternative layout: as a doubly-nested dictionary
         whose first key is the field label and second key is the field name. Entries
-        of the doubly-nested dictionary are doubly-nested lists, which retain the default
-        layout: indexed first by subinterval and then by export.
+        of the doubly-nested dictionary are doubly-nested lists, which retain the
+        default layout: indexed first by subinterval and then by export.
         """
         tp = self.time_partition
         return AttrDict(
@@ -133,7 +133,8 @@ class FunctionData(ABC):
         Choosing a different layout simply promotes the specified variable to first
         access:
         * ``layout == "label"`` implies ``data[label][field][subinterval][export]``
-        * ``layout == "subinterval"`` implies ``data[subinterval][field][label][export]``
+        * ``layout == "subinterval"`` implies
+          ``data[subinterval][field][label][export]``
 
         The export index is not promoted because the number of exports may differ across
         subintervals.
