@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 
 from firedrake.function import Function
 from firedrake.functionspace import FunctionSpace
-from firedrake.mesh import MeshHierarchy
+from firedrake.mg.mesh import MeshHierarchy
 from firedrake.utility_meshes import UnitTriangleMesh
 
 from goalie.function_data import AdjointSolutionData, ForwardSolutionData, IndicatorData

@@ -17,7 +17,7 @@ from firedrake.bcs import DirichletBC
 from firedrake.function import Function
 from firedrake.functionspace import FunctionSpace
 from firedrake.solving import solve
-from firedrake.ufl_expr import TestFunction
+from firedrake.ufl_expr import CellSize, TestFunction
 from firedrake.utility_meshes import RectangleMesh
 
 from goalie.math import bessk0
@@ -65,7 +65,7 @@ def get_solver(self):
         u_x = Function(R).assign(1.0)
         u_y = Function(R).assign(0.0)
         u = ufl.as_vector([u_x, u_y])
-        h = ufl.CellSize(self[i])
+        h = CellSize(self[i])
         S = source(self[i])
 
         # Stabilisation parameter

@@ -11,8 +11,7 @@ from firedrake.function import Function
 from firedrake.functionspace import FunctionSpace
 from utility import uniform_mesh
 
-from goalie.error_estimation import effectivity_index
-from goalie.utility import create_directory
+from goalie.utility import create_directory, effectivity_index
 
 pointwise_norm_types = [["l1"], ["l2"], ["linf"]]
 integral_scalar_norm_types = [["L1"], ["L2"], ["L4"], ["H1"], ["HCurl"]]

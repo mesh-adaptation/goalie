@@ -12,12 +12,13 @@ import pyadjoint
 import pytest
 from animate.utility import errornorm, norm
 from firedrake.cofunction import Cofunction
+from firedrake.output.vtk_output import VTKFile
 from firedrake.utility_meshes import UnitTriangleMesh
 
 from goalie.adjoint import AdjointMeshSeq
 from goalie.log import DEBUG, pyrint, set_log_level
 from goalie.time_partition import TimeInterval, TimePartition
-from goalie.utility import AttrDict, VTKFile
+from goalie.utility import AttrDict
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "examples"))
 
