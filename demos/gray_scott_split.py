@@ -38,8 +38,7 @@ def get_initial_condition(mesh_seq):
             And(And(1 <= x, x <= 1.5), And(1 <= y, y <= 1.5)),
             0.25 * sin(4 * pi * x) ** 2 * sin(4 * pi * y) ** 2,
             0,
-        ),
-        fs_b,
+        )
     )
     a_init = Function(fs_a).interpolate(1 - 2 * b_init)
     return {"a": a_init, "b": b_init}
