@@ -64,7 +64,7 @@ def get_solver(mesh_seq):
 def get_initial_condition(mesh_seq):
     fs = mesh_seq.function_spaces["u"][0]
     x, y = SpatialCoordinate(mesh_seq[0])
-    return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
+    return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
 # In line with the

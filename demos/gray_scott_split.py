@@ -33,17 +33,15 @@ def get_initial_condition(mesh_seq):
     x, y = SpatialCoordinate(mesh_seq[0])
     fs_a = mesh_seq.function_spaces["a"][0]
     fs_b = mesh_seq.function_spaces["b"][0]
-    b_init = assemble(
-        interpolate(
-            conditional(
-                And(And(1 <= x, x <= 1.5), And(1 <= y, y <= 1.5)),
-                0.25 * sin(4 * pi * x) ** 2 * sin(4 * pi * y) ** 2,
-                0,
-            ),
-            fs_b,
-        )
+    b_init = Function(fs_b).interpolate(
+        conditional(
+            And(And(1 <= x, x <= 1.5), And(1 <= y, y <= 1.5)),
+            0.25 * sin(4 * pi * x) ** 2 * sin(4 * pi * y) ** 2,
+            0,
+        ),
+        fs_b,
     )
-    a_init = assemble(interpolate(1 - 2 * b_init, fs_a))
+    a_init = Function(fs_a).interpolate(1 - 2 * b_init)
     return {"a": a_init, "b": b_init}
 
 
