@@ -5,9 +5,7 @@
 # at the end time. For some problems, it is more suitable to have a QoI which integrates
 # in time as well as space.
 #
-# Begin by importing from Firedrake and Goalie. Note that we use the *future* version
-# Firedrake's `interpolate` function: :function:`firedrake.__future__.interpolate`. ::
-
+# Begin by importing from Firedrake and Goalie.
 from firedrake import *
 
 from goalie_adjoint import *

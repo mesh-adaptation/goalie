@@ -11,8 +11,6 @@ Code here is based on that found at
 import os
 
 import ufl
-from firedrake.__future__ import interpolate
-from firedrake.assemble import assemble
 from firedrake.bcs import DirichletBC
 from firedrake.function import Function
 from firedrake.functionspace import FunctionSpace, VectorFunctionSpace
@@ -57,7 +55,7 @@ def get_solver(self):
         y = ufl.SpatialCoordinate(self[i])[1]
         u_inflow = ufl.as_vector([y * (10 - y) / 25.0, 0])
         noslip = DirichletBC(W.sub(0), (0, 0), (3, 5))
-        inflow = DirichletBC(W.sub(0), assemble(interpolate(u_inflow, W.sub(0))), 1)
+        inflow = DirichletBC(W.sub(0), Function(W.sub(0)).interpolate(u_inflow), 1)
         bcs = [inflow, noslip, DirichletBC(W.sub(0), 0, 4)]
 
         # Solve

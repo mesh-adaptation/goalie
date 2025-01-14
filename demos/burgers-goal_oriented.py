@@ -28,7 +28,6 @@ def get_function_spaces(mesh):
 def get_initial_condition(mesh_seq):
     fs = mesh_seq.function_spaces["u"][0]
     x, y = SpatialCoordinate(mesh_seq[0])
-    # return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
     return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
