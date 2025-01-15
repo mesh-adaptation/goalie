@@ -5,11 +5,8 @@
 # at the end time. For some problems, it is more suitable to have a QoI which integrates
 # in time as well as space.
 #
-# Begin by importing from Firedrake and Goalie. Note that we use the *future* version
-# Firedrake's `interpolate` function: :function:`firedrake.__future__.interpolate`. ::
-
+# Begin by importing from Firedrake and Goalie.
 from firedrake import *
-from firedrake.__future__ import interpolate
 
 from goalie_adjoint import *
 
@@ -24,7 +21,7 @@ def get_function_spaces(mesh):
 def get_initial_condition(mesh_seq):
     fs = mesh_seq.function_spaces["u"][0]
     x, y = SpatialCoordinate(mesh_seq[0])
-    return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
+    return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
 # The solver needs to be modified slightly in order to take account of time dependent

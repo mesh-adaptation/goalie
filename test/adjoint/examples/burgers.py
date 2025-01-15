@@ -8,8 +8,6 @@ Code here is based on that found at
 """
 
 import ufl
-from firedrake.__future__ import interpolate
-from firedrake.assemble import assemble
 from firedrake.function import Function
 from firedrake.functionspace import FunctionSpace, VectorFunctionSpace
 from firedrake.solving import solve
@@ -78,7 +76,7 @@ def get_initial_condition(self):
     init_fs = self.function_spaces["uv_2d"][0]
     x, y = ufl.SpatialCoordinate(self.meshes[0])
     return {
-        "uv_2d": assemble(interpolate(ufl.as_vector([ufl.sin(ufl.pi * x), 0]), init_fs))
+        "uv_2d": Function(init_fs).interpolate(ufl.as_vector([ufl.sin(ufl.pi * x), 0]))
     }
 
 
