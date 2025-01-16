@@ -1,10 +1,14 @@
 import unittest
 
 import numpy as np
-from firedrake import *
+import ufl
+from firedrake.function import Function
+from firedrake.functionspace import FunctionSpace
+from firedrake.utility_meshes import UnitSquareMesh
 
-from goalie.adjoint import annotate_qoi
-from goalie_adjoint import *
+from goalie.adjoint import AdjointMeshSeq, annotate_qoi
+from goalie.go_mesh_seq import GoalOrientedAdaptParameters
+from goalie.time_partition import TimeInterval
 
 
 class TestAdjointUtils(unittest.TestCase):
@@ -27,7 +31,7 @@ class TestAdjointUtils(unittest.TestCase):
             R = FunctionSpace(mesh_seq[i], "R", 0)
 
             def qoi():
-                return Function(R).assign(1) * dx
+                return Function(R).assign(1) * ufl.dx
 
             return qoi
 
@@ -39,7 +43,7 @@ class TestAdjointUtils(unittest.TestCase):
             R = FunctionSpace(mesh_seq[i], "R", 0)
 
             def qoi(t):
-                return Function(R).assign(1) * dx
+                return Function(R).assign(1) * ufl.dx
 
             return qoi
 
@@ -51,7 +55,7 @@ class TestAdjointUtils(unittest.TestCase):
             R = FunctionSpace(mesh_seq[i], "R", 0)
 
             def qoi():
-                return Function(R).assign(1) * dx
+                return Function(R).assign(1) * ufl.dx
 
             return qoi
 
@@ -66,7 +70,7 @@ class TestAdjointUtils(unittest.TestCase):
             R = FunctionSpace(mesh_seq[i], "R", 0)
 
             def qoi(t):
-                return Function(R).assign(1) * dx
+                return Function(R).assign(1) * ufl.dx
 
             return qoi
 
@@ -81,7 +85,7 @@ class TestAdjointUtils(unittest.TestCase):
             R = FunctionSpace(mesh_seq[i], "R", 0)
 
             def qoi(t, r):
-                return Function(R).assign(1) * dx
+                return Function(R).assign(1) * ufl.dx
 
             return qoi
 

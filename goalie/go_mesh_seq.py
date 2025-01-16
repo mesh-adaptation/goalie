@@ -3,6 +3,7 @@ Drivers for goal-oriented error estimation on sequences of meshes.
 """
 
 from collections.abc import Iterable
+from copy import deepcopy
 
 import numpy as np
 import ufl
@@ -28,6 +29,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         super().__init__(*args, **kwargs)
         self.estimator_values = []
         self._forms = None
+        self._prev_form_coeffs = None
+        self._changed_form_coeffs = None
 
     def read_forms(self, forms_dictionary):
         """
@@ -64,6 +67,52 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 " Use read_forms({'field_name': F}) in get_solver to read in the forms."
             )
         return self._forms
+
+    @PETSc.Log.EventDecorator()
+    def _detect_changing_coefficients(self, export_idx):
+        """
+        Detect whether coefficients other than the solution in the variational forms
+        change over time. If they do, store the changed coefficients so we can update
+        them in :meth:`~.GoalOrientedMeshSeq.indicate_errors`.
+
+        Changed coefficients are stored in a dictionary with the following structure:
+        ``{field: {coeff_idx: {export_timestep_idx: coefficient}}}``, where
+        ``coefficient=forms[field].coefficients()[coeff_idx]`` at export timestep
+        ``export_timestep_idx``.
+
+        :arg export_idx: index of the current export timestep within the subinterval
+        :type export_idx: :class:`int`
+        """
+        if export_idx == 0:
+            # Copy coefficients at subinterval's first export timestep
+            self._prev_form_coeffs = {
+                field: deepcopy(form.coefficients())
+                for field, form in self.forms.items()
+            }
+            self._changed_form_coeffs = {field: {} for field in self.fields}
+        else:
+            # Store coefficients that have changed since the previous export timestep
+            for field in self.fields:
+                # Coefficients at the current timestep
+                coeffs = self.forms[field].coefficients()
+                for coeff_idx, (coeff, init_coeff) in enumerate(
+                    zip(coeffs, self._prev_form_coeffs[field])
+                ):
+                    # Skip solution fields since they are stored separately
+                    if coeff.name().split("_old")[0] in self.time_partition.field_names:
+                        continue
+                    if not np.allclose(
+                        coeff.vector().array(), init_coeff.vector().array()
+                    ):
+                        if coeff_idx not in self._changed_form_coeffs[field]:
+                            self._changed_form_coeffs[field][coeff_idx] = {
+                                0: deepcopy(init_coeff)
+                            }
+                        self._changed_form_coeffs[field][coeff_idx][export_idx] = (
+                            deepcopy(coeff)
+                        )
+                        # Use the current coeff for comparison in the next timestep
+                        init_coeff.assign(coeff)
 
     @PETSc.Log.EventDecorator()
     def get_enriched_mesh_seq(self, enrichment_method="p", num_enrichments=1):
@@ -171,8 +220,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :type enrichment_kwargs: :class:`dict` with :class:`str` keys and values which
             may take various types
         :kwarg solver_kwargs: parameters for the forward solver, as well as any
-            parameters for the QoI, which should be included as a sub-dictionary with key
-            'qoi_kwargs'
+            parameters for the QoI, which should be included as a sub-dictionary with
+            key 'qoi_kwargs'
         :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
             take various types
         :kwarg indicator_fn: function which maps the form, adjoint error and enriched
@@ -193,7 +242,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         # Initialise adjoint solver generators on the MeshSeq and its enriched version
         adj_sol_gen = self._solve_adjoint(**solver_kwargs)
-        adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(**solver_kwargs)
+        # Track form coefficient changes in the enriched problem if the problem is
+        # unsteady
+        adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(
+            track_coefficients=not self.steady,
+            **solver_kwargs,
+        )
 
         FWD, ADJ = "forward", "adjoint"
         FWD_OLD = "forward" if self.steady else "forward_old"
@@ -248,6 +302,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                         )
                     )
                     u_star_e[f] -= u_star[f]
+
+                    # Update other time-dependent form coefficients if they changed
+                    # since the previous export timestep
+                    emseq = enriched_mesh_seq
+                    if not self.steady and emseq._changed_form_coeffs[f]:
+                        for idx, coeffs in emseq._changed_form_coeffs[f].items():
+                            if j in coeffs:
+                                emseq.forms[f].coefficients()[idx].assign(coeffs[j])
 
                     # Evaluate error indicator
                     indi_e = indicator_fn(enriched_mesh_seq.forms[f], u_star_e[f])
@@ -330,8 +392,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         r"""
         Apply goal-oriented mesh adaptation using a fixed point iteration loop approach.
 
-        :arg adaptor: function for adapting the mesh sequence. Its arguments are the mesh
-            sequence and the solution and indicator data objects. It should return
+        :arg adaptor: function for adapting the mesh sequence. Its arguments are the
+            mesh sequence and the solution and indicator data objects. It should return
             ``True`` if the convergence criteria checks are to be skipped for this
             iteration. Otherwise, it should return ``False``.
         :kwarg parameters: parameters to apply to the mesh adaptation process

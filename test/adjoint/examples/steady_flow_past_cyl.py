@@ -1,11 +1,8 @@
 """
-Problem specification for a simple steady
-state flow-past-a-cylinder test case which
+Problem specification for a simple steady state flow-past-a-cylinder test case which
 solves a Stokes problem.
 
-The test case is notable for Goalie
-because the prognostic equation is
-nonlinear.
+The test case is notable for Goalie because the prognostic equation is nonlinear.
 
 Code here is based on that found at
     https://nbviewer.jupyter.org/github/firedrakeproject/firedrake/blob/master/docs/notebooks/06-pde-constrained-optimisation.ipynb
@@ -13,8 +10,13 @@ Code here is based on that found at
 
 import os
 
-from firedrake import *
-from firedrake.__future__ import interpolate
+import ufl
+from firedrake.bcs import DirichletBC
+from firedrake.function import Function
+from firedrake.functionspace import FunctionSpace, VectorFunctionSpace
+from firedrake.mesh import Mesh
+from firedrake.solving import solve
+from firedrake.ufl_expr import TestFunctions
 
 mesh = Mesh(os.path.join(os.path.dirname(__file__), "mesh-with-hole.msh"))
 fields = ["up"]
@@ -26,17 +28,12 @@ steady = True
 
 
 def get_function_spaces(mesh):
-    r"""
-    Taylor-Hood :math:`\mathbb P2-\mathbb P1` space.
-    """
+    r"""Taylor-Hood :math:`\mathbb P2-\mathbb P1` space."""
     return {"up": VectorFunctionSpace(mesh, "CG", 2) * FunctionSpace(mesh, "CG", 1)}
 
 
 def get_solver(self):
-    """
-    Stokes problem solved using a
-    direct method.
-    """
+    """Stokes problem solved using a direct method."""
 
     def solver(i):
         W = self.function_spaces["up"][i]
@@ -45,20 +42,20 @@ def get_solver(self):
         # Define variational problem
         R = FunctionSpace(self[i], "R", 0)
         nu = Function(R).assign(1.0)
-        u, p = split(up)
+        u, p = ufl.split(up)
         v, q = TestFunctions(W)
         F = (
-            inner(dot(u, nabla_grad(u)), v) * dx
-            + nu * inner(grad(u), grad(v)) * dx
-            - inner(p, div(v)) * dx
-            - inner(q, div(u)) * dx
+            ufl.inner(ufl.dot(u, ufl.nabla_grad(u)), v) * ufl.dx
+            + nu * ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
+            - ufl.inner(p, ufl.div(v)) * ufl.dx
+            - ufl.inner(q, ufl.div(u)) * ufl.dx
         )
 
         # Define inflow and no-slip boundary conditions
-        y = SpatialCoordinate(self[i])[1]
-        u_inflow = as_vector([y * (10 - y) / 25.0, 0])
+        y = ufl.SpatialCoordinate(self[i])[1]
+        u_inflow = ufl.as_vector([y * (10 - y) / 25.0, 0])
         noslip = DirichletBC(W.sub(0), (0, 0), (3, 5))
-        inflow = DirichletBC(W.sub(0), assemble(interpolate(u_inflow, W.sub(0))), 1)
+        inflow = DirichletBC(W.sub(0), Function(W.sub(0)).interpolate(u_inflow), 1)
         bcs = [inflow, noslip, DirichletBC(W.sub(0), 0, 4)]
 
         # Solve
@@ -84,12 +81,11 @@ def get_solver(self):
 
 def get_initial_condition(self):
     """
-    Dummy initial condition function which
-    acts merely to pass over the
+    Dummy initial condition function which acts merely to pass over the
     :class:`FunctionSpace`.
     """
-    x, y = SpatialCoordinate(self[0])
-    u_inflow = as_vector([y * (10 - y) / 25.0, 0])
+    x, y = ufl.SpatialCoordinate(self[0])
+    u_inflow = ufl.as_vector([y * (10 - y) / 25.0, 0])
     up = Function(self.function_spaces["up"][0])
     u, p = up.subfunctions
     u.interpolate(u_inflow)
@@ -97,13 +93,10 @@ def get_initial_condition(self):
 
 
 def get_qoi(self, i):
-    """
-    Quantity of interest which integrates
-    pressure over the boundary of the hole.
-    """
+    """Quantity of interest which integrates pressure over the boundary of the hole."""
 
     def steady_qoi():
-        u, p = split(self.fields["up"])
-        return p * ds(4)
+        u, p = ufl.split(self.fields["up"])
+        return p * ufl.ds(4)
 
     return steady_qoi
