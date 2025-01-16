@@ -4,6 +4,7 @@ Module for handling PDE-constrained optimisation.
 
 import abc
 
+import firedrake.function as ffunc
 import numpy as np
 
 from .log import log
@@ -31,8 +32,8 @@ class QoIOptimiser_Base(abc.ABC):
 
     def __init__(self, forward_run, mesh, control, params):
         """
-        :arg forward_run: a Python function that implements the forward model and computes
-            the objective functional
+        :arg forward_run: a Python function that implements the forward model and
+            computes the objective functional
         :type forward_run: :class:`~.Callable`
         :arg mesh: the initial mesh
         :type mesh: :class:`firedrake.mesh.MeshGeometry`
@@ -44,13 +45,19 @@ class QoIOptimiser_Base(abc.ABC):
         # TODO: Use Goalie Solver rather than forward_run
         self.forward_run = forward_run
         self.mesh = mesh
+        if (not isinstance(control, ffunc.Function)) or (
+            control.ufl_element().family() != "R"
+        ):
+            raise NotImplementedError(
+                "Only controls in R-space are currently implemented."
+            )
         self.control = control
         self.params = params
 
     def line_search(self, P, J, dJ):
         """
-        Apply a backtracking line search method to update the step length (i.e., learning
-        rate).
+        Apply a backtracking line search method to update the step length (i.e.,
+        learning rate).
 
         :arg P: the current descent direction
         :type P: :class:`firedrake.function.Function`
