@@ -1,6 +1,10 @@
 import unittest
 
-from goalie.options import AdaptParameters, GoalOrientedAdaptParameters, OptimisationParameters
+from goalie.options import (
+    AdaptParameters,
+    GoalOrientedAdaptParameters,
+    OptimisationParameters,
+)
 
 
 # TODO: Subclass the test cases to simplify future extension
