@@ -12,7 +12,7 @@ from animate.utility import Mesh
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
 
-from .log import DEBUG, debug, info, logger, pyrint, warning
+from .log import DEBUG, debug, info, logger, warning
 
 __all__ = ["MeshSeq"]
 
@@ -40,9 +40,6 @@ class MeshSeq:
         self.set_meshes(initial_meshes)
         self._transfer_method = kwargs.get("transfer_method", "project")
         self._transfer_kwargs = kwargs.get("transfer_kwargs", {})
-        self.check_convergence = np.array([True] * len(self), dtype=bool)
-        self.converged = np.array([False] * len(self), dtype=bool)
-        self.params = None
         self.sections = [{} for mesh in self]
 
     def __str__(self):
@@ -232,46 +229,3 @@ class MeshSeq:
         transfer_kwargs = kwargs.copy()
         transfer_kwargs.update(self._transfer_kwargs)
         return transfer(source, target_space, self._transfer_method, **transfer_kwargs)
-
-    def check_element_count_convergence(self):
-        r"""
-        Check for convergence of the fixed point iteration due to the relative
-        difference in element count being smaller than the specified tolerance.
-
-        :return: an array, whose entries are ``True`` if convergence is detected on the
-            corresponding subinterval
-        :rtype: :class:`list` of :class:`bool`\s
-        """
-        if self.params.drop_out_converged:
-            converged = self.converged
-        else:
-            converged = np.array([False] * len(self), dtype=bool)
-        if len(self.element_counts) >= max(2, self.params.miniter + 1):
-            for i, (ne_, ne) in enumerate(zip(*self.element_counts[-2:])):
-                if not self.check_convergence[i]:
-                    self.info(
-                        f"Skipping element count convergence check on subinterval {i})"
-                        f" because check_convergence[{i}] == False."
-                    )
-                    continue
-                if abs(ne - ne_) <= self.params.element_rtol * ne_:
-                    converged[i] = True
-                    if len(self) == 1:
-                        pyrint(
-                            f"Element count converged after {self.fp_iteration+1}"
-                            " iterations under relative tolerance"
-                            f" {self.params.element_rtol}."
-                        )
-                    else:
-                        pyrint(
-                            f"Element count converged on subinterval {i} after"
-                            f" {self.fp_iteration+1} iterations under relative"
-                            f" tolerance {self.params.element_rtol}."
-                        )
-
-        # Check only early subintervals are marked as converged
-        if self.params.drop_out_converged and not converged.all():
-            first_not_converged = converged.argsort()[0]
-            converged[first_not_converged:] = False
-
-        return converged
