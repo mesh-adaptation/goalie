@@ -201,7 +201,7 @@ class MeshSeq:
         from matplotlib.pyplot import subplots
 
         if self.dim != 2:
-            raise ValueError("MeshSeq plotting only supported in 2D")
+            raise ValueError("MeshSeq plotting only supported in 2D.")
 
         # Process kwargs
         interior_kw = {"edgecolor": "k"}
@@ -335,7 +335,7 @@ class MeshSeq:
                         self.debug(
                             "Current and lagged solutions are equal. Does the"
                             " solver yield before updating lagged solutions?"
-                        )
+                        )  # noqa
                 break
             assert isinstance(method_map, dict), f"get_{method} should return a dict"
             mesh_seq_fields = set(self.fields)
@@ -456,8 +456,8 @@ class MeshSeq:
         :kwarg update_solutions: if ``True``, updates the solution data
         :type update_solutions: :class:`bool`
         :kwarg solver_kwargs: parameters for the forward solver
-        :type solver_kwargs: :class:`dict` whose keys are :class:`str`\s and whose values
-            may take various types
+        :type solver_kwargs: :class:`dict` whose keys are :class:`str`\s and whose
+            values may take various types
         :yields: the solution data of the forward solves
         :ytype: :class:`~.ForwardSolutionData`
         """
@@ -492,7 +492,7 @@ class MeshSeq:
                         next(solver_gen)
                     # Update the solution data
                     for field, sol in self.fields.items():
-                        if not self.steady:
+                        if not self.field_types[field] == "steady":
                             assert isinstance(sol, tuple)
                             solutions[field].forward[i][j].assign(sol[0])
                             solutions[field].forward_old[i][j].assign(sol[1])
@@ -562,8 +562,8 @@ class MeshSeq:
         for more details.
 
         :kwarg solver_kwargs: parameters for the forward solver
-        :type solver_kwargs: :class:`dict` whose keys are :class:`str`\s and whose values
-            may take various types
+        :type solver_kwargs: :class:`dict` whose keys are :class:`str`\s and whose
+            values may take various types
         :returns: the solution data of the forward solves
         :rtype: :class:`~.ForwardSolutionData`
         """
@@ -606,8 +606,8 @@ class MeshSeq:
                     else:
                         pyrint(
                             f"Element count converged on subinterval {i} after"
-                            f" {self.fp_iteration+1} iterations under relative tolerance"
-                            f" {self.params.element_rtol}."
+                            f" {self.fp_iteration+1} iterations under relative"
+                            f" tolerance {self.params.element_rtol}."
                         )
 
         # Check only early subintervals are marked as converged
@@ -629,8 +629,8 @@ class MeshSeq:
         r"""
         Apply mesh adaptation using a fixed point iteration loop approach.
 
-        :arg adaptor: function for adapting the mesh sequence. Its arguments are the mesh
-            sequence and the solution data object. It should return ``True`` if the
+        :arg adaptor: function for adapting the mesh sequence. Its arguments are the
+            mesh sequence and the solution data object. It should return ``True`` if the
             convergence criteria checks are to be skipped for this iteration. Otherwise,
             it should return ``False``.
         :kwarg parameters: parameters to apply to the mesh adaptation process

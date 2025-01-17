@@ -11,11 +11,4 @@ from goalie.solver import *  # noqa
 from goalie.function_data import *  # noqa
 from goalie.error_estimation import *  # noqa
 
-from animate.utility import Mesh, VTKFile  # noqa
-
-from firedrake.__future__ import interpolate  # noqa
-
-import numpy as np  # noqa
-import os  # noqa
-
 __version__ = "0.1"

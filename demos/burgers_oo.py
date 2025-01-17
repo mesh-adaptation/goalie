@@ -69,7 +69,7 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
     def get_initial_condition(self):
         fs = self.function_spaces["u"][0]
         x, y = SpatialCoordinate(self[0])
-        return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
+        return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
     @annotate_qoi
     def get_qoi(self, i):
@@ -110,7 +110,8 @@ solutions, indicators = mesh_seq.indicate_errors(
     enrichment_kwargs={"enrichment_method": "h"}
 )
 
-# Plotting this, we find that the results are consistent with those generated previously. ::
+# Plotting this, we find that the results are consistent with those generated
+# previously. ::
 
 fig, axes, tcs = plot_indicator_snapshots(indicators, time_partition, "u", levels=50)
 fig.savefig("burgers-oo_ee.jpg")

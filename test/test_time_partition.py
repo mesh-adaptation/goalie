@@ -339,7 +339,3 @@ class TestSlicing(unittest.TestCase):
         self.assertAlmostEqual(tp12.timesteps, timesteps[1:3])
         self.assertEqual(tp0.field_names, self.field_names)
         self.assertEqual(tp0.field_names, tp12.field_names)
-
-
-if __name__ == "__main__":
-    unittest.main()

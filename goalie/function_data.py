@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 
 import firedrake.function as ffunc
 import firedrake.functionspace as ffs
+from firedrake import TransferManager
 from firedrake.checkpointing import CheckpointFile
 from firedrake.output.vtk_output import VTKFile
 
@@ -52,10 +53,10 @@ class FunctionData(ABC):
                             ]
                             for i, fs in enumerate(self.function_spaces[field])
                         ]
-                        for label in self._label_dict[field_type]
+                        for label in self.labels
                     }
                 )
-                for field, field_type in zip(tp.field_names, tp.field_types)
+                for field in tp.field_names
             }
         )
 
@@ -82,8 +83,8 @@ class FunctionData(ABC):
         """
         Extract field data array in an alternative layout: as a doubly-nested dictionary
         whose first key is the field label and second key is the field name. Entries
-        of the doubly-nested dictionary are doubly-nested lists, which retain the default
-        layout: indexed first by subinterval and then by export.
+        of the doubly-nested dictionary are doubly-nested lists, which retain the
+        default layout: indexed first by subinterval and then by export.
         """
         tp = self.time_partition
         return AttrDict(
@@ -132,7 +133,8 @@ class FunctionData(ABC):
         Choosing a different layout simply promotes the specified variable to first
         access:
         * ``layout == "label"`` implies ``data[label][field][subinterval][export]``
-        * ``layout == "subinterval"`` implies ``data[subinterval][field][label][export]``
+        * ``layout == "subinterval"`` implies
+          ``data[subinterval][field][label][export]``
 
         The export index is not promoted because the number of exports may differ across
         subintervals.
@@ -214,9 +216,9 @@ class FunctionData(ABC):
         outfile = VTKFile(output_fpath, adaptive=True)
         if initial_condition is not None:
             ics = []
-            for field_type in export_field_types:
-                for field, ic in initial_condition.items():
-                    ic = ic.copy(deepcopy=True)
+            for field, ic in initial_condition.items():
+                for field_type in export_field_types:
+                    icc = ic.copy(deepcopy=True)
                     # If the function space is mixed, rename and append each
                     # subfunction separately
                     if hasattr(ic.function_space(), "num_sub_spaces"):
@@ -228,9 +230,9 @@ class FunctionData(ABC):
                             ics.append(sf)
                     else:
                         if field_type != "forward":
-                            ic.assign(float("nan"))
-                        ic.rename(f"{field}_{field_type}")
-                        ics.append(ic)
+                            icc.assign(float("nan"))
+                        icc.rename(f"{field}_{field_type}")
+                        ics.append(icc)
             outfile.write(*ics, time=tp.subintervals[0][0])
 
         for i in range(tp.num_subintervals):
@@ -279,6 +281,56 @@ class FunctionData(ABC):
                         for j in range(tp.num_exports_per_subinterval[i] - 1):
                             f = self._data[field][field_type][i][j]
                             outfile.save_function(f, name=name, idx=j)
+
+    def transfer(self, target, method="interpolate"):
+        """
+        Transfer all functions from this :class:`~.FunctionData` object to the target
+        :class:`~.FunctionData` object by interpolation, projection or prolongation.
+
+        :arg target: the target :class:`~.FunctionData` object to which to transfer the
+            data
+        :type target: :class:`~.FunctionData`
+        :arg method: the transfer method to use. Either 'interpolate', 'project' or
+            'prolong'
+        :type method: :class:`str`
+        """
+        stp = self.time_partition
+        ttp = target.time_partition
+
+        if method not in ["interpolate", "project", "prolong"]:
+            raise ValueError(
+                f"Transfer method '{method}' not supported."
+                " Supported methods are 'interpolate', 'project', and 'prolong'."
+            )
+        if stp.num_subintervals != ttp.num_subintervals:
+            raise ValueError(
+                "Source and target have different numbers of subintervals."
+            )
+        if stp.num_exports_per_subinterval != ttp.num_exports_per_subinterval:
+            raise ValueError(
+                "Source and target have different numbers of exports per subinterval."
+            )
+
+        common_fields = set(stp.field_names) & set(ttp.field_names)
+        if not common_fields:
+            raise ValueError("No common fields between source and target.")
+
+        common_labels = set(self.labels) & set(target.labels)
+        if not common_labels:
+            raise ValueError("No common labels between source and target.")
+
+        for field in common_fields:
+            for label in common_labels:
+                for i in range(stp.num_subintervals):
+                    for j in range(stp.num_exports_per_subinterval[i] - 1):
+                        source_function = self._data[field][label][i][j]
+                        target_function = target._data[field][label][i][j]
+                        if method == "interpolate":
+                            target_function.interpolate(source_function)
+                        elif method == "project":
+                            target_function.project(source_function)
+                        elif method == "prolong":
+                            TransferManager().prolong(source_function, target_function)
 
 
 class ForwardSolutionData(FunctionData):
@@ -337,7 +389,7 @@ class IndicatorData(FunctionData):
         :arg meshes: the list of meshes used to discretise the problem in space
         """
         self._label_dict = {
-            field_type: ("error_indicator",) for field_type in ("steady", "unsteady")
+            time_dep: ("error_indicator",) for time_dep in ("steady", "unsteady")
         }
         super().__init__(
             time_partition,

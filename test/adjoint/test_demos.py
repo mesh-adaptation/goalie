@@ -10,10 +10,10 @@ from os.path import splitext
 
 import pytest
 
-from goalie.log import *
+from goalie.log import WARNING, set_log_level
 
 cwd = os.path.abspath(os.path.dirname(__file__))
-demo_dir = os.path.abspath(os.path.join(cwd, "..", "demos"))
+demo_dir = os.path.abspath(os.path.join(cwd, "..", "..", "demos"))
 all_demos = glob.glob(os.path.join(demo_dir, "*.py"))
 
 # Modifications dictionary to cut down run time of demos:
@@ -35,6 +35,10 @@ modifications = {
     "point_discharge2d-goal_oriented.py": {""""maxiter": 35""": """"maxiter": 3"""},
     "solid_body_rotation.py": {
         r"solutions\.export\((.*?)\)": "",
+    },
+    "burgers-goal_oriented.py": {
+        """"maxiter": 35""": """"maxiter": 2""",
+        "end_time = 0.5": "end_time = 0.125",
     },
 }
 

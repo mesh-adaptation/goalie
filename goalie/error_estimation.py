@@ -66,8 +66,8 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
     dual weighted residual (DWR) error indicator.
 
     Note that each term of a 1-form contains only one
-    :class:`firedrake.ufl_expr.TestFunction`. The 1-form most commonly corresponds to the
-    variational form of a PDE. If the PDE is linear, it should be written as in the
+    :class:`firedrake.ufl_expr.TestFunction`. The 1-form most commonly corresponds to
+    the variational form of a PDE. If the PDE is linear, it should be written as in the
     nonlinear case (i.e., with the solution field in place of any
     :class:`firedrake.ufl_expr.TrialFunction`\s.
 
@@ -97,7 +97,8 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
         adjoint_error = {name: adjoint_error}
     elif not isinstance(adjoint_error, dict):
         raise TypeError(
-            f"Expected 'adjoint_error' to be a Function or dict, not '{type(adjoint_error)}'."
+            "Expected 'adjoint_error' to be a Function or dict, not"
+            f" '{type(adjoint_error)}'."
         )
 
     # Process input for test_space as a dictionary
@@ -109,7 +110,8 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
         test_space = {key: test_space for key in adjoint_error}
     elif not isinstance(test_space, dict):
         raise TypeError(
-            f"Expected 'test_space' to be a FunctionSpace or dict, not '{type(test_space)}'."
+            "Expected 'test_space' to be a FunctionSpace or dict, not"
+            f" '{type(test_space)}'."
         )
 
     # Construct the mapping for each component
@@ -119,7 +121,8 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
         fs = test_space[key]
         if not isinstance(fs, WithGeometry):
             raise TypeError(
-                f"Expected 'test_space['{key}']' to be a FunctionSpace, not '{type(fs)}'."
+                f"Expected 'test_space['{key}']' to be a FunctionSpace, not"
+                f" '{type(fs)}'."
             )
         if F.ufl_domain() != err.function_space().mesh():
             raise ValueError(

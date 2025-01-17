@@ -99,7 +99,8 @@ class AdjointMeshSeq(MeshSeq):
             )
         elif self.qoi_type != "steady" and self.steady:
             raise ValueError(
-                f"Time partition is steady but the QoI type is set to '{self.qoi_type}'."
+                "Time partition is steady but the QoI type is set to"
+                f" '{self.qoi_type}'."
             )
         self._controls = None
         self.qoi_values = []
@@ -124,8 +125,8 @@ class AdjointMeshSeq(MeshSeq):
         :rtype: :class:`ufl.form.Form`
         ```
 
-        :arg solution_map: a dictionary whose keys are the solution field names and whose
-            values are the corresponding solutions
+        :arg solution_map: a dictionary whose keys are the solution field names and
+            whose values are the corresponding solutions
         :type solution_map: :class:`dict` with :class:`str` keys and values and
             :class:`firedrake.function.Function` values
         :arg subinterval: the subinterval index
@@ -228,16 +229,16 @@ class AdjointMeshSeq(MeshSeq):
         for block in solve_blocks:
             if element != block.function_space.ufl_element():
                 raise ValueError(
-                    f"Solve block list for field '{field}' contains mismatching elements:"
-                    f" {element} vs. {block.function_space.ufl_element()}."
+                    f"Solve block list for field '{field}' contains mismatching"
+                    f" elements: {element} vs. {block.function_space.ufl_element()}."
                 )
 
         # Check that the number of timesteps does not exceed the number of solve blocks
         num_timesteps = self.time_partition.num_timesteps_per_subinterval[subinterval]
         if num_timesteps > N:
             raise ValueError(
-                f"Number of timesteps exceeds number of solve blocks for field '{field}'"
-                f" on subinterval {subinterval}: {num_timesteps} > {N}."
+                f"Number of timesteps exceeds number of solve blocks for field"
+                f" '{field}' on subinterval {subinterval}: {num_timesteps} > {N}."
             )
 
         # Check the number of timesteps is divisible by the number of solve blocks
@@ -254,7 +255,8 @@ class AdjointMeshSeq(MeshSeq):
         # Check that adjoint solutions exist
         if all(block.adj_sol is None for block in solve_blocks):
             self.warning(
-                "No block has an adjoint solution. Has the adjoint equation been solved?"
+                "No block has an adjoint solution. Has the adjoint equation been"
+                " solved?"
             )
 
         # Default adjoint solution to zero, rather than None
@@ -267,8 +269,8 @@ class AdjointMeshSeq(MeshSeq):
 
     def _output(self, field, subinterval, solve_block):
         """
-        For a given solve block and solution field, get the block's outputs corresponding
-        to the solution from the current timestep.
+        For a given solve block and solution field, get the block's outputs
+        corresponding to the solution from the current timestep.
 
         :arg field: field of interest
         :type field: :class:`str`
@@ -378,6 +380,7 @@ class AdjointMeshSeq(MeshSeq):
         adj_solver_kwargs=None,
         get_adj_values=False,
         test_checkpoint_qoi=False,
+        track_coefficients=False,
     ):
         """
         A generator for solving an adjoint problem on a sequence of subintervals.
@@ -387,18 +390,22 @@ class AdjointMeshSeq(MeshSeq):
         yielded at the end of each subinterval, before clearing the tape.
 
         :kwarg solver_kwargs: parameters for the forward solver, as well as any
-            parameters for the QoI, which should be included as a sub-dictionary with key
-            'qoi_kwargs'
+            parameters for the QoI, which should be included as a sub-dictionary with
+            key 'qoi_kwargs'
         :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
             take various types
         :kwarg adj_solver_kwargs: parameters for the adjoint solver
         :type adj_solver_kwargs: :class:`dict` with :class:`str` keys and values which
             may take various types
-        :kwarg get_adj_values: if ``True``, adjoint actions are also returned at exported
-            timesteps
+        :kwarg get_adj_values: if ``True``, adjoint actions are also returned at
+            exported timesteps
         :type get_adj_values: :class:`bool`
         :kwarg test_checkpoint_qoi: solve over the final subinterval when checkpointing
             so that the QoI value can be checked across runs
+        :kwarg: track_coefficients: if ``True``, coefficients in the variational form
+            will be stored whenever they change between export times. Only relevant for
+            goal-oriented error estimation on unsteady problems.
+        :type track_coefficients: :class:`bool`
         :yields: the solution data of the forward and adjoint solves
         :ytype: :class:`~.AdjointSolutionData`
         """
@@ -481,9 +488,20 @@ class AdjointMeshSeq(MeshSeq):
             # Initialise the solver generator
             solver_gen = wrapped_solver(i, checkpoints[i], **solver_kwargs)
 
-            # Annotate tape on current subinterval
-            for _ in range(tp.num_timesteps_per_subinterval[i]):
-                next(solver_gen)
+            # Annotate tape on current subinterval.
+            # If we are using a goal-oriented approach on an unsteady problem, we need
+            # to keep track of the coefficients in the variational form to detect their
+            # changes between export times. In that case, we solve the forward problem
+            # sequentially between each export time and save changing coefficients.
+            # Otherwise, solve over the entire subinterval in one go.
+            if track_coefficients:
+                for j in range(tp.num_exports_per_subinterval[i] - 1):
+                    for _ in range(tp.num_timesteps_per_export[i]):
+                        next(solver_gen)
+                    self._detect_changing_coefficients(j)
+            else:
+                for _ in range(tp.num_timesteps_per_subinterval[i]):
+                    next(solver_gen)
             pyadjoint.pause_annotation()
 
             # Final solution is used as the initial condition for the next subinterval
@@ -647,15 +665,15 @@ class AdjointMeshSeq(MeshSeq):
         :class:`~.AdjointSolutionData` for more information.
 
         :kwarg solver_kwargs: parameters for the forward solver, as well as any
-            parameters for the QoI, which should be included as a sub-dictionary with key
-            'qoi_kwargs'
+            parameters for the QoI, which should be included as a sub-dictionary with
+            key 'qoi_kwargs'
         :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
             take various types
         :kwarg adj_solver_kwargs: parameters for the adjoint solver
         :type adj_solver_kwargs: :class:`dict` with :class:`str` keys and values which
             may take various types
-        :kwarg get_adj_values: if ``True``, adjoint actions are also returned at exported
-            timesteps
+        :kwarg get_adj_values: if ``True``, adjoint actions are also returned at
+            exported timesteps
         :type get_adj_values: :class:`bool`
         :kwarg test_checkpoint_qoi: solve over the final subinterval when checkpointing
             so that the QoI value can be checked across runs

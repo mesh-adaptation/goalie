@@ -55,7 +55,7 @@ class BurgersSolver(Solver):
     def get_initial_condition(self, mesh_seq):
         fs = mesh_seq.function_spaces["u"][0]
         x, y = SpatialCoordinate(mesh_seq[0])
-        return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
+        return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
     def get_qoi(self, mesh_seq, i):
         def end_time_qoi():

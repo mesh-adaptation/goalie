@@ -1,8 +1,8 @@
 all: run
 
 run:
-	@echo "Running all tests..."
-	@python3 -m pytest -v -n auto --durations=20 .
+	@echo "Running all non-adjoint tests..."
+	@python3 -m pytest -v -n auto --durations=20 test_*.py
 	@echo "Done."
 
 clean:
@@ -13,3 +13,4 @@ clean:
 	@rm -rf *.jpg *.png
 	@rm -rf outputs*
 	@echo "Done."
+	@cd adjoint && make clean

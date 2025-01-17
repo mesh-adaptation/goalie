@@ -6,6 +6,11 @@ install:
 	@echo "Installing Goalie..."
 	@python3 -m pip install -e .
 	@echo "Done."
+
+install_dev:
+	@echo "Installing Goalie for development..."
+	@python3 -m pip install -e .[dev]
+	@echo "Done."
 	@echo "Setting up pre-commit..."
 	@pre-commit install
 	@echo "Done."
@@ -18,14 +23,13 @@ lint:
 test: lint
 	@echo "Running test suite..."
 	@cd test && make
-	@cd test_adjoint && make
+	@cd test/adjoint && make
 	@echo "PASS"
 
 coverage:
 	@echo "Generating coverage report..."
 	@python3 -m coverage erase
-	@python3 -m coverage run -a --source=goalie -m pytest -v test
-	@python3 -m coverage run -a --source=goalie -m pytest -v test_adjoint
+	@python3 -m coverage run --source=goalie -m pytest -v test
 	@python3 -m coverage html
 
 demo:
