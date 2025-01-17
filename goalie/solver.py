@@ -1,5 +1,6 @@
 import firedrake
 import numpy as np
+from animate.interpolation import transfer
 from firedrake.adjoint import pyadjoint
 from firedrake.petsc import PETSc
 
@@ -29,15 +30,24 @@ class Solver:
     """
 
     @PETSc.Log.EventDecorator()
-    def __init__(self, time_partition, mesh_sequence):
+    def __init__(self, time_partition, mesh_sequence, **kwargs):
         r"""
         :arg time_partition: a partition of the temporal domain
         :type time_partition: :class:`~.TimePartition`
         :arg mesh_sequence: a sequence of meshes on which to solve the problem
         :type mesh_sequence: :class:`~.MeshSeq`
+        :kwarg transfer_method: the method to use for transferring fields between
+            meshes. Options are "project" (default) and "interpolate". See
+            :func:`animate.interpolation.transfer` for details
+        :type transfer_method: :class:`str`
+        :kwarg transfer_kwargs: kwargs to pass to the chosen transfer method
+        :type transfer_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
         """
         self.time_partition = time_partition
         self.meshes = mesh_sequence
+        self._transfer_method = kwargs.get("transfer_method", "project")
+        self._transfer_kwargs = kwargs.get("transfer_kwargs", {})
         self.fields = {field_name: None for field_name in time_partition.field_names}
         self.field_types = dict(zip(self.fields, time_partition.field_types))
         self.subintervals = time_partition.subintervals
@@ -270,6 +280,29 @@ class Solver:
                     firedrake.Function(fs, name=f"{field}_old").assign(ic),
                 )
 
+    def _transfer(self, source, target_space, **kwargs):
+        """
+        Transfer a field between meshes using the specified transfer method.
+
+        :arg source: the function to be transferred
+        :type source: :class:`firedrake.function.Function` or
+            :class:`firedrake.cofunction.Cofunction`
+        :arg target_space: the function space which we seek to transfer onto, or the
+            function or cofunction to use as the target
+        :type target_space: :class:`firedrake.functionspaceimpl.FunctionSpace`,
+            :class:`firedrake.function.Function`
+            or :class:`firedrake.cofunction.Cofunction`
+        :returns: the transferred function
+        :rtype: :class:`firedrake.function.Function` or
+            :class:`firedrake.cofunction.Cofunction`
+
+        Extra keyword arguments are passed to :func:`goalie.interpolation.transfer`.
+        """
+        # Update kwargs with those specified by the user
+        transfer_kwargs = kwargs.copy()
+        transfer_kwargs.update(self._transfer_kwargs)
+        return transfer(source, target_space, self._transfer_method, **transfer_kwargs)
+
     @PETSc.Log.EventDecorator()
     def _solve_forward(self, update_solutions=True, solver_kwargs=None):
         r"""
@@ -331,7 +364,7 @@ class Solver:
             if i < num_subintervals - 1:
                 checkpoint = AttrDict(
                     {
-                        field: self.meshes._transfer(
+                        field: self._transfer(
                             self.fields[field]
                             if self.field_types[field] == "steady"
                             else self.fields[field][0],

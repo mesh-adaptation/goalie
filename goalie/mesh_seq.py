@@ -6,7 +6,6 @@ from collections.abc import Iterable
 
 import firedrake
 import numpy as np
-from animate.interpolation import transfer
 from animate.quality import QualityMeasure
 from animate.utility import Mesh
 from firedrake.petsc import PETSc
@@ -29,17 +28,8 @@ class MeshSeq:
         :arg initial_meshes: a list of meshes corresponding to the subinterval of the
             time partition, or a single mesh to use for all subintervals
         :type initial_meshes: :class:`list` or :class:`~.MeshGeometry`
-        :kwarg transfer_method: the method to use for transferring fields between
-            meshes. Options are "project" (default) and "interpolate". See
-            :func:`animate.interpolation.transfer` for details
-        :type transfer_method: :class:`str`
-        :kwarg transfer_kwargs: kwargs to pass to the chosen transfer method
-        :type transfer_kwargs: :class:`dict` with :class:`str` keys and values which may
-            take various types
         """
         self.set_meshes(initial_meshes)
-        self._transfer_method = kwargs.get("transfer_method", "project")
-        self._transfer_kwargs = kwargs.get("transfer_kwargs", {})
         self.sections = [{} for mesh in self]
 
     def __str__(self):
@@ -206,26 +196,3 @@ class MeshSeq:
         if len(axes) == 1:
             axes = axes[0]
         return fig, axes
-
-    def _transfer(self, source, target_space, **kwargs):
-        """
-        Transfer a field between meshes using the specified transfer method.
-
-        :arg source: the function to be transferred
-        :type source: :class:`firedrake.function.Function` or
-            :class:`firedrake.cofunction.Cofunction`
-        :arg target_space: the function space which we seek to transfer onto, or the
-            function or cofunction to use as the target
-        :type target_space: :class:`firedrake.functionspaceimpl.FunctionSpace`,
-            :class:`firedrake.function.Function`
-            or :class:`firedrake.cofunction.Cofunction`
-        :returns: the transferred function
-        :rtype: :class:`firedrake.function.Function` or
-            :class:`firedrake.cofunction.Cofunction`
-
-        Extra keyword arguments are passed to :func:`goalie.interpolation.transfer`.
-        """
-        # Update kwargs with those specified by the user
-        transfer_kwargs = kwargs.copy()
-        transfer_kwargs.update(self._transfer_kwargs)
-        return transfer(source, target_space, self._transfer_method, **transfer_kwargs)
