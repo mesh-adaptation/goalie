@@ -119,26 +119,6 @@ class Solver:
             f"Solver {self.__class__.__name__} is missing the 'get_solver' method."
         )
 
-    def get_qoi(self, *args, **kwargs):
-        """
-        Get the function for evaluating the QoI, which has either zero or one arguments,
-        corresponding to either an end time or time integrated quantity of interest,
-        respectively. If the QoI has an argument then it is for the current time.
-
-        Should be overridden by all subclasses solving adjoint problems.
-
-        Signature for the function to be returned:
-        ```
-        :arg t: the current time (for time-integrated QoIs)
-        :type t: :class:`float`
-        :return: the QoI as a 0-form
-        :rtype: :class:`ufl.form.Form`
-        ```
-        """
-        raise NotImplementedError(
-            f"Solver {self.__class__.__name__} is missing the 'get_qoi' method."
-        )
-
     def _outputs_consistent(self):
         """
         Assert that function spaces and initial conditions are given in a
@@ -391,7 +371,7 @@ class Solver:
         :rtype: :class:`list` of :class:`firedrake.function.Function`\s
         """
         solver_kwargs = solver_kwargs or {}
-        N = len(self)
+        N = self.num_subintervals  # FIXME
 
         # The first checkpoint is the initial condition
         checkpoints = [self.initial_condition]
