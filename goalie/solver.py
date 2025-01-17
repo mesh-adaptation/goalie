@@ -135,16 +135,16 @@ class Solver:
         dictionary format with :attr:`Solver.fields` as keys.
         """
         for method in ["function_spaces", "initial_condition", "solver"]:
-            if getattr(self, f"_get_{method}") is None:
+            if getattr(self, f"get_{method}") is None:
                 continue
             method_map = getattr(self, f"get_{method}")
             if method == "function_spaces":
                 method_map = method_map(self.meshes[0])
             elif method == "initial_condition":
-                method_map = method_map()
+                method_map = method_map(self.meshes)
             elif method == "solver":
-                self._reinitialise_fields(self.get_initial_condition())
-                solver_gen = method_map()(0)
+                self._reinitialise_fields(self.get_initial_condition(self.meshes))
+                solver_gen = method_map(self.meshes, 0)
                 assert hasattr(solver_gen, "__next__"), "solver should yield"
                 if logger.level == DEBUG:
                     next(solver_gen)
@@ -172,8 +172,10 @@ class Solver:
             ``False``
         :rtype: `:class:`bool`
         """
-        consistent = len(self.time_partition) == len(self)
-        consistent &= all(len(self) == len(self._fs[field]) for field in self.fields)
+        consistent = len(self.time_partition) == len(self.meshes)
+        consistent &= all(
+            len(self.meshes) == len(self._fs[field]) for field in self.fields
+        )
         for field in self.fields:
             consistent &= all(
                 mesh == fs.mesh() for mesh, fs in zip(self.meshes, self._fs[field])
@@ -191,7 +193,9 @@ class Solver:
         if self._fs is None or not self._function_spaces_consistent():
             self._fs = AttrDict(
                 {
-                    field: [self.get_function_spaces(mesh)[field] for mesh in self]
+                    field: [
+                        self.get_function_spaces(mesh)[field] for mesh in self.meshes
+                    ]
                     for field in self.fields
                 }
             )
@@ -222,14 +226,15 @@ class Solver:
         :rtype: :class:`~.AttrDict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        return AttrDict(self.get_initial_condition())
+        return AttrDict(self.get_initial_condition(self.meshes))
 
     @property
     def solver(self):
         """
         See :meth:`~.MeshSeq.get_solver`.
         """
-        return self.get_solver()
+        # return self.get_solver()
+        return self.get_solver
 
     def _create_solutions(self):
         """
@@ -280,7 +285,7 @@ class Solver:
         :ytype: :class:`~.ForwardSolutionData`
         """
         solver_kwargs = solver_kwargs or {}
-        num_subintervals = len(self)
+        num_subintervals = self.num_subintervals
         tp = self.time_partition
 
         if update_solutions:
@@ -298,7 +303,7 @@ class Solver:
         # Loop over the subintervals
         checkpoint = self.initial_condition
         for i in range(num_subintervals):
-            solver_gen = self.solver(i, **solver_kwargs)
+            solver_gen = self.solver(self.meshes, i, **solver_kwargs)
 
             # Reinitialise fields and assign initial conditions
             self._reinitialise_fields(checkpoint)
@@ -326,7 +331,7 @@ class Solver:
             if i < num_subintervals - 1:
                 checkpoint = AttrDict(
                     {
-                        field: self._transfer(
+                        field: self.meshes._transfer(
                             self.fields[field]
                             if self.field_types[field] == "steady"
                             else self.fields[field][0],
@@ -387,7 +392,7 @@ class Solver:
         """
         solver_kwargs = solver_kwargs or {}
         solver_gen = self._solve_forward(update_solutions=True, **solver_kwargs)
-        for _ in range(len(self)):
+        for _ in range(self.num_subintervals):
             next(solver_gen)
 
         return self.solutions
@@ -427,12 +432,15 @@ class Solver:
         solver_kwargs = solver_kwargs or {}
         adaptor_kwargs = adaptor_kwargs or {}
 
-        self._reset_counts()
-        self.converged[:] = False
-        self.check_convergence[:] = True
+        self.meshes.params = self.params  # FIXME
+
+        self.meshes._reset_counts()
+        self.meshes.converged[:] = False
+        self.meshes.check_convergence[:] = True
 
         for fp_iteration in range(self.params.maxiter):
             self.fp_iteration = fp_iteration
+            self.meshes.fp_iteration = fp_iteration  # FIXME
             if update_params is not None:
                 update_params(self.params, self.fp_iteration)
 
@@ -440,20 +448,22 @@ class Solver:
             self.solve_forward(solver_kwargs=solver_kwargs)
 
             # Adapt meshes, logging element and vertex counts
-            continue_unconditionally = adaptor(self, self.solutions, **adaptor_kwargs)
+            continue_unconditionally = adaptor(
+                self, self.meshes, self.solutions, **adaptor_kwargs
+            )
             if self.params.drop_out_converged:
                 self.check_convergence[:] = np.logical_not(
                     np.logical_or(continue_unconditionally, self.converged)
                 )
-            self.element_counts.append(self.count_elements())
-            self.vertex_counts.append(self.count_vertices())
+            self.meshes.element_counts.append(self.meshes.count_elements())
+            self.meshes.vertex_counts.append(self.meshes.count_vertices())
 
             # Check for element count convergence
-            self.converged[:] = self.check_element_count_convergence()
-            if self.converged.all():
+            self.meshes.converged[:] = self.meshes.check_element_count_convergence()
+            if self.meshes.converged.all():
                 break
         else:
-            for i, conv in enumerate(self.converged):
+            for i, conv in enumerate(self.meshes.converged):
                 if not conv:
                     pyrint(
                         f"Failed to converge on subinterval {i} in"
