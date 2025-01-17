@@ -1,18 +1,26 @@
-from abc import ABC, abstractmethod
+class Solver:
+    r"""
+    Base class for solvers.
+    """
 
-
-class Solver(ABC):
-    @abstractmethod
     def get_function_spaces(self, mesh):
-        pass
+        raise NotImplementedError(
+            f"Solver {self.__class__.__name__} is missing the 'get_function_spaces'"
+            " method."
+        )
 
-    @abstractmethod
     def get_initial_condition(self, mesh_seq):
-        pass
+        raise NotImplementedError(
+            f"Solver {self.__class__.__name__} is missing the 'get_initial_condition'"
+            " method."
+        )
 
-    @abstractmethod
     def get_solver(self, mesh_seq, index):
-        pass
+        raise NotImplementedError(
+            f"Solver {self.__class__.__name__} is missing the 'get_solver' method."
+        )
 
     def get_qoi(self, mesh_seq):
-        return None
+        raise NotImplementedError(
+            f"Solver {self.__class__.__name__} is missing the 'get_qoi' method."
+        )
