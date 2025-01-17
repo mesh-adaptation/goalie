@@ -5,7 +5,7 @@ from firedrake.adjoint import pyadjoint
 from firedrake.petsc import PETSc
 
 from .function_data import ForwardSolutionData
-from .log import DEBUG, logger, pyrint
+from .log import DEBUG, debug, info, logger, pyrint, warning
 from .options import AdaptParameters
 from .utility import AttrDict
 
@@ -118,6 +118,33 @@ class Solver:
         raise NotImplementedError(
             f"Solver {self.__class__.__name__} is missing the 'get_solver' method."
         )
+
+    def debug(self, msg):
+        """
+        Print a ``debug`` message.
+
+        :arg msg: the message to print
+        :type msg: :class:`str`
+        """
+        debug(f"{type(self).__name__}: {msg}")
+
+    def warning(self, msg):
+        """
+        Print a ``warning`` message.
+
+        :arg msg: the message to print
+        :type msg: :class:`str`
+        """
+        warning(f"{type(self).__name__}: {msg}")
+
+    def info(self, msg):
+        """
+        Print an ``info`` level message.
+
+        :arg msg: the message to print
+        :type msg: :class:`str`
+        """
+        info(f"{type(self).__name__}: {msg}")
 
     def _outputs_consistent(self):
         """
