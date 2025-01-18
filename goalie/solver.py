@@ -152,26 +152,27 @@ class Solver:
         dictionary format with :attr:`Solver.fields` as keys.
         """
         for method in ["function_spaces", "initial_condition", "solver"]:
-            if getattr(self, f"get_{method}") is None:
+            try:
+                method_map = getattr(self, f"get_{method}")
+                if method == "function_spaces":
+                    method_map = method_map(self.meshes[0])
+                elif method == "initial_condition":
+                    method_map = method_map(self.meshes)
+                elif method == "solver":
+                    self._reinitialise_fields(self.get_initial_condition(self.meshes))
+                    solver_gen = method_map(self.meshes, 0)
+                    assert hasattr(solver_gen, "__next__"), "solver should yield"
+                    if logger.level == DEBUG:
+                        next(solver_gen)
+                        f, f_ = self.fields[next(iter(self.fields))]
+                        if np.array_equal(f.vector().array(), f_.vector().array()):
+                            self.debug(
+                                "Current and lagged solutions are equal. Does the"
+                                " solver yield before updating lagged solutions?"
+                            )  # noqa
+                    break
+            except NotImplementedError:
                 continue
-            method_map = getattr(self, f"get_{method}")
-            if method == "function_spaces":
-                method_map = method_map(self.meshes[0])
-            elif method == "initial_condition":
-                method_map = method_map(self.meshes)
-            elif method == "solver":
-                self._reinitialise_fields(self.get_initial_condition(self.meshes))
-                solver_gen = method_map(self.meshes, 0)
-                assert hasattr(solver_gen, "__next__"), "solver should yield"
-                if logger.level == DEBUG:
-                    next(solver_gen)
-                    f, f_ = self.fields[next(iter(self.fields))]
-                    if np.array_equal(f.vector().array(), f_.vector().array()):
-                        self.debug(
-                            "Current and lagged solutions are equal. Does the"
-                            " solver yield before updating lagged solutions?"
-                        )  # noqa
-                break
             assert isinstance(method_map, dict), f"get_{method} should return a dict"
             mesh_seq_fields = set(self.fields)
             method_fields = set(method_map.keys())
