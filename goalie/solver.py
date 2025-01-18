@@ -91,10 +91,10 @@ class Solver:
         :rtype: :class:`dict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        raise NotImplementedError(
-            f"Solver {self.__class__.__name__} is missing the 'get_initial_condition'"
-            " method."
-        )
+        return {
+            field: firedrake.Function(fs[0])
+            for field, fs in self.function_spaces.items()
+        }
 
     def get_solver(self, *args, **kwargs):
         """
