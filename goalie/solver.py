@@ -55,6 +55,8 @@ class Solver:
         self._fs = None
         self.steady = time_partition.steady
         self.fp_iteration = 0
+        self.check_convergence = np.array([True] * len(self.meshes), dtype=bool)
+        self.converged = np.array([False] * len(self.meshes), dtype=bool)
         self.params = None
 
         self._outputs_consistent()
