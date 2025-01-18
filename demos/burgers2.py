@@ -20,16 +20,16 @@ set_log_level(DEBUG)
 field_names = ["u"]
 
 
-class BurgersSolver(Solver):
+class BurgersSolver(AdjointSolver):
     def get_function_spaces(self, mesh):
         return {"u": VectorFunctionSpace(mesh, "CG", 2)}
 
-    def get_solver(self, mesh_seq, index):
-        u, u_ = mesh_seq.fields["u"]
+    def get_solver(self, index):
+        u, u_ = self.fields["u"]
 
         # Define constants
-        R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
+        R = FunctionSpace(self.meshes[index], "R", 0)
+        dt = Function(R).assign(self.time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -41,7 +41,7 @@ class BurgersSolver(Solver):
         )
 
         # Time integrate from t_start to t_end
-        tp = mesh_seq.time_partition
+        tp = self.time_partition
         t_start, t_end = tp.subintervals[index]
         dt = tp.timesteps[index]
         t = t_start
@@ -52,14 +52,14 @@ class BurgersSolver(Solver):
             u_.assign(u)
             t += dt
 
-    def get_initial_condition(self, mesh_seq):
-        fs = mesh_seq.function_spaces["u"][0]
-        x, y = SpatialCoordinate(mesh_seq[0])
+    def get_initial_condition(self):
+        fs = self.function_spaces["u"][0]
+        x, y = SpatialCoordinate(self.meshes[0])
         return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
-    def get_qoi(self, mesh_seq, i):
+    def get_qoi(self, i):
         def end_time_qoi():
-            u = mesh_seq.fields["u"][0]
+            u = self.fields["u"][0]
             return inner(u, u) * ds(2)
 
         return end_time_qoi
@@ -68,7 +68,6 @@ class BurgersSolver(Solver):
 # The solver, initial condition and QoI may be imported from the
 # previous demo. The same basic setup is used. The only difference
 # is that the :class:`MeshSeq` contains two meshes. ::
-solver = BurgersSolver()
 
 n = 32
 meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
@@ -85,13 +84,14 @@ time_partition = TimePartition(
     field_names,
     num_timesteps_per_export=2,
 )
-mesh_seq = AdjointMeshSeq(
-    time_partition,
+mesh_seq = MeshSeq(
+    # time_partition,
     meshes,
-    solver,
-    qoi_type="end_time",
+    # solver,
+    # qoi_type="end_time",
 )
-solutions = mesh_seq.solve_adjoint()
+solver = BurgersSolver(time_partition, mesh_seq, qoi_type="end_time")
+solutions = solver.solve_adjoint()
 
 # Recall that :func:`solve_forward` runs the solver on each subinterval and
 # uses conservative projection to transfer inbetween. This also happens in

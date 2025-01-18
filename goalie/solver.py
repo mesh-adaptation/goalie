@@ -159,10 +159,10 @@ class Solver:
                 if method == "function_spaces":
                     method_map = method_map(self.meshes[0])
                 elif method == "initial_condition":
-                    method_map = method_map(self.meshes)
+                    method_map = method_map()
                 elif method == "solver":
-                    self._reinitialise_fields(self.get_initial_condition(self.meshes))
-                    solver_gen = method_map(self.meshes, 0)
+                    self._reinitialise_fields(self.get_initial_condition())
+                    solver_gen = method_map(0)
                     assert hasattr(solver_gen, "__next__"), "solver should yield"
                     if logger.level == DEBUG:
                         next(solver_gen)
@@ -246,7 +246,7 @@ class Solver:
         :rtype: :class:`~.AttrDict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        return AttrDict(self.get_initial_condition(self.meshes))
+        return AttrDict(self.get_initial_condition())
 
     @property
     def solver(self):
@@ -346,7 +346,7 @@ class Solver:
         # Loop over the subintervals
         checkpoint = self.initial_condition
         for i in range(num_subintervals):
-            solver_gen = self.solver(self.meshes, i, **solver_kwargs)
+            solver_gen = self.solver(i, **solver_kwargs)
 
             # Reinitialise fields and assign initial conditions
             self._reinitialise_fields(checkpoint)
@@ -524,7 +524,6 @@ class Solver:
 
         for fp_iteration in range(self.params.maxiter):
             self.fp_iteration = fp_iteration
-            # self.meshes.fp_iteration = fp_iteration  # FIXME
             if update_params is not None:
                 update_params(self.params, self.fp_iteration)
 

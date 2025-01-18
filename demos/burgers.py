@@ -60,13 +60,13 @@ class MySolver(Solver):
     def get_function_spaces(self, mesh):
         return {"u": VectorFunctionSpace(mesh, "CG", 2)}
 
-    def get_solver(self, mesh_seq, index):
+    def get_solver(self, index):
         # def solver(index):
         # Get the current and lagged solutions
         u, u_ = self.fields["u"]
 
         # Define constants
-        R = FunctionSpace(mesh_seq[index], "R", 0)
+        R = FunctionSpace(self.meshes[index], "R", 0)
         dt = Function(R).assign(self.time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
@@ -96,9 +96,9 @@ class MySolver(Solver):
     # condition from the function space defined on the
     # :math:`0^{th}` mesh. ::
 
-    def get_initial_condition(self, mesh_seq):
+    def get_initial_condition(self):
         fs = self.function_spaces["u"][0]
-        x, y = SpatialCoordinate(mesh_seq[0])
+        x, y = SpatialCoordinate(self.meshes[0])
         return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
