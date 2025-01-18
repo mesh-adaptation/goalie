@@ -440,6 +440,49 @@ class Solver:
 
         return self.solutions
 
+    def check_element_count_convergence(self):
+        r"""
+        Check for convergence of the fixed point iteration due to the relative
+        difference in element count being smaller than the specified tolerance.
+
+        :return: an array, whose entries are ``True`` if convergence is detected on the
+            corresponding subinterval
+        :rtype: :class:`list` of :class:`bool`\s
+        """
+        if self.params.drop_out_converged:
+            converged = self.converged
+        else:
+            converged = np.array([False] * len(self.meshes), dtype=bool)
+        if len(self.meshes.element_counts) >= max(2, self.params.miniter + 1):
+            for i, (ne_, ne) in enumerate(zip(*self.meshes.element_counts[-2:])):
+                if not self.check_convergence[i]:
+                    self.info(
+                        f"Skipping element count convergence check on subinterval {i})"
+                        f" because check_convergence[{i}] == False."
+                    )
+                    continue
+                if abs(ne - ne_) <= self.params.element_rtol * ne_:
+                    converged[i] = True
+                    if len(self.meshes) == 1:
+                        pyrint(
+                            f"Element count converged after {self.fp_iteration+1}"
+                            " iterations under relative tolerance"
+                            f" {self.params.element_rtol}."
+                        )
+                    else:
+                        pyrint(
+                            f"Element count converged on subinterval {i} after"
+                            f" {self.fp_iteration+1} iterations under relative"
+                            f" tolerance {self.params.element_rtol}."
+                        )
+
+        # Check only early subintervals are marked as converged
+        if self.params.drop_out_converged and not converged.all():
+            first_not_converged = converged.argsort()[0]
+            converged[first_not_converged:] = False
+
+        return converged
+
     @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
         self,
@@ -475,15 +518,13 @@ class Solver:
         solver_kwargs = solver_kwargs or {}
         adaptor_kwargs = adaptor_kwargs or {}
 
-        self.meshes.params = self.params  # FIXME
-
         self.meshes._reset_counts()
-        self.meshes.converged[:] = False
-        self.meshes.check_convergence[:] = True
+        self.converged[:] = False
+        self.check_convergence[:] = True
 
         for fp_iteration in range(self.params.maxiter):
             self.fp_iteration = fp_iteration
-            self.meshes.fp_iteration = fp_iteration  # FIXME
+            # self.meshes.fp_iteration = fp_iteration  # FIXME
             if update_params is not None:
                 update_params(self.params, self.fp_iteration)
 
@@ -502,11 +543,11 @@ class Solver:
             self.meshes.vertex_counts.append(self.meshes.count_vertices())
 
             # Check for element count convergence
-            self.meshes.converged[:] = self.meshes.check_element_count_convergence()
-            if self.meshes.converged.all():
+            self.converged[:] = self.check_element_count_convergence()
+            if self.converged.all():
                 break
         else:
-            for i, conv in enumerate(self.meshes.converged):
+            for i, conv in enumerate(self.converged):
                 if not conv:
                     pyrint(
                         f"Failed to converge on subinterval {i} in"
