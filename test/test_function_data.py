@@ -3,12 +3,18 @@ Unit tests for :class:`~.FunctionData` and its subclasses.
 """
 
 import abc
+import os
 import unittest
 from tempfile import TemporaryDirectory
 
-from firedrake import *
+from firedrake.function import Function
+from firedrake.functionspace import FunctionSpace
+from firedrake.mg.mesh import MeshHierarchy
+from firedrake.utility_meshes import UnitTriangleMesh
 
-from goalie import *
+from goalie.function_data import AdjointSolutionData, ForwardSolutionData, IndicatorData
+from goalie.time_partition import TimePartition
+from goalie.utility import AttrDict
 
 
 class BaseTestCases:
@@ -453,7 +459,3 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
                             source_function.dat.data.all()
                             == target_function.dat.data.all()
                         )
-
-
-if __name__ == "__main__":
-    unittest.main()

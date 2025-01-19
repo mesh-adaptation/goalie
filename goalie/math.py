@@ -59,7 +59,7 @@ def bessk0(x):
     """
     Modified Bessel function of the second kind.
 
-    Code taken from :cite:`VVP+:92`.
+    Code taken from :cite:`Vetterling:1992`.
     """
     if isinstance(x, np.ndarray):
         if (x <= 0).any():

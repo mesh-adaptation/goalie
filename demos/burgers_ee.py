@@ -81,7 +81,7 @@ def get_solver(mesh_seq):
 def get_initial_condition(mesh_seq):
     fs = mesh_seq.function_spaces["u"][0]
     x, y = SpatialCoordinate(mesh_seq[0])
-    return {"u": assemble(interpolate(as_vector([sin(pi * x), 0]), fs))}
+    return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
 def get_qoi(mesh_seq, i):
@@ -122,14 +122,15 @@ mesh_seq = GoalOrientedMeshSeq(
     qoi_type="end_time",
 )
 
-# Given the description of the PDE problem in the form of a :class:`GoalOrientedMeshSeq`,
-# Goalie is able to extract all of the relevant information to automatically compute
-# error estimators. During the computation, we solve the forward and adjoint equations
-# over the mesh sequence, as before. In addition, we solve the adjoint problem again
-# in an *enriched* finite element space. Currently, Goalie supports uniform refinement
-# of the meshes (:math:`h`-refinement) or globally increasing the polynomial order
-# (:math:`p`-refinement). Choosing one (or both) of these as the ``"enrichment_method"``,
-# we are able to compute error indicator fields as follows. ::
+# Given the description of the PDE problem in the form of a
+# :class:`GoalOrientedMeshSeq`, Goalie is able to extract all of the relevant
+# information to automatically compute error estimators. During the computation, we
+# solve the forward and adjoint equations over the mesh sequence, as before. In
+# addition, we solve the adjoint problem again in an *enriched* finite element space.
+# Currently, Goalie supports uniform refinement of the meshes (:math:`h`-refinement) or
+# globally increasing the polynomial order (:math:`p`-refinement). Choosing one (or
+# both) of these as the ``"enrichment_method"``, we are able to compute error indicator
+# fields as follows. ::
 
 solutions, indicators = mesh_seq.indicate_errors(
     enrichment_kwargs={"enrichment_method": "h"}

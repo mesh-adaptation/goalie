@@ -83,8 +83,8 @@ class FunctionData(ABC):
         """
         Extract field data array in an alternative layout: as a doubly-nested dictionary
         whose first key is the field label and second key is the field name. Entries
-        of the doubly-nested dictionary are doubly-nested lists, which retain the default
-        layout: indexed first by subinterval and then by export.
+        of the doubly-nested dictionary are doubly-nested lists, which retain the
+        default layout: indexed first by subinterval and then by export.
         """
         tp = self.time_partition
         return AttrDict(
@@ -133,7 +133,8 @@ class FunctionData(ABC):
         Choosing a different layout simply promotes the specified variable to first
         access:
         * ``layout == "label"`` implies ``data[label][field][subinterval][export]``
-        * ``layout == "subinterval"`` implies ``data[subinterval][field][label][export]``
+        * ``layout == "subinterval"`` implies
+          ``data[subinterval][field][label][export]``
 
         The export index is not promoted because the number of exports may differ across
         subintervals.
@@ -215,9 +216,9 @@ class FunctionData(ABC):
         outfile = VTKFile(output_fpath, adaptive=True)
         if initial_condition is not None:
             ics = []
-            for field_type in export_field_types:
-                for field, ic in initial_condition.items():
-                    ic = ic.copy(deepcopy=True)
+            for field, ic in initial_condition.items():
+                for field_type in export_field_types:
+                    icc = ic.copy(deepcopy=True)
                     # If the function space is mixed, rename and append each
                     # subfunction separately
                     if hasattr(ic.function_space(), "num_sub_spaces"):
@@ -229,9 +230,9 @@ class FunctionData(ABC):
                             ics.append(sf)
                     else:
                         if field_type != "forward":
-                            ic.assign(float("nan"))
-                        ic.rename(f"{field}_{field_type}")
-                        ics.append(ic)
+                            icc.assign(float("nan"))
+                        icc.rename(f"{field}_{field_type}")
+                        ics.append(icc)
             outfile.write(*ics, time=tp.subintervals[0][0])
 
         for i in range(tp.num_subintervals):

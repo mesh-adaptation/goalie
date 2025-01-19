@@ -7,6 +7,8 @@ import os
 import firedrake
 import numpy as np
 
+__all__ = ["AttrDict", "create_directory", "effectivity_index"]
+
 
 class AttrDict(dict):
     """

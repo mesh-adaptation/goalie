@@ -154,10 +154,10 @@ point_seq = PointSeq(
 
 solutions = point_seq.solve_forward()["u"]["forward"]
 
-# Note that the solution trajectory does not include the initial value, so we prepend it.
-# We also convert the solution :class:`~.Function`\s to :class:`~.float`\s, for plotting
-# purposes. Whilst there is only one subinterval in this example, we show how to loop
-# over subintervals, as this is instructive for the general case. ::
+# Note that the solution trajectory does not include the initial value, so we prepend
+# it. We also convert the solution :class:`~.Function`\s to :class:`~.float`\s, for
+# plotting purposes. Whilst there is only one subinterval in this example, we show how
+# to loop over subintervals, as this is instructive for the general case. ::
 
 forward_euler_trajectory = [1]
 forward_euler_trajectory += [
@@ -257,7 +257,8 @@ plt.savefig("ode-backward_euler.jpg")
 # .. math::
 #    \frac{u_{i+1} - u_i}{\Delta t} = (\theta u_{i+1} + (1-\theta) u_i),
 #
-# where :math:`\theta\in(0,1)`. The standard choice is to take :math:`\theta=\frac12`. ::
+# where :math:`\theta\in(0,1)`. The standard choice is to take :math:`\theta=\frac12`.
+# ::
 
 
 def get_solver_crank_nicolson(point_seq):

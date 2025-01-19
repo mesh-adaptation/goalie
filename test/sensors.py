@@ -6,11 +6,9 @@ adaptation for unsteady CFD simulations involving
 moving geometries. Diss. 2011.
 """
 
-import firedrake
-from ufl import *
-from utility import uniform_mesh
+import ufl
 
-__all__ = ["bowl", "hyperbolic", "multiscale", "interweaved", "mesh_for_sensors"]
+__all__ = ["bowl", "hyperbolic", "multiscale", "interweaved"]
 
 
 def bowl(*coords):
@@ -18,21 +16,16 @@ def bowl(*coords):
 
 
 def hyperbolic(x, y):
-    return conditional(
-        abs(x * y) < 2 * pi / 50, 0.01 * sin(50 * x * y), sin(50 * x * y)
+    return ufl.conditional(
+        abs(x * y) < 2 * ufl.pi / 50, 0.01 * ufl.sin(50 * x * y), ufl.sin(50 * x * y)
     )
 
 
 def multiscale(x, y):
-    return 0.1 * sin(50 * x) + atan(0.1 / (sin(5 * y) - 2 * x))
+    return 0.1 * ufl.sin(50 * x) + ufl.atan(0.1 / (ufl.sin(5 * y) - 2 * x))
 
 
 def interweaved(x, y):
-    return atan(0.1 / (sin(5 * y) - 2 * x)) + atan(0.5 / (sin(3 * y) - 7 * x))
-
-
-def mesh_for_sensors(dim, n):
-    mesh = uniform_mesh(dim, n, l=2)
-    coords = firedrake.Function(mesh.coordinates)
-    coords.interpolate(coords - as_vector([1] * dim))
-    return firedrake.Mesh(coords)
+    return ufl.atan(0.1 / (ufl.sin(5 * y) - 2 * x)) + ufl.atan(
+        0.5 / (ufl.sin(3 * y) - 7 * x)
+    )

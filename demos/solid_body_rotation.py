@@ -90,7 +90,7 @@ def get_initial_condition(mesh_seq):
     bell = bell_initial_condition(x, y)
     cone = cone_initial_condition(x, y)
     slot_cyl = slot_cyl_initial_condition(x, y)
-    return {"c": assemble(interpolate(bell + cone + slot_cyl, fs))}
+    return {"c": Function(fs).interpolate(bell + cone + slot_cyl)}
 
 
 # Now let's set up the time interval of interest. ::

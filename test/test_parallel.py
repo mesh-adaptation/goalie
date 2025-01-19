@@ -1,5 +1,6 @@
 import pytest
-from firedrake import *
+from firedrake.utility_meshes import UnitCubeMesh, UnitSquareMesh
+from pyop2.mpi import COMM_WORLD
 
 from goalie.mesh_seq import MeshSeq
 from goalie.time_partition import TimeInterval
