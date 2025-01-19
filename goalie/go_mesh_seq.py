@@ -68,6 +68,48 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             )
         return self._forms
 
+    def _reset_changing_coefficients(self):
+        self._init_form_coeffs = None
+        self._changed_form_coeffs = {field: {} for field in self.fields}
+
+    @PETSc.Log.EventDecorator()
+    def _detect_changing_coefficients(self, export_idx):
+        """
+        Detect whether coefficients other than the solution in the variational forms
+        change over time. If they do, store the changed coefficients so we can update
+        them in :meth:`~.GoalOrientedMeshSeq.indicate_errors`.
+        """
+        # Save a copy of the coefficients in the first export timestep
+        if self._init_form_coeffs is None:
+            self._init_form_coeffs = {
+                field: deepcopy(form.coefficients())
+                for field, form in self.forms.items()
+            }
+        # In latter export timesteps, detect and store coefficients that have changed
+        # since the first export timestep
+        else:
+            for field in self.fields:
+                # Coefficients at the current timestep
+                coeffs = self.forms[field].coefficients()
+                for coeff_idx, (coeff, init_coeff) in enumerate(
+                    zip(coeffs, self._init_form_coeffs[field])
+                ):
+                    # Skip solution fields
+                    if coeff.name().split("_old")[0] in self.time_partition.field_names:
+                        continue
+                    if not np.array_equal(
+                        coeff.vector().array(), init_coeff.vector().array()
+                    ):
+                        if coeff_idx not in self._changed_form_coeffs[field]:
+                            self._changed_form_coeffs[field][coeff_idx] = {
+                                0: init_coeff
+                            }
+                        self._changed_form_coeffs[field][coeff_idx][export_idx] = (
+                            deepcopy(coeff)
+                        )
+                        # Use the current coeff for comparison in the next timestep
+                        init_coeff.assign(coeff)
+
     @PETSc.Log.EventDecorator()
     def _detect_changing_coefficients(self, export_idx):
         """
@@ -257,6 +299,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         for i in reversed(range(len(self))):
             # Solve the adjoint problem on the current subinterval
             next(adj_sol_gen)
+            enriched_mesh_seq._reset_changing_coefficients()
             next(adj_sol_gen_enriched)
 
             # Get Functions
