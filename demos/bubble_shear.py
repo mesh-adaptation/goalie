@@ -48,7 +48,7 @@ def get_initial_condition(mesh_seq):
     fs = mesh_seq.function_spaces["c"][0]
     x, y = SpatialCoordinate(mesh_seq[0])
     ball = ball_initial_condition(x, y)
-    c0 = assemble(interpolate(ball, fs))
+    c0 = Function(fs).interpolate(ball)
     return {"c": c0}
 
 
@@ -207,7 +207,7 @@ def adaptor(mesh_seq, solutions, indicators):
 # subintervals and only run two iterations of the fixed point iteration, which is not
 # enough to reach convergence. ::
 
-n = 50
+n = 20
 dt = 0.01
 maxiter = 2  # maximum number of fixed point iterations
 
@@ -234,7 +234,8 @@ msq = GoalOrientedMeshSeq(
 parameters = GoalOrientedAdaptParameters({"maxiter": maxiter})
 solutions, indicators = msq.fixed_point_iteration(adaptor, parameters=parameters)
 
-# Let us plot the intermediate and final solutions, as well as the final adapted meshes. ::
+# Let us plot the intermediate and final solutions, as well as the final adapted meshes.
+# ::
 
 import matplotlib.pyplot as plt
 from firedrake.pyplot import tripcolor, triplot
