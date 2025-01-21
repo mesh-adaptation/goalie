@@ -11,16 +11,17 @@ from animate.interpolation import interpolate
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
 from firedrake.petsc import PETSc
 
-from .adjoint import AdjointMeshSeq
+from .adjoint import AdjointSolver
 from .error_estimation import get_dwr_indicator
 from .function_data import IndicatorData
 from .log import pyrint
+from .mesh_seq import MeshSeq
 from .options import GoalOrientedAdaptParameters
 
-__all__ = ["GoalOrientedMeshSeq"]
+__all__ = ["GoalOrientedSolver"]
 
 
-class GoalOrientedMeshSeq(AdjointMeshSeq):
+class GoalOrientedSolver(AdjointSolver):
     """
     An extension of :class:`~.AdjointMeshSeq` to account for goal-oriented problems.
     """
@@ -73,7 +74,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         """
         Detect whether coefficients other than the solution in the variational forms
         change over time. If they do, store the changed coefficients so we can update
-        them in :meth:`~.GoalOrientedMeshSeq.indicate_errors`.
+        them in :meth:`~.GoalOrientedSolver.indicate_errors`.
 
         Changed coefficients are stored in a dictionary with the following structure:
         ``{field: {coeff_idx: {export_timestep_idx: coefficient}}}``, where
@@ -115,7 +116,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                         init_coeff.assign(coeff)
 
     @PETSc.Log.EventDecorator()
-    def get_enriched_mesh_seq(self, enrichment_method="p", num_enrichments=1):
+    def get_enriched_solver(self, enrichment_method="p", num_enrichments=1):
         """
         Construct a sequence of globally enriched spaces.
 
@@ -129,8 +130,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :type enrichment_method: :class:`str`
         :kwarg num_enrichments: the number of enrichments to apply
         :type num_enrichments: :class:`int`
-        :returns: the enriched mesh sequence
-        :type: the type is inherited from the parent mesh sequence
+        :returns: the enriched solver
+        :type: the type is inherited from the parent solver
         """
         if enrichment_method not in ("h", "p"):
             raise ValueError(f"Enrichment method '{enrichment_method}' not supported.")
@@ -144,34 +145,33 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     "h-enrichment is not supported for shallow-copied meshes."
                 )
             meshes = [MeshHierarchy(mesh, num_enrichments)[-1] for mesh in self.meshes]
+            meshes = MeshSeq(meshes)
         else:
             meshes = self.meshes
 
         # Construct object to hold enriched spaces
-        enriched_mesh_seq = type(self)(
-            self.time_partition,
-            meshes,
-            get_function_spaces=self._get_function_spaces,
-            get_initial_condition=self._get_initial_condition,
-            get_solver=self._get_solver,
-            get_qoi=self._get_qoi,
-            qoi_type=self.qoi_type,
+        class EnrichedSolver(self.__class__):
+            def __init__(self, time_partition, mesh_sequence, **kwargs):
+                super().__init__(time_partition, mesh_sequence, **kwargs)
+                self._update_function_spaces()
+
+        enriched_solver = EnrichedSolver(
+            self.time_partition, meshes, qoi_type=self.qoi_type
         )
-        enriched_mesh_seq._update_function_spaces()
 
         # Apply p-refinement
         if enrichment_method == "p":
-            for label, fs in enriched_mesh_seq.function_spaces.items():
+            for label, fs in enriched_solver.function_spaces.items():
                 for n, _space in enumerate(fs):
                     element = _space.ufl_element()
                     element = element.reconstruct(
                         degree=element.degree() + num_enrichments
                     )
-                    enriched_mesh_seq._fs[label][n] = FunctionSpace(
-                        enriched_mesh_seq.meshes[n], element
+                    enriched_solver._fs[label][n] = FunctionSpace(
+                        enriched_solver.meshes[n], element
                     )
 
-        return enriched_mesh_seq
+        return enriched_solver
 
     @staticmethod
     def _get_transfer_function(enrichment_method):
@@ -180,7 +180,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         enriched counterpart.
 
         :arg enrichment_method: the enrichment method used to generate the counterpart
-            - see :meth:`~.GoalOrientedMeshSeq.get_enriched_mesh_seq` for the supported
+            - see :meth:`~.GoalOrientedSolver.get_enriched_solver` for the supported
             enrichment methods
         :type enrichment_method: :class:`str`
         :returns: the function for mapping function data between mesh sequences
@@ -215,7 +215,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         adjoint problem in a globally enriched space.
 
         :kwarg enrichment_kwargs: keyword arguments to pass to the global enrichment
-            method - see :meth:`~.GoalOrientedMeshSeq.get_enriched_mesh_seq` for the
+            method - see :meth:`~.GoalOrientedSolver.get_enriched_solver` for the
             supported enrichment methods and options
         :type enrichment_kwargs: :class:`dict` with :class:`str` keys and values which
             may take various types
@@ -234,7 +234,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         solver_kwargs = solver_kwargs or {}
         default_enrichment_kwargs = {"enrichment_method": "p", "num_enrichments": 1}
         enrichment_kwargs = dict(default_enrichment_kwargs, **(enrichment_kwargs or {}))
-        enriched_mesh_seq = self.get_enriched_mesh_seq(**enrichment_kwargs)
+        enriched_solver = self.get_enriched_solver(**enrichment_kwargs)
         transfer = self._get_transfer_function(enrichment_kwargs["enrichment_method"])
 
         # Reinitialise the error indicator data object
@@ -244,7 +244,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         adj_sol_gen = self._solve_adjoint(**solver_kwargs)
         # Track form coefficient changes in the enriched problem if the problem is
         # unsteady
-        adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(
+        adj_sol_gen_enriched = enriched_solver._solve_adjoint(
             track_coefficients=not self.steady,
             **solver_kwargs,
         )
@@ -252,9 +252,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         FWD, ADJ = "forward", "adjoint"
         FWD_OLD = "forward" if self.steady else "forward_old"
         ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
-        P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
+        P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self.meshes]
         # Loop over each subinterval in reverse
-        for i in reversed(range(len(self))):
+        for i in reversed(range(len(self.meshes))):  # FIXME
             # Solve the adjoint problem on the current subinterval
             next(adj_sol_gen)
             next(adj_sol_gen_enriched)
@@ -262,13 +262,13 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
             enriched_spaces = {
-                f: enriched_mesh_seq.function_spaces[f][i] for f in self.fields
+                f: enriched_solver.function_spaces[f][i] for f in self.fields
             }
             for f, fs_e in enriched_spaces.items():
                 if self.field_types[f] == "steady":
-                    u[f] = enriched_mesh_seq.fields[f]
+                    u[f] = enriched_solver.fields[f]
                 else:
-                    u[f], u_[f] = enriched_mesh_seq.fields[f]
+                    u[f], u_[f] = enriched_solver.fields[f]
                 u_star[f] = Function(fs_e)
                 u_star_next[f] = Function(fs_e)
                 u_star_e[f] = Function(fs_e)
@@ -297,22 +297,22 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     u_star_e[f].assign(
                         0.5
                         * (
-                            enriched_mesh_seq.solutions[f][ADJ][i][j]
-                            + enriched_mesh_seq.solutions[f][ADJ_NEXT][i][j]
+                            enriched_solver.solutions[f][ADJ][i][j]
+                            + enriched_solver.solutions[f][ADJ_NEXT][i][j]
                         )
                     )
                     u_star_e[f] -= u_star[f]
 
                     # Update other time-dependent form coefficients if they changed
                     # since the previous export timestep
-                    emseq = enriched_mesh_seq
+                    emseq = enriched_solver
                     if not self.steady and emseq._changed_form_coeffs[f]:
                         for idx, coeffs in emseq._changed_form_coeffs[f].items():
                             if j in coeffs:
                                 emseq.forms[f].coefficients()[idx].assign(coeffs[j])
 
                     # Evaluate error indicator
-                    indi_e = indicator_fn(enriched_mesh_seq.forms[f], u_star_e[f])
+                    indi_e = indicator_fn(enriched_solver.forms[f], u_star_e[f])
 
                     # Transfer back to the base space
                     indi = self._transfer(indi_e, P0_spaces[i])
@@ -424,7 +424,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         enrichment_kwargs = enrichment_kwargs or {}
         adaptor_kwargs = adaptor_kwargs or {}
         solver_kwargs = solver_kwargs or {}
-        self._reset_counts()
+        self.meshes._reset_counts()
         self.qoi_values = []
         self.estimator_values = []
         self.converged[:] = False
