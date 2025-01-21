@@ -13,10 +13,10 @@ from firedrake.petsc import PETSc
 
 from .function_data import AdjointSolutionData
 from .log import pyrint
-from .mesh_seq import MeshSeq
+from .solver import Solver
 from .utility import AttrDict
 
-__all__ = ["AdjointMeshSeq", "annotate_qoi"]
+__all__ = ["AdjointSolver", "annotate_qoi"]
 
 
 def annotate_qoi(get_qoi):
@@ -65,38 +65,31 @@ def annotate_qoi(get_qoi):
     return wrap_get_qoi
 
 
-class AdjointMeshSeq(MeshSeq):
+class AdjointSolver(Solver):
     """
-    An extension of :class:`~.MeshSeq` to account for solving adjoint problems on a
+    An extension of :class:`~.Solver` to account for solving adjoint problems on a
     sequence of meshes.
 
     For time-dependent quantities of interest, the solver should access and modify
-    :attr:`~AdjointMeshSeq.J`, which holds the QoI value.
+    :attr:`~AdjointSolver.J`, which holds the QoI value.
     """
 
-    def __init__(self, time_partition, initial_meshes, **kwargs):
+    def __init__(self, time_partition, mesh_sequence, **kwargs):
         r"""
         :arg time_partition: a partition of the temporal domain
         :type time_partition: :class:`~.TimePartition`
-        :arg initial_meshes: a list of meshes corresponding to the subinterval of the
-            time partition, or a single mesh to use for all subintervals
-        :type initial_meshes: :class:`list` or :class:`~.MeshGeometry`
-        :kwarg get_function_spaces: a function as described in
-            :meth:`~.MeshSeq.get_function_spaces`
-        :kwarg get_initial_condition: a function as described in
-            :meth:`~.MeshSeq.get_initial_condition`
-        :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
-        :kwarg get_qoi: a function as described in :meth:`~.AdjointMeshSeq.get_qoi`
+        :arg mesh_sequence: a sequence of meshes on which to solve the problem
+        :type mesh_sequence: :class:`~.MeshSeq`
         """
+        # TODO #278: qoi_type missing from docstring
         self.qoi_type = kwargs.pop("qoi_type")
         if self.qoi_type not in ["end_time", "time_integrated", "steady"]:
             raise ValueError(
                 f"QoI type '{self.qoi_type}' not recognised."
                 " Choose from 'end_time', 'time_integrated', or 'steady'."
             )
-        self._get_qoi = kwargs.get("get_qoi")
         self.J = 0
-        super().__init__(time_partition, initial_meshes, **kwargs)
+        super().__init__(time_partition, mesh_sequence, **kwargs)
         if self.qoi_type == "steady" and not self.steady:
             raise ValueError(
                 "QoI type is set to 'steady' but the time partition is not steady."
@@ -114,12 +107,13 @@ class AdjointMeshSeq(MeshSeq):
     def initial_condition(self):
         return super().initial_condition
 
-    @annotate_qoi
-    def get_qoi(self, subinterval):
+    def get_qoi(self, *args, **kwargs):
         """
         Get the function for evaluating the QoI, which has either zero or one arguments,
         corresponding to either an end time or time integrated quantity of interest,
         respectively. If the QoI has an argument then it is for the current time.
+
+        Should be overridden by all subclasses.
 
         Signature for the function to be returned:
         ```
@@ -128,19 +122,16 @@ class AdjointMeshSeq(MeshSeq):
         :return: the QoI as a 0-form
         :rtype: :class:`ufl.form.Form`
         ```
-
-        :arg solution_map: a dictionary whose keys are the solution field names and
-            whose values are the corresponding solutions
-        :type solution_map: :class:`dict` with :class:`str` keys and values and
-            :class:`firedrake.function.Function` values
-        :arg subinterval: the subinterval index
-        :type subinterval: :class:`int`
-        :returns: the function for obtaining the QoI
-        :rtype: see docstring above
         """
-        if self._get_qoi is None:
-            raise NotImplementedError("'get_qoi' is not implemented.")
-        return self._get_qoi(self, subinterval)
+        raise NotImplementedError(
+            f"Solver {self.__class__.__name__} is missing the 'get_qoi' method."
+        )
+
+    # TODO: This is a temporary wrapper since we need the @annotate_qoi decorator
+    # to be applied to the get_qoi method. Need to think how to refactor this
+    @annotate_qoi
+    def my_qoi(self, subinterval):
+        return self.get_qoi(subinterval)
 
     @pyadjoint.no_annotations
     @PETSc.Log.EventDecorator()
@@ -174,7 +165,8 @@ class AdjointMeshSeq(MeshSeq):
         # Account for end time QoI
         if self.qoi_type in ["end_time", "steady"] and run_final_subinterval:
             self._reinitialise_fields(checkpoints[-1])
-            qoi = self.get_qoi(len(self) - 1)
+            # qoi = self.get_qoi(len(self) - 1)
+            qoi = self.my_qoi(len(self.meshes) - 1)
             self.J = qoi(**solver_kwargs.get("qoi_kwargs", {}))
         return checkpoints
 
@@ -417,7 +409,6 @@ class AdjointMeshSeq(MeshSeq):
         solver_kwargs = solver_kwargs or {}
         adj_solver_kwargs = adj_solver_kwargs or {}
         tp = self.time_partition
-        num_subintervals = len(self)
         solver = self.solver
         qoi_kwargs = solver_kwargs.get("qoi_kwargs", {})
 
@@ -477,7 +468,7 @@ class AdjointMeshSeq(MeshSeq):
 
         # Loop over subintervals in reverse
         seeds = {}
-        for i in reversed(range(num_subintervals)):
+        for i in reversed(range(self.num_subintervals)):
             stride = tp.num_timesteps_per_export[i]
             num_exports = tp.num_exports_per_subinterval[i]
 
@@ -514,10 +505,11 @@ class AdjointMeshSeq(MeshSeq):
             }
 
             # Get seed vector for reverse propagation
-            if i == num_subintervals - 1:
+            if i == self.num_subintervals - 1:
                 if self.qoi_type in ["end_time", "steady"]:
                     pyadjoint.continue_annotation()
-                    qoi = self.get_qoi(i)
+                    # qoi = self.get_qoi(i)
+                    qoi = self.my_qoi(i)
                     self.J = qoi(**qoi_kwargs)
                     if np.isclose(float(self.J), 0.0):
                         self.warning("Zero QoI. Is it implemented as intended?")
@@ -559,7 +551,7 @@ class AdjointMeshSeq(MeshSeq):
                     )
 
                 # Detect whether we have a steady problem
-                steady = self.steady or num_subintervals == num_solve_blocks == 1
+                steady = self.steady or self.num_subintervals == num_solve_blocks == 1
                 if steady and "adjoint_next" in checkpoint:
                     checkpoint.pop("adjoint_next")
 
@@ -692,7 +684,7 @@ class AdjointMeshSeq(MeshSeq):
             test_checkpoint_qoi=test_checkpoint_qoi,
         )
         # Solve the adjoint problem over each subinterval
-        for _ in range(len(self)):
+        for _ in range(self.num_subintervals):
             next(adjoint_solver_gen)
 
         return self.solutions
