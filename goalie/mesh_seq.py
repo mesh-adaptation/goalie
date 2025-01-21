@@ -130,7 +130,7 @@ class MeshSeq:
         """
         # TODO #122: Refactor to use the set method
         if not isinstance(meshes, Iterable):
-            meshes = [Mesh(meshes) for subinterval in self.subintervals]  # FIXME
+            meshes = [Mesh(meshes)]
         self.meshes = meshes
         dim = np.array([mesh.topological_dimension() for mesh in meshes])
         if dim.min() != dim.max():
