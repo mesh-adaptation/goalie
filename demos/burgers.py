@@ -56,18 +56,18 @@ field_names = ["u"]
 # constants.::
 
 
-class MySolver(Solver):
+class BurgersModel(Model):
     def get_function_spaces(self, mesh):
         return {"u": VectorFunctionSpace(mesh, "CG", 2)}
 
-    def get_solver(self, index):
+    def get_solver(self, index, time_partition, meshes, fields, function_spaces):
         # def solver(index):
         # Get the current and lagged solutions
-        u, u_ = self.fields["u"]
+        u, u_ = fields["u"]
 
         # Define constants
-        R = FunctionSpace(self.meshes[index], "R", 0)
-        dt = Function(R).assign(self.time_partition.timesteps[index])
+        R = FunctionSpace(meshes[index], "R", 0)
+        dt = Function(R).assign(time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -79,7 +79,7 @@ class MySolver(Solver):
         )
 
         # Time integrate from t_start to t_end
-        tp = self.time_partition
+        tp = time_partition
         t_start, t_end = tp.subintervals[index]
         dt = tp.timesteps[index]
         t = t_start
@@ -96,9 +96,9 @@ class MySolver(Solver):
     # condition from the function space defined on the
     # :math:`0^{th}` mesh. ::
 
-    def get_initial_condition(self):
-        fs = self.function_spaces["u"][0]
-        x, y = SpatialCoordinate(self.meshes[0])
+    def get_initial_condition(self, time_partition, meshes, fields, function_spaces):
+        fs = function_spaces["u"][0]
+        x, y = SpatialCoordinate(meshes[0])
         return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
@@ -136,8 +136,9 @@ mesh_seq = MeshSeq(
     # get_initial_condition=get_initial_condition,
     # get_solver=get_solver,
 )
-mysolver = MySolver(time_partition, mesh_seq)
-solutions = mysolver.solve_forward()
+model = BurgersModel()
+solver = Solver(model, time_partition, mesh_seq)
+solutions = solver.solve_forward()
 
 # During the :func:`solve_forward` call, the solver that was provided
 # is applied on the first subinterval. The forward solution at the end

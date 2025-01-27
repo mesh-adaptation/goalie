@@ -5,7 +5,7 @@ from firedrake.adjoint import pyadjoint
 from firedrake.petsc import PETSc
 
 from .function_data import ForwardSolutionData
-from .log import DEBUG, debug, info, logger, pyrint, warning
+from .log import debug, info, pyrint, warning
 from .options import AdaptParameters
 from .utility import AttrDict
 
@@ -13,25 +13,13 @@ __all__ = ["Solver"]
 
 
 class Solver:
-    r"""
-    Base class for all solvers.
-
-    Your solver should inherit from this class and implement the following methods:
-
-    - :meth:`get_function_spaces`
-    - :meth:`get_solver`.
-
-    Additionally, if your problem requires non-zero initial conditions (for
-    time-dependent problems) or a non-zero initial guess (for time-independent
-    problems), you should implement the :meth:`get_initial_condition` method.
-
-    If your solver is solving an adjoint problem, you should implement the
-    :meth:`get_qoi` method.
-    """
+    # FIXME: Add a class docstring. And reword model argument in docstring below
 
     @PETSc.Log.EventDecorator()
-    def __init__(self, time_partition, mesh_sequence, **kwargs):
+    def __init__(self, model, time_partition, mesh_sequence, **kwargs):
         r"""
+        :arg model: the model to solve
+        :type model: :class:`~.Model`
         :arg time_partition: a partition of the temporal domain
         :type time_partition: :class:`~.TimePartition`
         :arg mesh_sequence: a sequence of meshes on which to solve the problem
@@ -44,6 +32,7 @@ class Solver:
         :type transfer_kwargs: :class:`dict` with :class:`str` keys and values which may
             take various types
         """
+        self.model = model
         self.time_partition = time_partition
         self.meshes = mesh_sequence
         self._transfer_method = kwargs.get("transfer_method", "project")
@@ -59,66 +48,9 @@ class Solver:
         self.converged = np.array([False] * len(self.meshes), dtype=bool)
         self.params = None
 
-        self._outputs_consistent()
-
-    def get_function_spaces(self, *args, **kwargs):
-        """
-        Construct the function spaces corresponding to each field, for a given mesh.
-
-        Should be overridden by all subclasses.
-
-        Signature for the function:
-        ```
-            :arg mesh: the mesh to base the function spaces on
-            :type mesh: :class:`firedrake.mesh.MeshGeometry`
-            :returns: a dictionary whose keys are field names and whose values are the
-                corresponding function spaces
-            :rtype: :class:`dict` with :class:`str` keys and
-                :class:`firedrake.functionspaceimpl.FunctionSpace` values
-        ```
-        """
-        raise NotImplementedError(
-            f"Solver {self.__class__.__name__} is missing the 'get_function_spaces'"
-            " method."
-        )
-
-    def get_initial_condition(self, *args, **kwargs):
-        """
-        Get the initial conditions applied on the first mesh in the sequence.
-
-        :returns: the dictionary, whose keys are field names and whose values are the
-            corresponding initial conditions applied
-        :rtype: :class:`dict` with :class:`str` keys and
-            :class:`firedrake.function.Function` values
-        """
-        return {
-            field: firedrake.Function(fs[0])
-            for field, fs in self.function_spaces.items()
-        }
-
-    def get_solver(self, *args, **kwargs):
-        """
-        Get the function mapping a subinterval index and an initial condition dictionary
-        to a dictionary of solutions for the corresponding solver step.
-
-        Should be overridden by all subclasses.
-
-        Signature for the function:
-        ```
-            :arg mesh_seq: the sequence of meshes on which to solve the problem
-            :type mesh_seq: :class:`~goalie.mesh_seq.MeshSequence`
-            :arg index: the subinterval index
-            :type index: :class:`int`
-            :arg ic: map from fields to the corresponding initial condition components
-            :type ic: :class:`dict` with :class:`str` keys and
-                :class:`firedrake.function.Function` values
-            :return: map from fields to the corresponding solutions
-            :rtype: :class:`dict` with :class:`str` keys and
-                :class:`firedrake.function.Function` values
-        ```
-        """
-        raise NotImplementedError(
-            f"Solver {self.__class__.__name__} is missing the 'get_solver' method."
+        # FIXME: Avoid calling a private method
+        self.model._outputs_consistent(
+            self.time_partition, self.meshes, self.fields, self.function_spaces
         )
 
     def debug(self, msg):
@@ -148,41 +80,6 @@ class Solver:
         """
         info(f"{type(self).__name__}: {msg}")
 
-    def _outputs_consistent(self):
-        """
-        Assert that function spaces and initial conditions are given in a
-        dictionary format with :attr:`Solver.fields` as keys.
-        """
-        for method in ["function_spaces", "initial_condition", "solver"]:
-            try:
-                method_map = getattr(self, f"get_{method}")
-                if method == "function_spaces":
-                    method_map = method_map(self.meshes[0])
-                elif method == "initial_condition":
-                    method_map = method_map()
-                elif method == "solver":
-                    self._reinitialise_fields(self.get_initial_condition())
-                    solver_gen = method_map(0)
-                    assert hasattr(solver_gen, "__next__"), "solver should yield"
-                    if logger.level == DEBUG:
-                        next(solver_gen)
-                        f, f_ = self.fields[next(iter(self.fields))]
-                        if np.array_equal(f.vector().array(), f_.vector().array()):
-                            self.debug(
-                                "Current and lagged solutions are equal. Does the"
-                                " solver yield before updating lagged solutions?"
-                            )  # noqa
-                    break
-            except NotImplementedError:
-                continue
-            assert isinstance(method_map, dict), f"get_{method} should return a dict"
-            mesh_seq_fields = set(self.fields)
-            method_fields = set(method_map.keys())
-            diff = mesh_seq_fields.difference(method_fields)
-            assert len(diff) == 0, f"missing fields {diff} in get_{method}"
-            diff = method_fields.difference(mesh_seq_fields)
-            assert len(diff) == 0, f"unexpected fields {diff} in get_{method}"
-
     def _function_spaces_consistent(self):
         """
         Determine whether the mesh sequence's function spaces are consistent with its
@@ -210,11 +107,13 @@ class Solver:
         """
         Update the function space dictionary associated with the mesh sequence.
         """
+        # TODO #239: Avoid calling get_function_spaces multiple times
         if self._fs is None or not self._function_spaces_consistent():
             self._fs = AttrDict(
                 {
                     field: [
-                        self.get_function_spaces(mesh)[field] for mesh in self.meshes
+                        self.model.get_function_spaces(mesh)[field]
+                        for mesh in self.meshes
                     ]
                     for field in self.fields
                 }
@@ -246,15 +145,16 @@ class Solver:
         :rtype: :class:`~.AttrDict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        return AttrDict(self.get_initial_condition())
+        args = (self.time_partition, self.meshes, self.fields, self.function_spaces)
+        return AttrDict(self.model.get_initial_condition(*args))
 
+    # FIXME: Remove this method
     @property
     def solver(self):
         """
         See :meth:`~.MeshSeq.get_solver`.
         """
-        # return self.get_solver()
-        return self.get_solver
+        return self.model.get_solver
 
     def _create_solutions(self):
         """
@@ -346,7 +246,14 @@ class Solver:
         # Loop over the subintervals
         checkpoint = self.initial_condition
         for i in range(num_subintervals):
-            solver_gen = self.solver(i, **solver_kwargs)
+            # FIXME: Tidy this up
+            solver_args = (
+                self.time_partition,
+                self.meshes,
+                self.fields,
+                self.function_spaces,
+            )
+            solver_gen = self.solver(i, *solver_args, **solver_kwargs)
 
             # Reinitialise fields and assign initial conditions
             self._reinitialise_fields(checkpoint)
