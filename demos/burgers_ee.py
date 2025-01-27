@@ -39,17 +39,16 @@ set_log_level(DEBUG)
 field_names = ["u"]
 
 
-def get_function_spaces(mesh):
-    return {"u": VectorFunctionSpace(mesh, "CG", 2)}
+class BurgersSolver(GoalOrientedSolver):
+    def get_function_spaces(self, mesh):
+        return {"u": VectorFunctionSpace(mesh, "CG", 2)}
 
-
-def get_solver(mesh_seq):
-    def solver(index):
-        u, u_ = mesh_seq.fields["u"]
+    def get_solver(self, index):
+        u, u_ = self.fields["u"]
 
         # Define constants
-        R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
+        R = FunctionSpace(self.meshes[index], "R", 0)
+        dt = Function(R).assign(self.time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -61,10 +60,10 @@ def get_solver(mesh_seq):
         )
 
         # Communicate variational form to mesh_seq
-        mesh_seq.read_forms({"u": F})
+        self.read_forms({"u": F})
 
         # Time integrate from t_start to t_end
-        P = mesh_seq.time_partition
+        P = self.time_partition
         t_start, t_end = P.subintervals[index]
         dt = P.timesteps[index]
         t = t_start
@@ -75,21 +74,17 @@ def get_solver(mesh_seq):
             u_.assign(u)
             t += dt
 
-    return solver
+    def get_initial_condition(self):
+        fs = self.function_spaces["u"][0]
+        x, y = SpatialCoordinate(self.meshes[0])
+        return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
+    def get_qoi(self, i):
+        def end_time_qoi():
+            u = self.fields["u"][0]
+            return inner(u, u) * ds(2)
 
-def get_initial_condition(mesh_seq):
-    fs = mesh_seq.function_spaces["u"][0]
-    x, y = SpatialCoordinate(mesh_seq[0])
-    return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
-
-
-def get_qoi(mesh_seq, i):
-    def end_time_qoi():
-        u = mesh_seq.fields["u"][0]
-        return inner(u, u) * ds(2)
-
-    return end_time_qoi
+        return end_time_qoi
 
 
 # Next, create a sequence of meshes and a :class:`TimePartition`. ::
@@ -112,14 +107,14 @@ time_partition = TimePartition(
 # functionality. Note that :class:`GoalOrientedMeshSeq` is a subclass of
 # :class:`AdjointMeshSeq`, which is a subclass of :class:`MeshSeq`. ::
 
-mesh_seq = GoalOrientedMeshSeq(
-    time_partition,
+mesh_seq = MeshSeq(
+    # time_partition,
     meshes,
-    get_function_spaces=get_function_spaces,
-    get_initial_condition=get_initial_condition,
-    get_solver=get_solver,
-    get_qoi=get_qoi,
-    qoi_type="end_time",
+    # get_function_spaces=get_function_spaces,
+    # get_initial_condition=get_initial_condition,
+    # get_solver=get_solver,
+    # get_qoi=get_qoi,
+    # qoi_type="end_time",
 )
 
 # Given the description of the PDE problem in the form of a
@@ -132,7 +127,10 @@ mesh_seq = GoalOrientedMeshSeq(
 # both) of these as the ``"enrichment_method"``, we are able to compute error indicator
 # fields as follows. ::
 
-solutions, indicators = mesh_seq.indicate_errors(
+solver = BurgersSolver(time_partition, mesh_seq, qoi_type="end_time")
+# error_estimator = GoalOriente(solver)
+
+solutions, indicators = solver.indicate_errors(
     enrichment_kwargs={"enrichment_method": "h"}
 )
 

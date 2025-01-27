@@ -6,8 +6,6 @@ import re
 import unittest
 
 from firedrake import (
-    Function,
-    FunctionSpace,
     UnitCubeMesh,
     UnitIntervalMesh,
     UnitSquareMesh,
@@ -15,7 +13,6 @@ from firedrake import (
 from parameterized import parameterized
 
 from goalie.mesh_seq import MeshSeq
-from goalie.time_partition import TimeInterval, TimePartition
 
 
 class BaseClasses:
@@ -27,10 +24,6 @@ class BaseClasses:
         """
         Test case with a simple setUp method and mesh constructor.
         """
-
-        def setUp(self):
-            self.time_partition = TimePartition(1.0, 2, [0.5, 0.5], ["field"])
-            self.time_interval = TimeInterval(1.0, [0.5], ["field"])
 
         def trivial_mesh(self, dim):
             try:
@@ -51,58 +44,14 @@ class TestExceptions(BaseClasses.MeshSeqTestCase):
     def test_inconsistent_dim_error(self):
         meshes = [self.trivial_mesh(2), self.trivial_mesh(3)]
         with self.assertRaises(ValueError) as cm:
-            MeshSeq(self.time_partition, meshes)
+            MeshSeq(meshes)
         msg = "Meshes must all have the same topological dimension."
         self.assertEqual(str(cm.exception), msg)
 
-    @parameterized.expand(["get_function_spaces", "get_solver"])
-    def test_notimplemented_error(self, function_name):
-        mesh_seq = MeshSeq(self.time_interval, self.trivial_mesh(2))
-        with self.assertRaises(NotImplementedError) as cm:
-            if function_name == "get_function_spaces":
-                getattr(mesh_seq, function_name)(mesh_seq[0])
-            else:
-                getattr(mesh_seq, function_name)()
-        self.assertEqual(str(cm.exception), f"'{function_name}' needs implementing.")
-
-    @parameterized.expand(["get_function_spaces", "get_initial_condition"])
-    def test_return_dict_error(self, method):
-        kwargs = {method: lambda _: 0}
-        with self.assertRaises(AssertionError) as cm:
-            MeshSeq(self.time_interval, self.trivial_mesh(2), **kwargs)
-        self.assertEqual(str(cm.exception), f"{method} should return a dict")
-
-    @parameterized.expand(["get_function_spaces", "get_initial_condition"])
-    def test_missing_field_error(self, method):
-        kwargs = {method: lambda _: {}}
-        with self.assertRaises(AssertionError) as cm:
-            MeshSeq(self.time_interval, self.trivial_mesh(2), **kwargs)
-        msg = "missing fields {'field'} in " + f"{method}"
-        self.assertEqual(str(cm.exception), msg)
-
-    @parameterized.expand(["get_function_spaces", "get_initial_condition"])
-    def test_unexpected_field_error(self, method):
-        kwargs = {method: lambda _: {"field": None, "extra_field": None}}
-        with self.assertRaises(AssertionError) as cm:
-            MeshSeq(self.time_interval, self.trivial_mesh(2), **kwargs)
-        msg = "unexpected fields {'extra_field'} in " + f"{method}"
-        self.assertEqual(str(cm.exception), msg)
-
-    def test_solver_generator_error(self):
-        mesh = self.trivial_mesh(2)
-        f_space = FunctionSpace(mesh, "CG", 1)
-        kwargs = {
-            "get_function_spaces": lambda _: {"field": f_space},
-            "get_initial_condition": lambda _: {"field": Function(f_space)},
-            "get_solver": lambda _: lambda *_: {},
-        }
-        with self.assertRaises(AssertionError) as cm:
-            MeshSeq(self.time_interval, mesh, **kwargs)
-        self.assertEqual(str(cm.exception), "solver should yield")
-
     @parameterized.expand([1, 3])
     def test_plot_dim_error(self, dim):
-        mesh_seq = MeshSeq(self.time_interval, self.trivial_mesh(dim))
+        # mesh_seq = MeshSeq(self.time_interval, self.trivial_mesh(dim))
+        mesh_seq = MeshSeq([self.trivial_mesh(dim)])
         with self.assertRaises(ValueError) as cm:
             mesh_seq.plot()
         self.assertEqual(str(cm.exception), "MeshSeq plotting only supported in 2D.")
@@ -113,25 +62,21 @@ class TestGeneric(BaseClasses.MeshSeqTestCase):
     Generic unit tests for :class:`MeshSeq`.
     """
 
-    def setUp(self):
-        self.time_partition = TimePartition(1.0, 2, [0.5, 0.5], ["field"])
-        self.time_interval = TimeInterval(1.0, [0.5], ["field"])
-
     def test_setitem(self):
         mesh1 = UnitSquareMesh(1, 1, diagonal="left")
         mesh2 = UnitSquareMesh(1, 1, diagonal="right")
-        mesh_seq = MeshSeq(self.time_interval, [mesh1])
+        mesh_seq = MeshSeq([mesh1])
         self.assertEqual(mesh_seq[0], mesh1)
         mesh_seq[0] = mesh2
         self.assertEqual(mesh_seq[0], mesh2)
 
     def test_counting_2d(self):
-        mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(3, 3)])
+        mesh_seq = MeshSeq([UnitSquareMesh(3, 3)])
         self.assertEqual(mesh_seq.count_elements(), [18])
         self.assertEqual(mesh_seq.count_vertices(), [16])
 
     def test_counting_3d(self):
-        mesh_seq = MeshSeq(self.time_interval, [UnitCubeMesh(3, 3, 3)])
+        mesh_seq = MeshSeq([UnitCubeMesh(3, 3, 3)])
         self.assertEqual(mesh_seq.count_elements(), [162])
         self.assertEqual(mesh_seq.count_vertices(), [64])
 
@@ -143,7 +88,7 @@ class TestStringFormatting(BaseClasses.MeshSeqTestCase):
     """
 
     def test_mesh_seq_time_interval_str(self):
-        mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)])
+        mesh_seq = MeshSeq([UnitSquareMesh(1, 1)])
         got = re.sub("#[0-9]*", "?", str(mesh_seq))
         self.assertEqual(got, "['<Mesh ?>']")
 
@@ -152,12 +97,12 @@ class TestStringFormatting(BaseClasses.MeshSeqTestCase):
             UnitSquareMesh(1, 1, diagonal="left"),
             UnitSquareMesh(1, 1, diagonal="right"),
         ]
-        mesh_seq = MeshSeq(self.time_partition, meshes)
+        mesh_seq = MeshSeq(meshes)
         got = re.sub("#[0-9]*", "?", str(mesh_seq))
         self.assertEqual(got, "['<Mesh ?>', '<Mesh ?>']")
 
     def test_mesh_seq_time_interval_repr(self):
-        mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)])
+        mesh_seq = MeshSeq([UnitSquareMesh(1, 1)])
         expected = (
             "MeshSeq([Mesh(VectorElement("
             "FiniteElement('Lagrange', triangle, 1), dim=2), .*)])"
@@ -169,7 +114,7 @@ class TestStringFormatting(BaseClasses.MeshSeqTestCase):
             UnitSquareMesh(1, 1, diagonal="left"),
             UnitSquareMesh(1, 1, diagonal="right"),
         ]
-        mesh_seq = MeshSeq(self.time_partition, meshes)
+        mesh_seq = MeshSeq(meshes)
         expected = (
             "MeshSeq(["
             "Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*), "
@@ -183,7 +128,7 @@ class TestStringFormatting(BaseClasses.MeshSeqTestCase):
             UnitSquareMesh(1, 1, diagonal="right"),
             UnitSquareMesh(1, 1, diagonal="left"),
         ]
-        mesh_seq = MeshSeq(self.time_partition, meshes)
+        mesh_seq = MeshSeq(meshes)
         expected = (
             "MeshSeq(["
             "Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*), "
