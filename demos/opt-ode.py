@@ -90,7 +90,7 @@ axes.legend()
 plt.tight_layout()
 plt.savefig("opt-ode_forward_euler.jpg", bbox_inches="tight")
 
-parameters = OptimisationParameters({"lr": 0.02, "maxiter": 100})
+parameters = OptimisationParameters({"lr": 0.5, "maxiter": 100})
 print(parameters)
 
 optimiser = QoIOptimiser(point_seq, parameters, method="gradient_descent")
@@ -101,7 +101,6 @@ axes.plot(optimiser.progress["control"], "--x")
 axes.set_xlabel("Iteration")
 axes.set_ylabel("Control")
 axes.grid(True)
-axes.legend()
 plt.savefig("opt-ode_control.jpg", bbox_inches="tight")
 
 fig, axes = plt.subplots()
@@ -109,13 +108,13 @@ axes.plot(optimiser.progress["qoi"], "--x")
 axes.set_xlabel("Iteration")
 axes.set_ylabel("QoI")
 axes.grid(True)
-axes.legend()
 plt.savefig("opt-ode_qoi.jpg", bbox_inches="tight")
 
 # Plot optimised trajectory
 solutions = point_seq.solve_adjoint()
 J = point_seq.J
-print(f"J={J}")
+print(f"Optimised QoI: {J:.4e}")
+print(f"Optimised control: {float(point_seq._control):.4f}")
 opt_trajectory = [float(get_initial_condition(point_seq)["u"])]
 opt_trajectory += [
     float(sol) for subinterval in solutions["u"]["forward"] for sol in subinterval
