@@ -49,7 +49,7 @@ def get_qoi(point_seq, index):
     def end_time_qoi():
         sol = exp(1.0)
         u = point_seq.fields["u"][0]
-        return (u - sol) * dx
+        return abs(u - sol) * dx
 
     return end_time_qoi
 
