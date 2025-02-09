@@ -7,6 +7,7 @@ import abc
 import firedrake.function as ffunc
 import numpy as np
 import pyadjoint
+from firedrake import ConvergenceError
 
 from .log import log
 from .utility import AttrDict
@@ -112,18 +113,31 @@ class QoIOptimiser_Base(abc.ABC):
     def minimise(self):
         # TODO: Docstring
         # TODO: Upstream implementation from opt_adapt
-        for i in range(self.params.maxiter):
-            J, dJ, u = self.step()
+        params = self.params
+        for it in range(self.params.maxiter):
+            J, dJ, u = (float(x) for x in self.step())
             print(
-                f"i={i+1:2d}, "
-                f"u={float(u):.4e}, "
-                f"J={float(J):.4e}, "
-                f"dJ={float(dJ):.4e}, "
+                f"it={it+1:2d}, "
+                f"u={u:.4e}, "
+                f"J={J:.4e}, "
+                f"dJ={dJ:.4e}, "
                 f"lr={self.params.lr:.4e}"
             )
             self.progress["control"].append(float(u))
             self.progress["qoi"].append(float(J))
             self.progress["gradient"].append(float(dJ))
+            if it == 0:
+                continue
+
+            # Check for QoI divergence
+            if np.abs(J / np.min(self.progress["qoi"])) > params.dtol:
+                raise ConvergenceError("QoI divergence detected")
+
+            # Check for gradient convergence
+            if dJ / self.progress["gradient"][0] < params.gtol:
+                print("Gradient convergence detected")
+                return
+        raise ConvergenceError("Reached maximum number of iterations")
 
 
 class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
