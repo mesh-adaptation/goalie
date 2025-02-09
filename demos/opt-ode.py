@@ -88,18 +88,28 @@ axes.set_ylabel(r"$u$")
 axes.grid(True)
 axes.legend()
 plt.tight_layout()
-plt.savefig("opt-ode-forward_euler.jpg")
+plt.savefig("opt-ode_forward_euler.jpg", bbox_inches="tight")
 
-parameters = OptimisationParameters({"lr": 0.1})
-optimiser = QoIOptimiser(point_seq, parameters, method="gradient_descent")
-
-# Simple optimisation
+parameters = OptimisationParameters({"lr": 0.05, "maxiter": 100})
 print(parameters)
-for i in range(parameters.maxiter):
-    J, dJ, u = optimiser.step()
-    print(
-        f"i={i:2d}, "
-        f"u={float(u):.4e}, "
-        f"J={float(J):.4e}, "
-        f"dJ={float(dJ):.4e}, "
-    )
+
+optimiser = QoIOptimiser(point_seq, parameters, method="gradient_descent")
+optimiser.minimise()
+
+fig, axes = plt.subplots()
+axes.plot(optimiser.progress["control"], "--x")
+axes.set_xlabel("Iteration")
+axes.set_ylabel("Control")
+axes.grid(True)
+axes.legend()
+plt.savefig("opt-ode_control.jpg", bbox_inches="tight")
+
+fig, axes = plt.subplots()
+axes.plot(optimiser.progress["qoi"], "--x")
+axes.set_xlabel("Iteration")
+axes.set_ylabel("QoI")
+axes.grid(True)
+axes.legend()
+plt.savefig("opt-ode_qoi.jpg", bbox_inches="tight")
+
+# TODO: Plot optimised solution curve
