@@ -90,7 +90,7 @@ axes.legend()
 plt.tight_layout()
 plt.savefig("opt-ode_forward_euler.jpg", bbox_inches="tight")
 
-parameters = OptimisationParameters({"lr": 0.05, "maxiter": 100})
+parameters = OptimisationParameters({"lr": 0.02, "maxiter": 100})
 print(parameters)
 
 optimiser = QoIOptimiser(point_seq, parameters, method="gradient_descent")
@@ -112,4 +112,21 @@ axes.grid(True)
 axes.legend()
 plt.savefig("opt-ode_qoi.jpg", bbox_inches="tight")
 
-# TODO: Plot optimised solution curve
+# Plot optimised trajectory
+solutions = point_seq.solve_adjoint()
+J = point_seq.J
+print(f"J={J}")
+opt_trajectory = [float(get_initial_condition(point_seq)["u"])]
+opt_trajectory += [
+    float(sol) for subinterval in solutions["u"]["forward"] for sol in subinterval
+]
+fig, axes = plt.subplots()
+axes.plot(times, np.exp(times), "--x", label="Analytical solution")
+axes.plot(times, forward_euler_trajectory, "--+", label="Forward Euler")
+axes.plot(times, opt_trajectory, "--+", label="Optimised")
+axes.set_xlabel(r"Time, $t$")
+axes.set_ylabel(r"$u$")
+axes.grid(True)
+axes.legend()
+plt.tight_layout()
+plt.savefig("opt-ode_optimised.jpg", bbox_inches="tight")
