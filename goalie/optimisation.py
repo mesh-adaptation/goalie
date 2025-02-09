@@ -6,6 +6,7 @@ import abc
 
 import firedrake.function as ffunc
 import numpy as np
+import pyadjoint
 
 from .log import log
 from .utility import AttrDict
@@ -121,7 +122,27 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        raise NotImplementedError  # TODO: Upstream gradient descent implementation
+
+    def step(self):
+        tape = pyadjoint.get_working_tape()
+        tape.clear_tape()
+        pyadjoint.continue_annotation()
+        self.mesh_seq.solve_adjoint()
+        pyadjoint.pause_annotation()
+        J = self.mesh_seq.J
+        u = self.mesh_seq._control
+        control = pyadjoint.Control(u)
+        # TODO: Compute gradient in Goalie
+        dJ = pyadjoint.compute_gradient(J, control)
+
+        P = dJ.copy(deepcopy=True)
+        P *= -1
+
+        # TODO: Barzilai-Borwein formula
+
+        # Take a step downhill
+        self.mesh_seq._control.dat.data[:] += self.params.lr * P.dat.data
+        return J, dJ, u
 
 
 class QoIOptimiser_Adam(QoIOptimiser_Base):
