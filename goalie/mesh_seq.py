@@ -66,6 +66,8 @@ class MeshSeq:
         self.fp_iteration = 0
         self.params = None
         self.sections = [{} for mesh in self]
+        # TODO: Proper implementation of controls using non-prognostic fields
+        self._control = None
 
         self._outputs_consistent()
 
