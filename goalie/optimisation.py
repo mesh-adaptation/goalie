@@ -119,6 +119,7 @@ class QoIOptimiser_Base(abc.ABC):
                 f"u={float(u):.4e}, "
                 f"J={float(J):.4e}, "
                 f"dJ={float(dJ):.4e}, "
+                f"lr={self.params.lr:.4e}"
             )
             self.progress["control"].append(float(u))
             self.progress["qoi"].append(float(J))
@@ -145,13 +146,21 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
         J = self.mesh_seq.J
         u = self.mesh_seq._control
         control = pyadjoint.Control(u)
-        # TODO: Compute gradient in Goalie
+        # TODO: Compute gradient in Goalie as part of solve_adjoint above
         dJ = pyadjoint.compute_gradient(J, control)
 
         P = dJ.copy(deepcopy=True)
         P *= -1
 
-        # TODO: Barzilai-Borwein formula
+        # FIXME:
+        # # Barzilai-Borwein formula
+        # if len(self.progress["control"]) > 0:
+        #     u_prev = self.progress["control"][-1]
+        #     dJ_prev = self.progress["gradient"][-1]
+        #     dJ_diff = assemble(ufl.inner(dJ_prev - dJ, dJ_prev - dJ) * ufl.dx)
+        #     lr = abs(assemble(ufl.inner(u_prev - u, dJ_prev - dJ) * ufl.dx) / dJ_diff)
+        #     print(u_prev, dJ_prev, float(u), float(dJ), lr)
+        #     self.params.lr = max(lr, self.params.lr_min)
 
         # Take a step downhill
         self.mesh_seq._control.dat.data[:] += self.params.lr * P.dat.data
