@@ -70,7 +70,8 @@ R = point_seq.function_spaces["u"][0]
 point_seq._control = Function(R).assign(0.0)
 
 solutions = point_seq.solve_adjoint()
-print(f"QoI: {point_seq.J}")
+J = point_seq.J
+print(f"J={J}")
 
 forward_euler_trajectory = [float(get_initial_condition(point_seq)["u"])]
 forward_euler_trajectory += [
@@ -89,7 +90,16 @@ axes.legend()
 plt.tight_layout()
 plt.savefig("opt-ode-forward_euler.jpg")
 
-parameters = OptimisationParameters()
+parameters = OptimisationParameters({"lr": 0.1})
 optimiser = QoIOptimiser(point_seq, parameters, method="gradient_descent")
 
-# TODO: Optimisation of theta parameter
+# Simple optimisation
+print(parameters)
+for i in range(parameters.maxiter):
+    J, dJ, u = optimiser.step()
+    print(
+        f"i={i:2d}, "
+        f"u={float(u):.4e}, "
+        f"J={float(J):.4e}, "
+        f"dJ={float(dJ):.4e}, "
+    )
