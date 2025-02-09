@@ -123,9 +123,9 @@ class QoIOptimiser_Base(abc.ABC):
                 f"dJ={dJ:.4e}, "
                 f"lr={self.params.lr:.4e}"
             )
-            self.progress["control"].append(float(u))
-            self.progress["qoi"].append(float(J))
-            self.progress["gradient"].append(float(dJ))
+            self.progress["control"].append(u)
+            self.progress["qoi"].append(J)
+            self.progress["gradient"].append(dJ)
             if it == 0:
                 continue
 
@@ -162,6 +162,7 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
         control = pyadjoint.Control(u)
         # TODO: Compute gradient in Goalie as part of solve_adjoint above
         dJ = pyadjoint.compute_gradient(J, control)
+        u = u.copy(deepcopy=True)
 
         P = dJ.copy(deepcopy=True)
         P *= -1
