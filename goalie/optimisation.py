@@ -30,21 +30,18 @@ class QoIOptimiser_Base(abc.ABC):
     Base class for handling PDE-constrained optimisation.
     """
 
-    def __init__(self, forward_run, mesh, control, params):
+    # TODO: Use Goalie Solver rather than MeshSeq
+    def __init__(self, mesh_seq, control, params):
         """
-        :arg forward_run: a Python function that implements the forward model and
+        :arg mesh_seq: a mesh sequence that implements the forward model and
             computes the objective functional
-        :type forward_run: :class:`~.Callable`
-        :arg mesh: the initial mesh
-        :type mesh: :class:`firedrake.mesh.MeshGeometry`
+        :type mesh_seq: :class:`~.AdjointMeshSeq`
         :arg control: the initial control value
         :type control: :class:`~.Control`
         :kwarg params: Class holding parameters for optimisation routine
         :type params: :class:`~.OptimisationParameters`
         """
-        # TODO: Use Goalie Solver rather than forward_run
-        self.forward_run = forward_run
-        self.mesh = mesh
+        self.mesh_seq = mesh_seq
         if (not isinstance(control, ffunc.Function)) or (
             control.ufl_element().family() != "R"
         ):
@@ -85,8 +82,10 @@ class QoIOptimiser_Base(abc.ABC):
         for i in range(maxiter):
             log(f"  {i:3d}:      lr = {lr:.4e}{ext}")
             u_plus = self.control + lr * P
-            # TODO: Use Goalie Solver rather than forward_run
-            J_plus, u_plus = self.forward_run(self.mesh, u_plus)
+            # TODO: Use Solver rather than MeshSeq; better implementation of controls
+            self.mesh_seq._control = u_plus
+            self.mesh_seq.get_checkpoints(run_final_subinterval=True)
+            J_plus = self.mesh_seq.J
             ext = f"  diff {J_plus - J:.4e}"
 
             # Check Armijo rule:
