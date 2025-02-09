@@ -31,24 +31,22 @@ class QoIOptimiser_Base(abc.ABC):
     """
 
     # TODO: Use Goalie Solver rather than MeshSeq
-    def __init__(self, mesh_seq, control, params):
+    def __init__(self, mesh_seq, params):
         """
         :arg mesh_seq: a mesh sequence that implements the forward model and
             computes the objective functional
         :type mesh_seq: :class:`~.AdjointMeshSeq`
-        :arg control: the initial control value
-        :type control: :class:`~.Control`
         :kwarg params: Class holding parameters for optimisation routine
         :type params: :class:`~.OptimisationParameters`
         """
         self.mesh_seq = mesh_seq
+        control = mesh_seq._control
         if (not isinstance(control, ffunc.Function)) or (
-            control.ufl_element().family() != "R"
+            control.ufl_element().family() != "Real"
         ):
             raise NotImplementedError(
                 "Only controls in R-space are currently implemented."
             )
-        self.control = control
         self.params = params
 
     def line_search(self, P, J, dJ):
@@ -81,7 +79,7 @@ class QoIOptimiser_Base(abc.ABC):
         ext = ""
         for i in range(maxiter):
             log(f"  {i:3d}:      lr = {lr:.4e}{ext}")
-            u_plus = self.control + lr * P
+            u_plus = self.mesh_seq._control + lr * P
             # TODO: Use Solver rather than MeshSeq; better implementation of controls
             self.mesh_seq._control = u_plus
             self.mesh_seq.get_checkpoints(run_final_subinterval=True)
@@ -178,7 +176,7 @@ class QoIOptimiser_LBFGS(QoIOptimiser_Base):
         raise NotImplementedError  # TODO: Upstream L-BFGS implementation
 
 
-def QoIOptimiser(method="gradient_descent"):
+def QoIOptimiser(mesh_seq, params, method="gradient_descent"):
     """
     Factory method for constructing handlers for PDE-constrained optimisation.
     """
@@ -189,6 +187,6 @@ def QoIOptimiser(method="gradient_descent"):
             "newton": QoIOptimiser_Newton,
             "bfgs": QoIOptimiser_BFGS,
             "lbfgs": QoIOptimiser_LBFGS,
-        }[method]
+        }[method](mesh_seq, params)
     except KeyError as ke:
         raise ValueError(f"Method {method} not supported.") from ke

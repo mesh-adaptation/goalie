@@ -27,10 +27,8 @@ def get_solver_theta(point_seq):
         dt = Function(R).assign(tp.timesteps[index])
         v = TestFunction(R)
 
-        # Initialise control to zero
-        theta = Function(R).assign(0.0)
         # TODO: Avoid such hackiness
-        point_seq._control = theta
+        theta = point_seq._control
         F = (u - u_ - dt * (theta * u + (1 - theta) * u_)) * v * dx
 
         sp = {"ksp_type": "preonly", "pc_type": "jacobi"}
@@ -54,6 +52,11 @@ point_seq = PointSeq(
     get_solver=get_solver_theta,
 )
 
+# Initialise control to zero
+# TODO: Avoid such hackiness
+R = point_seq.function_spaces["u"][0]
+point_seq._control = Function(R).assign(0.0)
+
 solutions = point_seq.solve_forward()["u"]["forward"]
 
 forward_euler_trajectory = [float(get_initial_condition(point_seq)["u"])]
@@ -72,5 +75,8 @@ axes.grid(True)
 axes.legend()
 plt.tight_layout()
 plt.savefig("opt-ode-forward_euler.jpg")
+
+parameters = OptimisationParameters()
+optimiser = QoIOptimiser(point_seq, parameters, method="gradient_descent")
 
 # TODO: Optimisation of theta parameter
