@@ -49,6 +49,7 @@ class QoIOptimiser_Base(abc.ABC):
                 "Only controls in R-space are currently implemented."
             )
         self.params = params
+        self.progress = OptimisationProgress()
 
     def line_search(self, P, J, dJ):
         """
@@ -109,7 +110,19 @@ class QoIOptimiser_Base(abc.ABC):
         pass
 
     def minimise(self):
-        raise NotImplementedError  # TODO: Upstream implementation from opt_adapt
+        # TODO: Docstring
+        # TODO: Upstream implementation from opt_adapt
+        for i in range(self.params.maxiter):
+            J, dJ, u = self.step()
+            print(
+                f"i={i+1:2d}, "
+                f"u={float(u):.4e}, "
+                f"J={float(J):.4e}, "
+                f"dJ={float(dJ):.4e}, "
+            )
+            self.progress["control"].append(float(u))
+            self.progress["qoi"].append(float(J))
+            self.progress["gradient"].append(float(dJ))
 
 
 class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
