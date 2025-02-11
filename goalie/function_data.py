@@ -216,7 +216,7 @@ class FunctionData(ABC):
         outfile = VTKFile(output_fpath, adaptive=True)
         if initial_condition is not None:
             ics = []
-            for field, ic in initial_condition.items():
+            for field, ic in sorted(initial_condition.items()):
                 for field_type in export_field_types:
                     icc = ic.copy(deepcopy=True)
                     # If the function space is mixed, rename and append each
@@ -242,7 +242,7 @@ class FunctionData(ABC):
                     + (j + 1) * tp.timesteps[i] * tp.num_timesteps_per_export[i]
                 )
                 fs = []
-                for field in tp.field_names:
+                for field in sorted(tp.field_names):
                     mixed = hasattr(self.function_spaces[field][0], "num_sub_spaces")
                     for field_type in export_field_types:
                         f = self._data[field][field_type][i][j].copy(deepcopy=True)
