@@ -49,7 +49,8 @@ class GradientTestMeshSeq(AdjointMeshSeq):
         self.qoi_expr = options_dict.get("qoi_expr", "quadratic")
         self.scalar = options_dict.get("scalar", 1.2)
 
-    def get_function_spaces(self, mesh):
+    @staticmethod
+    def get_function_spaces(mesh):
         return {"field": FunctionSpace(mesh, "R", 0)}
 
     def get_initial_condition(self):
@@ -63,16 +64,21 @@ class GradientTestMeshSeq(AdjointMeshSeq):
             Artificial solve that just scales the initial condition.
             """
             fs = self.function_spaces["field"][index]
-            u = self.fields["field"]
-            u0 = Function(fs).assign(u)
-            v = TestFunction(fs)
-            F = u * v * ufl.dx - Constant(self.scalar) * u0 * v * ufl.dx
-
             tp = self.time_partition
-            for _ in range(tp.num_subintervals):
+            if tp.steady:
+                u = self.fields["field"]
+                u_ = Function(fs, name="field_old").assign(u)
+            else:
+                u, u_ = self.fields["field"]
+            v = TestFunction(fs)
+            F = u * v * ufl.dx - Constant(self.scalar) * u_ * v * ufl.dx
+
+            # Scale the initial condition at each timestep
+            # TODO: Account for time-integrated QoIs
+            for _ in range(tp.num_timesteps_per_subinterval[index]):
                 solve(F == 0, u, ad_block_tag="field")
-                u0.assign(u)
-            yield
+                yield
+                u_.assign(u)
 
         return solver
 
@@ -93,28 +99,31 @@ class GradientTestMeshSeq(AdjointMeshSeq):
         """
         Various QoIs as determined by the `qoi_expr` option.
         """
+        tp = self.time_partition
 
-        def steady_qoi():
+        def end_time_qoi():
             """
             QoI that squares the solution field.
             """
-            u = self.fields["field"]
+            u = self.fields["field"] if tp.steady else self.fields["field"][0]
             return self.integrand(u) * ufl.dx
 
-        return steady_qoi
+        return end_time_qoi
 
     def expected_gradient(self):
         """
         Method for determining the expected value of the gradient.
         """
+        tp = self.time_partition
+        integrand = self.integrand(self.scalar**tp.num_timesteps)
         if self.qoi_expr == "linear":
-            return self.integrand(self.scalar)
+            return integrand
         elif self.qoi_expr == "quadratic":
-            return self.integrand(self.scalar) * 2 * self.initial_value
+            return integrand * 2 * self.initial_value
         elif self.qoi_expr == "cubic":
-            return self.integrand(self.scalar) * 3 * self.initial_value**2
+            return integrand * 3 * self.initial_value**2
         elif self.qoi_expr == "sqrt":
-            return self.integrand(self.scalar) * 0.5 * self.initial_value ** (-0.5)
+            return integrand * 0.5 * self.initial_value ** (-0.5)
         else:
             raise NotImplementedError
 
@@ -158,8 +167,36 @@ class TestSingleSubinterval(unittest.TestCase):
             )
         )
 
-    def test_two_timesteps(self):
-        raise NotImplementedError("TODO")  # TODO
+    @parameterized.expand(
+        [
+            ("linear", 2.3),
+            ("linear", 0.004),
+            ("quadratic", 7.8),
+            ("quadratic", -3),
+            ("cubic", 0.0),
+            ("cubic", np.exp(1)),
+            ("sqrt", 1.0),
+            ("sqrt", 4.2),
+        ]
+    )
+    def test_two_timesteps(self, qoi_expr, initial_value):
+        options_dict = {
+            "qoi_expr": qoi_expr,
+            "initial_value": initial_value,
+        }
+        mesh_seq = GradientTestMeshSeq(
+            options_dict,
+            self.time_partition(0.5),
+            UnitIntervalMesh(1),
+            qoi_type="end_time",
+        )
+        mesh_seq.solve_adjoint(compute_gradient=True)
+        self.assertTrue(
+            np.allclose(
+                mesh_seq.gradient[0].dat.data,
+                mesh_seq.expected_gradient(),
+            )
+        )
 
 
 class TestTwoSubintervals(unittest.TestCase):
