@@ -83,6 +83,9 @@ class GradientTestMeshSeq(AdjointMeshSeq):
         return solver
 
     def integrand(self, u):
+        """
+        Expression for the integrand of the QoI in terms of the solution field.
+        """
         if self.qoi_expr == "linear":
             return 3 * u
         elif self.qoi_expr == "quadratic":
@@ -149,12 +152,8 @@ class TestGradientComputation(unittest.TestCase):
         ]
     )
     def test_single_timestep(self, qoi_expr, initial_value):
-        options_dict = {
-            "qoi_expr": qoi_expr,
-            "initial_value": initial_value,
-        }
         mesh_seq = GradientTestMeshSeq(
-            options_dict,
+            {"qoi_expr": qoi_expr, "initial_value": initial_value},
             self.time_partition(1, 1.0),
             UnitIntervalMesh(1),
             qoi_type="steady",
@@ -180,12 +179,8 @@ class TestGradientComputation(unittest.TestCase):
         ]
     )
     def test_two_timesteps(self, qoi_expr, initial_value):
-        options_dict = {
-            "qoi_expr": qoi_expr,
-            "initial_value": initial_value,
-        }
         mesh_seq = GradientTestMeshSeq(
-            options_dict,
+            {"qoi_expr": qoi_expr, "initial_value": initial_value},
             self.time_partition(1, 0.5),
             UnitIntervalMesh(1),
             qoi_type="end_time",
@@ -211,12 +206,8 @@ class TestGradientComputation(unittest.TestCase):
         ]
     )
     def test_two_subintervals(self, qoi_expr, initial_value):
-        options_dict = {
-            "qoi_expr": qoi_expr,
-            "initial_value": initial_value,
-        }
         mesh_seq = GradientTestMeshSeq(
-            options_dict,
+            {"qoi_expr": qoi_expr, "initial_value": initial_value},
             self.time_partition(2, 0.5),
             UnitIntervalMesh(1),
             qoi_type="end_time",
