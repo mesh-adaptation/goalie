@@ -46,7 +46,7 @@ class GradientTestMeshSeq(AdjointMeshSeq):
     def __init__(self, options_dict, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.initial_value = options_dict.get("initial_value", 1.0)
-        self.qoi_expr = options_dict.get("qoi_expr", "quadratic")
+        self.qoi_degree = options_dict.get("qoi_degree", 2)
         self.scalar = options_dict.get("scalar", 1.2)
 
     @staticmethod
@@ -74,11 +74,18 @@ class GradientTestMeshSeq(AdjointMeshSeq):
             F = u * v * ufl.dx - Constant(self.scalar) * u_ * v * ufl.dx
 
             # Scale the initial condition at each timestep
-            # TODO: Account for time-integrated QoIs
-            for _ in range(tp.num_timesteps_per_subinterval[index]):
+            t_start, t_end = self.subintervals[index]
+            dt = tp.timesteps[index]
+            t = t_start
+            qoi = self.get_qoi(index)
+            while t < t_end - 1.0e-05:
                 solve(F == 0, u, ad_block_tag="field")
+                if self.qoi_type == "time_integrated":
+                    self.J += qoi(t)
                 yield
+
                 u_.assign(u)
+                t += dt
 
         return solver
 
@@ -86,49 +93,53 @@ class GradientTestMeshSeq(AdjointMeshSeq):
         """
         Expression for the integrand of the QoI in terms of the solution field.
         """
-        if self.qoi_expr == "linear":
-            return 3 * u
-        elif self.qoi_expr == "quadratic":
-            return 0.5 * u**2
-        elif self.qoi_expr == "cubic":
-            return ufl.pi * u**3
-        elif self.qoi_expr == "sqrt":
-            return u**0.5
-        else:
-            raise NotImplementedError
+        return ufl.pi * u**self.qoi_degree
 
     @annotate_qoi
     def get_qoi(self, index):
         """
-        Various QoIs as determined by the `qoi_expr` option.
+        Various QoIs as determined by the `qoi_degree` option.
         """
         tp = self.time_partition
 
-        def end_time_qoi():
-            """
-            QoI that squares the solution field.
-            """
-            u = self.fields["field"] if tp.steady else self.fields["field"][0]
-            return self.integrand(u) * ufl.dx
+        def steady_qoi():
+            return self.integrand(self.fields["field"]) * ufl.dx
 
-        return end_time_qoi
+        def end_time_qoi():
+            return self.integrand(self.fields["field"][0]) * ufl.dx
+
+        def time_integrated_qoi(t):
+            dt = tp.timesteps[index]
+            return dt * self.integrand(self.fields["field"][0]) * ufl.dx
+
+        if self.qoi_type == "steady":
+            return steady_qoi
+        elif self.qoi_type == "end_time":
+            return end_time_qoi
+        else:
+            return time_integrated_qoi
 
     def expected_gradient(self):
         """
         Method for determining the expected value of the gradient.
         """
         tp = self.time_partition
-        integrand = self.integrand(self.scalar**tp.num_timesteps)
-        if self.qoi_expr == "linear":
-            return integrand
-        elif self.qoi_expr == "quadratic":
-            return integrand * 2 * self.initial_value
-        elif self.qoi_expr == "cubic":
-            return integrand * 3 * self.initial_value**2
-        elif self.qoi_expr == "sqrt":
-            return integrand * 0.5 * self.initial_value ** (-0.5)
+        if self.qoi_type in ("steady", "end_time"):
+            # In the steady and end-time cases, the gradient accumulates the scale
+            # factor as many times as there are timesteps
+            scaling = self.integrand(self.scalar**tp.num_timesteps)
         else:
-            raise NotImplementedError
+            # In the time-integrated case, the gradient becomes a sum, where each term
+            # accumulates an additional scale factor in each timestep. Each contribution
+            # is multiplied by the timestep on the corresponding subinterval
+            scaling = 0
+            p = 0
+            for subinterval in range(tp.num_subintervals):
+                dt = tp.timesteps[subinterval]
+                for _ in range(tp.num_timesteps_per_subinterval[subinterval]):
+                    p += 1
+                    scaling += dt * self.integrand(self.scalar**p)
+        return scaling * self.qoi_degree * self.initial_value ** (self.qoi_degree - 1)
 
 
 class TestGradientComputation(unittest.TestCase):
@@ -141,19 +152,19 @@ class TestGradientComputation(unittest.TestCase):
 
     @parameterized.expand(
         [
-            ("linear", 2.3),
-            ("linear", 0.004),
-            ("quadratic", 7.8),
-            ("quadratic", -3),
-            ("cubic", 0.0),
-            ("cubic", np.exp(1)),
-            ("sqrt", 1.0),
-            ("sqrt", 4.2),
+            (1, 2.3),
+            (1, 0.004),
+            (2, 7.8),
+            (2, -3),
+            (3, 0.0),
+            (3, np.exp(1)),
+            (0.5, 1.0),
+            (0.5, 4.2),
         ]
     )
-    def test_single_timestep(self, qoi_expr, initial_value):
+    def test_single_timestep_steady_qoi(self, qoi_degree, initial_value):
         mesh_seq = GradientTestMeshSeq(
-            {"qoi_expr": qoi_expr, "initial_value": initial_value},
+            {"qoi_degree": qoi_degree, "initial_value": initial_value},
             self.time_partition(1, 1.0),
             UnitIntervalMesh(1),
             qoi_type="steady",
@@ -168,19 +179,19 @@ class TestGradientComputation(unittest.TestCase):
 
     @parameterized.expand(
         [
-            ("linear", 2.3),
-            ("linear", 0.004),
-            ("quadratic", 7.8),
-            ("quadratic", -3),
-            ("cubic", 0.0),
-            ("cubic", np.exp(1)),
-            ("sqrt", 1.0),
-            ("sqrt", 4.2),
+            (1, 2.3),
+            (1, 0.004),
+            (2, 7.8),
+            (2, -3),
+            (3, 0.0),
+            (3, np.exp(1)),
+            (0.5, 1.0),
+            (0.5, 4.2),
         ]
     )
-    def test_two_timesteps(self, qoi_expr, initial_value):
+    def test_two_timesteps_end_time_qoi(self, qoi_degree, initial_value):
         mesh_seq = GradientTestMeshSeq(
-            {"qoi_expr": qoi_expr, "initial_value": initial_value},
+            {"qoi_degree": qoi_degree, "initial_value": initial_value},
             self.time_partition(1, 0.5),
             UnitIntervalMesh(1),
             qoi_type="end_time",
@@ -195,22 +206,49 @@ class TestGradientComputation(unittest.TestCase):
 
     @parameterized.expand(
         [
-            ("linear", 2.3),
-            ("linear", 0.004),
-            ("quadratic", 7.8),
-            ("quadratic", -3),
-            ("cubic", 0.0),
-            ("cubic", np.exp(1)),
-            ("sqrt", 1.0),
-            ("sqrt", 4.2),
+            (1, 2.3),
+            (1, 0.004),
+            (2, 7.8),
+            (2, -3),
+            (3, 0.0),
+            (3, np.exp(1)),
+            (0.5, 1.0),
+            (0.5, 4.2),
         ]
     )
-    def test_two_subintervals(self, qoi_expr, initial_value):
+    def test_two_subintervals_end_time_qoi(self, qoi_degree, initial_value):
         mesh_seq = GradientTestMeshSeq(
-            {"qoi_expr": qoi_expr, "initial_value": initial_value},
-            self.time_partition(2, 0.5),
+            {"qoi_degree": qoi_degree, "initial_value": initial_value},
+            self.time_partition(2, [0.25, 0.125]),
             UnitIntervalMesh(1),
             qoi_type="end_time",
+        )
+        mesh_seq.solve_adjoint(compute_gradient=True)
+        self.assertTrue(
+            np.allclose(
+                mesh_seq.gradient[0].dat.data,
+                mesh_seq.expected_gradient(),
+            )
+        )
+
+    @parameterized.expand(
+        [
+            (1, 2.3),
+            (1, 0.004),
+            (2, 7.8),
+            (2, -3),
+            (3, 0.0),
+            (3, np.exp(1)),
+            (0.5, 1.0),
+            (0.5, 4.2),
+        ]
+    )
+    def test_two_subintervals_time_integrated_qoi(self, qoi_degree, initial_value):
+        mesh_seq = GradientTestMeshSeq(
+            {"qoi_degree": qoi_degree, "initial_value": initial_value},
+            self.time_partition(2, [0.25, 0.125]),
+            UnitIntervalMesh(1),
+            qoi_type="time_integrated",
         )
         mesh_seq.solve_adjoint(compute_gradient=True)
         self.assertTrue(
