@@ -13,7 +13,7 @@ from firedrake.ufl_expr import TestFunction
 from firedrake.utility_meshes import UnitIntervalMesh
 from parameterized import parameterized
 
-from goalie.adjoint import AdjointMeshSeq
+from goalie.adjoint import AdjointMeshSeq, annotate_qoi
 from goalie.time_partition import TimeInterval, TimePartition
 
 
@@ -37,65 +37,68 @@ class TestExceptions(unittest.TestCase):
         self.assertEqual(str(cm.exception), msg)
 
 
+class GradientTestMeshSeq(AdjointMeshSeq):
+    """
+    Custom MeshSeq that accepts options to define the test problem.
+    """
+
+    def __init__(self, options_dict, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.initial_value = options_dict.get("initial_value", 1.0)
+        self.family = options_dict.get("family", "CG")
+        self.degree = options_dict.get("degree", 1)
+
+    def get_function_spaces(self, mesh):
+        return {"field": FunctionSpace(mesh, self.family, self.degree)}
+
+    def get_initial_condition(self):
+        u = Function(self.function_spaces["field"][0])
+        u.assign(self.initial_value)
+        return {"field": u}
+
+    def get_solver(self):
+        def solver(index):
+            """
+            Artificial solve that just assigns the initial condition.
+            """
+            fs = self.function_spaces["field"][index]
+            u = self.fields["field"]
+            u0 = Function(fs).assign(u)
+            v = TestFunction(fs)
+            F = u * v * ufl.dx - u0 * v * ufl.dx
+            solve(F == 0, u, ad_block_tag="field")
+            yield
+
+        return solver
+
+    @annotate_qoi
+    def get_qoi(self, index):
+        # TODO: Test some more interesting QoIs with parameterized
+        def steady_qoi():
+            """
+            QoI that squares the solution field.
+            """
+            u = self.fields["field"]
+            return ufl.inner(u, u) * ufl.dx
+
+        return steady_qoi
+
+
 class TestSingleSubinterval(unittest.TestCase):
     """
     Unit tests for gradient computation on mesh sequences with a single subinterval.
     """
 
-    def setUp(self):
-        self.field = "field"
-
     def time_partition(self, dt):
-        return TimeInterval(1.0, dt, self.field)
-
-    def get_function_space_getter(self, family, degree):
-        def get_function_spaces(mesh):
-            return {self.field: FunctionSpace(mesh, family, degree)}
-
-        return get_function_spaces
+        return TimeInterval(1.0, dt, "field")
 
     @parameterized.expand([("R", 0), ("CG", 1)])
     def test_single_timestep(self, family, degree):
-        time_partition = self.time_partition(1.0)
-
-        def get_initial_condition(mesh_seq):
-            u = Function(mesh_seq.function_spaces[self.field][0])
-            u.assign(1.0)
-            return {self.field: u}
-
-        def get_solver(mesh_seq):
-            def solver(index):
-                """
-                Artificial solve that just assigns the initial condition.
-                """
-                R = mesh_seq.function_spaces[self.field][index]
-                u = mesh_seq.fields[self.field]
-                u0 = Function(R).assign(u)
-                v = TestFunction(R)
-                F = u * v * ufl.dx - u0 * v * ufl.dx
-                solve(F == 0, u, ad_block_tag=self.field)
-                yield
-
-            return solver
-
-        def get_qoi(mesh_seq, index):
-            # TODO: Test some more interesting QoIs with parameterized
-            def steady_qoi():
-                """
-                QoI that squares the solution field.
-                """
-                u = mesh_seq.fields[self.field]
-                return ufl.inner(u, u) * ufl.dx
-
-            return steady_qoi
-
-        mesh_seq = AdjointMeshSeq(
-            time_partition,
+        options_dict = {"family": family, "degree": degree}
+        mesh_seq = GradientTestMeshSeq(
+            options_dict,
+            self.time_partition(1.0),
             UnitIntervalMesh(1),
-            get_initial_condition=get_initial_condition,
-            get_function_spaces=self.get_function_space_getter(family, degree),
-            get_solver=get_solver,
-            get_qoi=get_qoi,
             qoi_type="steady",
         )
         mesh_seq.solve_adjoint(compute_gradient=True)
