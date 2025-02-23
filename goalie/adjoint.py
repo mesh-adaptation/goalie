@@ -265,7 +265,7 @@ class AdjointMeshSeq(MeshSeq):
         # Default adjoint solution to zero, rather than None
         for block in solve_blocks:
             if block.adj_sol is None:
-                block.adj_sol = firedrake.Function(
+                block.adj_state = firedrake.Function(
                     self.function_spaces[field][subinterval], name=field
                 )
         return solve_blocks
