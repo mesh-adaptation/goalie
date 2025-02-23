@@ -128,13 +128,13 @@ class GradientTestMeshSeq(AdjointMeshSeq):
             raise NotImplementedError
 
 
-class TestSingleSubinterval(unittest.TestCase):
+class TestGradientComputation(unittest.TestCase):
     """
-    Unit tests for gradient computation on mesh sequences with a single subinterval.
+    Unit tests that check gradient values can be computed correctly.
     """
 
-    def time_partition(self, dt):
-        return TimeInterval(1.0, dt, "field")
+    def time_partition(self, num_subintervals, dt):
+        return TimePartition(1.0, num_subintervals, dt, "field")
 
     @parameterized.expand(
         [
@@ -155,7 +155,7 @@ class TestSingleSubinterval(unittest.TestCase):
         }
         mesh_seq = GradientTestMeshSeq(
             options_dict,
-            self.time_partition(1.0),
+            self.time_partition(1, 1.0),
             UnitIntervalMesh(1),
             qoi_type="steady",
         )
@@ -186,7 +186,7 @@ class TestSingleSubinterval(unittest.TestCase):
         }
         mesh_seq = GradientTestMeshSeq(
             options_dict,
-            self.time_partition(0.5),
+            self.time_partition(1, 0.5),
             UnitIntervalMesh(1),
             qoi_type="end_time",
         )
@@ -198,21 +198,33 @@ class TestSingleSubinterval(unittest.TestCase):
             )
         )
 
-
-class TestTwoSubintervals(unittest.TestCase):
-    """
-    Unit tests for gradient computation on mesh sequences with two subintervals.
-    """
-
-    def setUp(self):
-        end_time = 1.0
-        num_subintervals = 2
-        dt = end_time / num_subintervals
-        self.time_partition = TimePartition(end_time, num_subintervals, dt, "field")
-        self.meshes = [UnitIntervalMesh(1) for _ in range(num_subintervals)]
-
-    def test_single_timestep(self):
-        raise NotImplementedError("TODO")  # TODO
-
-    def test_two_timesteps(self):
-        raise NotImplementedError("TODO")  # TODO
+    @parameterized.expand(
+        [
+            ("linear", 2.3),
+            ("linear", 0.004),
+            ("quadratic", 7.8),
+            ("quadratic", -3),
+            ("cubic", 0.0),
+            ("cubic", np.exp(1)),
+            ("sqrt", 1.0),
+            ("sqrt", 4.2),
+        ]
+    )
+    def test_two_subintervals(self, qoi_expr, initial_value):
+        options_dict = {
+            "qoi_expr": qoi_expr,
+            "initial_value": initial_value,
+        }
+        mesh_seq = GradientTestMeshSeq(
+            options_dict,
+            self.time_partition(2, 0.5),
+            UnitIntervalMesh(1),
+            qoi_type="end_time",
+        )
+        mesh_seq.solve_adjoint(compute_gradient=True)
+        self.assertTrue(
+            np.allclose(
+                mesh_seq.gradient[0].dat.data,
+                mesh_seq.expected_gradient(),
+            )
+        )
