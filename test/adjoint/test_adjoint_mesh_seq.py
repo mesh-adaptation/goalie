@@ -250,8 +250,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
 
     def test_get_solve_blocks_adj_sol_none(self):
         """
-        Covers the block of code with comment "Default adjoint solution to zero, rather
-        than None"
+        Default adjoint solution should be zero, rather than None.
         """
         time_interval = TimeInterval(1.0, 0.5, "field")
         mesh_seq = AdjointMeshSeq(
