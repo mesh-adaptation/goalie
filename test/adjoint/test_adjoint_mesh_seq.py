@@ -30,8 +30,8 @@ class TestBlockLogic(unittest.TestCase):
     """
 
     @staticmethod
-    def get_p0_spaces(mesh):
-        return {"field": FunctionSpace(mesh, "DG", 0)}
+    def get_R_spaces(mesh):
+        return {"field": FunctionSpace(mesh, "R", 0)}
 
     def setUp(self):
         self.time_interval = TimeInterval(1.0, 0.5, "field")
@@ -39,7 +39,7 @@ class TestBlockLogic(unittest.TestCase):
         self.mesh_seq = AdjointMeshSeq(
             self.time_interval,
             self.mesh,
-            get_function_spaces=self.get_p0_spaces,
+            get_function_spaces=self.get_R_spaces,
             qoi_type="end_time",
         )
 
@@ -66,7 +66,7 @@ class TestBlockLogic(unittest.TestCase):
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_wrong_name(self, MockSolveBlock):
         solve_block = MockSolveBlock()
-        function_space = FunctionSpace(self.mesh, "DG", 0)
+        function_space = FunctionSpace(self.mesh, "R", 0)
         block_variable = BlockVariable(Function(function_space, name="field2"))
         solve_block._outputs = [block_variable]
         with self.assertRaises(AttributeError) as cm:
@@ -77,7 +77,7 @@ class TestBlockLogic(unittest.TestCase):
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_valid(self, MockSolveBlock):
         solve_block = MockSolveBlock()
-        function_space = FunctionSpace(self.mesh, "DG", 0)
+        function_space = FunctionSpace(self.mesh, "R", 0)
         block_variable = BlockVariable(Function(function_space, name="field"))
         solve_block._outputs = [block_variable]
         self.assertIsNotNone(self.mesh_seq._output("field", 0, solve_block))
@@ -85,7 +85,7 @@ class TestBlockLogic(unittest.TestCase):
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_multiple_valid_error(self, MockSolveBlock):
         solve_block = MockSolveBlock()
-        function_space = FunctionSpace(self.mesh, "DG", 0)
+        function_space = FunctionSpace(self.mesh, "R", 0)
         block_variable = BlockVariable(Function(function_space, name="field"))
         solve_block._outputs = [block_variable, block_variable]
         with self.assertRaises(AttributeError) as cm:
@@ -119,7 +119,7 @@ class TestBlockLogic(unittest.TestCase):
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_wrong_name(self, MockSolveBlock):
         solve_block = MockSolveBlock()
-        function_space = FunctionSpace(self.mesh, "DG", 0)
+        function_space = FunctionSpace(self.mesh, "R", 0)
         block_variable = BlockVariable(Function(function_space, name="field_new"))
         solve_block._dependencies = [block_variable]
         with self.assertRaises(AttributeError) as cm:
@@ -130,7 +130,7 @@ class TestBlockLogic(unittest.TestCase):
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_valid(self, MockSolveBlock):
         solve_block = MockSolveBlock()
-        function_space = FunctionSpace(self.mesh, "DG", 0)
+        function_space = FunctionSpace(self.mesh, "R", 0)
         block_variable = BlockVariable(Function(function_space, name="field_old"))
         solve_block._dependencies = [block_variable]
         self.assertIsNotNone(self.mesh_seq._dependency("field", 0, solve_block))
@@ -138,7 +138,7 @@ class TestBlockLogic(unittest.TestCase):
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_multiple_valid_error(self, MockSolveBlock):
         solve_block = MockSolveBlock()
-        function_space = FunctionSpace(self.mesh, "DG", 0)
+        function_space = FunctionSpace(self.mesh, "R", 0)
         block_variable = BlockVariable(Function(function_space, name="field_old"))
         solve_block._dependencies = [block_variable, block_variable]
         with self.assertRaises(AttributeError) as cm:
@@ -155,13 +155,17 @@ class TestBlockLogic(unittest.TestCase):
         mesh_seq = AdjointMeshSeq(
             time_interval,
             self.mesh,
-            get_function_spaces=self.get_p0_spaces,
+            get_function_spaces=self.get_R_spaces,
             qoi_type="end_time",
         )
         solve_block = MockSolveBlock()
         self.assertIsNone(mesh_seq._dependency("field", 0, solve_block))
 
-    def test_dependency_unsteady(self):
+    def test_get_solve_blocks_adj_sol_none(self):
+        """
+        Covers the block of code with comment "Default adjoint solution to zero, rather
+        than None"
+        """
         time_interval = TimeInterval(1.0, 0.5, "field")
         mesh_seq = AdjointMeshSeq(
             time_interval,
