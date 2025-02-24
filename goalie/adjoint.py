@@ -194,12 +194,7 @@ class AdjointMeshSeq(MeshSeq):
         :returns: list of solve blocks
         :rtype: :class:`list` of :class:`pyadjoint.block.Block`\s
         """
-        tape = pyadjoint.get_working_tape()
-        if tape is None:
-            self.warning("Tape does not exist!")
-            return []
-
-        blocks = tape.get_blocks()
+        blocks = pyadjoint.get_working_tape().get_blocks()
         if len(blocks) == 0:
             self.warning("Tape has no blocks!")
             return blocks
