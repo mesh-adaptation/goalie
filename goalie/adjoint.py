@@ -284,7 +284,7 @@ class AdjointMeshSeq(MeshSeq):
 
         # Loop through the solve block's outputs
         candidates = []
-        for out in solve_block._outputs:
+        for out in solve_block.get_outputs():
             # Look for Functions with matching function spaces
             if not isinstance(out.output, firedrake.Function):
                 continue
@@ -335,7 +335,7 @@ class AdjointMeshSeq(MeshSeq):
 
         # Loop through the solve block's dependencies
         candidates = []
-        for dep in solve_block._dependencies:
+        for dep in solve_block.get_dependencies():
             # Look for Functions with matching function spaces
             if not isinstance(dep.output, firedrake.Function):
                 continue
