@@ -24,14 +24,25 @@ from goalie.log import WARNING
 from goalie.time_partition import TimeInterval, TimePartition
 
 
-class TestBlockLogic(unittest.TestCase):
+class BaseClasses:
+    """
+    Base classes for unit tests.
+    """
+
+    class RSpaceTestCase(unittest.TestCase):
+        """
+        Unit test case using R-space.
+        """
+
+        @staticmethod
+        def get_function_spaces(mesh):
+            return {"field": FunctionSpace(mesh, "R", 0)}
+
+
+class TestBlockLogic(BaseClasses.RSpaceTestCase):
     """
     Unit tests for :meth:`MeshSeq._dependency` and :meth:`MeshSeq._output`.
     """
-
-    @staticmethod
-    def get_R_spaces(mesh):
-        return {"field": FunctionSpace(mesh, "R", 0)}
 
     def setUp(self):
         self.time_interval = TimeInterval(1.0, 0.5, "field")
@@ -39,7 +50,7 @@ class TestBlockLogic(unittest.TestCase):
         self.mesh_seq = AdjointMeshSeq(
             self.time_interval,
             self.mesh,
-            get_function_spaces=self.get_R_spaces,
+            get_function_spaces=self.get_function_spaces,
             qoi_type="end_time",
         )
 
@@ -155,7 +166,7 @@ class TestBlockLogic(unittest.TestCase):
         mesh_seq = AdjointMeshSeq(
             time_interval,
             self.mesh,
-            get_function_spaces=self.get_R_spaces,
+            get_function_spaces=self.get_function_spaces,
             qoi_type="end_time",
         )
         solve_block = MockSolveBlock()
@@ -184,14 +195,10 @@ class TestBlockLogic(unittest.TestCase):
         self.assertEqual(solve_blocks[0].adj_sol.name(), "field")
 
 
-class TestGetSolveBlocks(unittest.TestCase):
+class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
     """
     Unit tests for :meth:`get_solve_blocks`.
     """
-
-    @staticmethod
-    def get_function_spaces(mesh):
-        return {"field": FunctionSpace(mesh, "R", 0)}
 
     def setUp(self):
         time_interval = TimeInterval(1.0, [1.0], ["field"])
@@ -549,7 +556,7 @@ class TestGlobalEnrichment(TrivialGoalOrientedBaseClass):
         self.assertAlmostEqual(norm(source), norm(target))
 
 
-class GoalOrientedBaseClass(unittest.TestCase):
+class GoalOrientedBaseClass(BaseClasses.RSpaceTestCase):
     """
     Base class for tests with a complete :class:`GoalOrientedMeshSeq`.
     """
@@ -560,9 +567,6 @@ class GoalOrientedBaseClass(unittest.TestCase):
         self.meshes = [UnitSquareMesh(1, 1)]
 
     def go_mesh_seq(self, coeff_diff=0.0):
-        def get_function_spaces(mesh):
-            return {self.field: FunctionSpace(mesh, "R", 0)}
-
         def get_initial_condition(mesh_seq):
             return {self.field: Function(mesh_seq.function_spaces[self.field][0])}
 
@@ -598,7 +602,7 @@ class GoalOrientedBaseClass(unittest.TestCase):
             self.time_partition,
             self.meshes,
             get_initial_condition=get_initial_condition,
-            get_function_spaces=get_function_spaces,
+            get_function_spaces=self.get_function_spaces,
             get_solver=get_solver,
             get_qoi=get_qoi,
             qoi_type="end_time",
