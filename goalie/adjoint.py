@@ -198,6 +198,7 @@ class AdjointMeshSeq(MeshSeq):
         if tape is None:
             self.warning("Tape does not exist!")
             return []
+        print(1)
 
         blocks = tape.get_blocks()
         if len(blocks) == 0:

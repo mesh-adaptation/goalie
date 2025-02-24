@@ -8,20 +8,13 @@ from unittest.mock import patch
 
 import pyadjoint
 import pytest
+import ufl
 from animate.utility import norm
-from firedrake import (
-    Function,
-    FunctionSpace,
-    SpatialCoordinate,
-    TestFunction,
-    TrialFunction,
-    UnitSquareMesh,
-    UnitTriangleMesh,
-    VectorFunctionSpace,
-    dx,
-    inner,
-    solve,
-)
+from firedrake.function import Function
+from firedrake.functionspace import FunctionSpace, VectorFunctionSpace
+from firedrake.solving import solve
+from firedrake.ufl_expr import TestFunction, TrialFunction
+from firedrake.utility_meshes import UnitSquareMesh, UnitTriangleMesh
 from parameterized import parameterized
 from pyadjoint.block_variable import BlockVariable
 
@@ -168,6 +161,24 @@ class TestBlockLogic(unittest.TestCase):
         solve_block = MockSolveBlock()
         self.assertIsNone(mesh_seq._dependency("field", 0, solve_block))
 
+    def test_dependency_unsteady(self):
+        time_interval = TimeInterval(1.0, 0.5, "field")
+        mesh_seq = AdjointMeshSeq(
+            time_interval,
+            self.mesh,
+            get_function_spaces=lambda mesh: {"field": FunctionSpace(mesh, "R", 0)},
+            qoi_type="end_time",
+        )
+        u = Function(mesh_seq.function_spaces["field"][0])
+        u0 = Function(u.function_space()).assign(u)
+        v = TestFunction(u.function_space())
+        F = u * v * ufl.dx - u0 * v * ufl.dx
+        for _ in range(2):
+            solve(F == 0, u, ad_block_tag="field")
+        solve_blocks = mesh_seq.get_solve_blocks("field", 0)
+        self.assertIsNotNone(solve_blocks[0].adj_sol)
+        self.assertEqual(solve_blocks[0].adj_sol.name(), "field")
+
 
 class TestGetSolveBlocks(unittest.TestCase):
     """
@@ -198,7 +209,7 @@ class TestGetSolveBlocks(unittest.TestCase):
         fs = sol.function_space()
         test = TestFunction(fs)
         trial = TrialFunction(fs)
-        solve(test * trial * dx == test * dx, sol, ad_block_tag=sol.name())
+        solve(test * trial * ufl.dx == test * ufl.dx, sol, ad_block_tag=sol.name())
 
     @pytest.fixture(autouse=True)
     def inject_fixtures(self, caplog):
@@ -302,7 +313,7 @@ class TrivialGoalOrientedBaseClass(unittest.TestCase):
     @staticmethod
     def constant_qoi(mesh_seq, solutions, index):
         R = FunctionSpace(mesh_seq[index], "R", 0)
-        return lambda: Function(R).assign(1) * dx
+        return lambda: Function(R).assign(1) * ufl.dx
 
     def go_mesh_seq(self, get_function_spaces, parameters=None):
         return GoalOrientedMeshSeq(
@@ -527,7 +538,7 @@ class TestGlobalEnrichment(TrivialGoalOrientedBaseClass):
         )
         transfer = mesh_seq._get_transfer_function(enrichment_method)
         source = Function(mesh_seq.function_spaces["field"][0])
-        x = SpatialCoordinate(mesh_seq[0])
+        x = ufl.SpatialCoordinate(mesh_seq[0])
         source.project(x if rank == 1 else sum(x))
         target = Function(mesh_seq_e.function_spaces["field"][0])
         transfer(source, target)
@@ -560,7 +571,7 @@ class GoalOrientedBaseClass(unittest.TestCase):
                 u, u_ = mesh_seq.fields[self.field]
                 f = Function(R).assign(1.0001)
                 v = TestFunction(u.function_space())
-                F = (u - u_) / dt * v * dx - f * v * dx
+                F = (u - u_) / dt * v * ufl.dx - f * v * ufl.dx
                 mesh_seq.read_forms({self.field: F})
 
                 for _ in range(tp.num_timesteps_per_subinterval[index]):
@@ -575,7 +586,7 @@ class GoalOrientedBaseClass(unittest.TestCase):
         def get_qoi(mesh_seq, i):
             def end_time_qoi():
                 u = mesh_seq.fields[self.field][0]
-                return inner(u, u) * dx
+                return ufl.inner(u, u) * ufl.dx
 
             return end_time_qoi
 
