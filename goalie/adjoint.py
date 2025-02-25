@@ -179,7 +179,7 @@ class AdjointMeshSeq(MeshSeq):
         return checkpoints
 
     @PETSc.Log.EventDecorator()
-    def get_solve_blocks(self, field, subinterval, has_adj_sol=True):
+    def get_solve_blocks(self, field, subinterval):
         r"""
         Get all blocks of the tape corresponding to solve steps for prognostic solution
         field on a given subinterval.
@@ -188,9 +188,6 @@ class AdjointMeshSeq(MeshSeq):
         :type field: :class:`str`
         :arg subinterval: subinterval index
         :type subinterval: :class:`int`
-        :kwarg has_adj_sol: if ``True``, only blocks with ``adj_sol`` attributes will be
-            considered
-        :type has_adj_sol: :class:`bool`
         :returns: list of solve blocks
         :rtype: :class:`list` of :class:`pyadjoint.block.Block`\s
         """
@@ -247,22 +244,6 @@ class AdjointMeshSeq(MeshSeq):
                 f" field '{field}' on subinterval {subinterval}: {num_timesteps} vs."
                 f" {N}."
             )
-        if not has_adj_sol:
-            return solve_blocks
-
-        # Check that adjoint solutions exist
-        if all(block.adj_sol is None for block in solve_blocks):
-            self.warning(
-                "No block has an adjoint solution. Has the adjoint equation been"
-                " solved?"
-            )
-
-        # Default adjoint solution to zero, rather than None
-        for block in solve_blocks:
-            if block.adj_sol is None:
-                block.adj_state = firedrake.Function(
-                    self.function_spaces[field][subinterval], name=field
-                )
         return solve_blocks
 
     def _output(self, field, subinterval, solve_block):
@@ -525,7 +506,7 @@ class AdjointMeshSeq(MeshSeq):
 
             # Update adjoint solver kwargs
             for field in self.fields:
-                for block in self.get_solve_blocks(field, i, has_adj_sol=False):
+                for block in self.get_solve_blocks(field, i):
                     block.adj_kwargs.update(adj_solver_kwargs)
 
             # Solve adjoint problem
@@ -575,8 +556,7 @@ class AdjointMeshSeq(MeshSeq):
                         solutions.forward[i][j].assign(out.saved_output)
 
                     # Current adjoint solution is determined from the adj_sol attribute
-                    if block.adj_sol is not None:
-                        solutions.adjoint[i][j].assign(block.adj_sol)
+                    solutions.adjoint[i][j].assign(block.adj_sol)
 
                     # Lagged forward solution comes from dependencies
                     dep = self._dependency(field, i, block)
@@ -591,10 +571,9 @@ class AdjointMeshSeq(MeshSeq):
                     # adj_sol attribute of the next solve block
                     if not steady:
                         if (j + 1) * stride < num_solve_blocks:
-                            if solve_blocks[(j + 1) * stride].adj_sol is not None:
-                                solutions.adjoint_next[i][j].assign(
-                                    solve_blocks[(j + 1) * stride].adj_sol
-                                )
+                            solutions.adjoint_next[i][j].assign(
+                                solve_blocks[(j + 1) * stride].adj_sol
+                            )
                         elif (j + 1) * stride > num_solve_blocks:
                             raise IndexError(
                                 "Cannot extract solve block"
@@ -603,7 +582,7 @@ class AdjointMeshSeq(MeshSeq):
 
                 # The initial timestep of the current subinterval is the 'next' timestep
                 # after the final timestep of the previous subinterval
-                if i > 0 and solve_blocks[0].adj_sol is not None:
+                if i > 0:
                     self._transfer(
                         solve_blocks[0].adj_sol, solutions.adjoint_next[i - 1][-1]
                     )

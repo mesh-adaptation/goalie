@@ -248,27 +248,6 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         solve_block = MockSolveBlock()
         self.assertIsNone(mesh_seq._dependency("field", 0, solve_block))
 
-    def test_get_solve_blocks_adj_sol_none(self):
-        """
-        Default adjoint solution should be zero, rather than None.
-        """
-        time_interval = TimeInterval(1.0, 0.5, "field")
-        mesh_seq = AdjointMeshSeq(
-            time_interval,
-            self.mesh,
-            get_function_spaces=lambda mesh: {"field": FunctionSpace(mesh, "R", 0)},
-            qoi_type="end_time",
-        )
-        u = Function(mesh_seq.function_spaces["field"][0])
-        u0 = Function(u.function_space()).assign(u)
-        v = TestFunction(u.function_space())
-        F = u * v * ufl.dx - u0 * v * ufl.dx
-        for _ in range(2):
-            solve(F == 0, u, ad_block_tag="field")
-        solve_blocks = mesh_seq.get_solve_blocks("field", 0)
-        self.assertIsNotNone(solve_blocks[0].adj_sol)
-        self.assertEqual(solve_blocks[0].adj_sol.name(), "field")
-
 
 class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
     """
