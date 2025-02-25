@@ -134,7 +134,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
     def test_output_not_function(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(1)
-        solve_block._outputs = [block_variable]
+        solve_block.get_outputs = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
             self.mesh_seq._output("field", 0, solve_block)
         msg = "Solve block for field 'field' on subinterval 0 has no outputs."
@@ -144,7 +144,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
     def test_output_wrong_function_space(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(Function(FunctionSpace(self.mesh, "CG", 1)))
-        solve_block._outputs = [block_variable]
+        solve_block.get_outputs = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
             self.mesh_seq._output("field", 0, solve_block)
         msg = "Solve block for field 'field' on subinterval 0 has no outputs."
@@ -155,7 +155,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "R", 0)
         block_variable = BlockVariable(Function(function_space, name="field2"))
-        solve_block._outputs = [block_variable]
+        solve_block.get_outputs = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
             self.mesh_seq._output("field", 0, solve_block)
         msg = "Solve block for field 'field' on subinterval 0 has no outputs."
@@ -166,7 +166,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "R", 0)
         block_variable = BlockVariable(Function(function_space, name="field"))
-        solve_block._outputs = [block_variable]
+        solve_block.get_outputs = lambda: [block_variable]
         self.assertIsNotNone(self.mesh_seq._output("field", 0, solve_block))
 
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
@@ -174,7 +174,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "R", 0)
         block_variable = BlockVariable(Function(function_space, name="field"))
-        solve_block._outputs = [block_variable, block_variable]
+        solve_block.get_outputs = lambda: [block_variable, block_variable]
         with self.assertRaises(AttributeError) as cm:
             self.mesh_seq._output("field", 0, solve_block)
         msg = (
@@ -187,7 +187,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
     def test_dependency_not_function(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(1)
-        solve_block._dependencies = [block_variable]
+        solve_block.get_dependencies = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
             self.mesh_seq._dependency("field", 0, solve_block)
         msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
@@ -197,7 +197,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
     def test_dependency_wrong_function_space(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(Function(FunctionSpace(self.mesh, "CG", 1)))
-        solve_block._dependencies = [block_variable]
+        solve_block.get_dependencies = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
             self.mesh_seq._dependency("field", 0, solve_block)
         msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
@@ -208,7 +208,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "R", 0)
         block_variable = BlockVariable(Function(function_space, name="field_new"))
-        solve_block._dependencies = [block_variable]
+        solve_block.get_dependencies = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
             self.mesh_seq._dependency("field", 0, solve_block)
         msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
@@ -219,7 +219,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "R", 0)
         block_variable = BlockVariable(Function(function_space, name="field_old"))
-        solve_block._dependencies = [block_variable]
+        solve_block.get_dependencies = lambda: [block_variable]
         self.assertIsNotNone(self.mesh_seq._dependency("field", 0, solve_block))
 
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
@@ -227,7 +227,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "R", 0)
         block_variable = BlockVariable(Function(function_space, name="field_old"))
-        solve_block._dependencies = [block_variable, block_variable]
+        solve_block.get_dependencies = lambda: [block_variable, block_variable]
         with self.assertRaises(AttributeError) as cm:
             self.mesh_seq._dependency("field", 0, solve_block)
         msg = (
