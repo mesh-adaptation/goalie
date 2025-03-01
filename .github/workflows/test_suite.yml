@@ -1,10 +1,11 @@
 name: 'Run Goalie test suite'
 
 on:
-  # Run test suite whenever main is updated
+  # Run test suite whenever main and develop branches are updated
   push:
     branches:
       - main
+      - develop
     paths:
       - '**.py'
       - '**.msh'
