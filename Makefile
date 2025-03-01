@@ -26,6 +26,7 @@ test: lint
 	@cd test/adjoint && make
 	@echo "PASS"
 
+# `mpiexec -n N ... parallel[N]` only runs tests with @pytest.mark.parallel(nprocs=N)
 coverage:
 	@echo "Generating coverage report..."
 	@python3 -m coverage erase
