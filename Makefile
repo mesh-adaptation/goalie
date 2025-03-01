@@ -29,7 +29,10 @@ test: lint
 coverage:
 	@echo "Generating coverage report..."
 	@python3 -m coverage erase
-	@python3 -m coverage run --source=goalie -m pytest -v test
+	@python3 -m coverage run --parallel-mode --source=goalie -m pytest -v -k "not parallel" test
+	@mpiexec -n 2 python3 -m coverage run --parallel-mode --source=goalie -m pytest -v -m parallel[2] test
+	@python3 -m coverage combine
+	@python3 -m coverage report -m
 	@python3 -m coverage html
 
 demo:
