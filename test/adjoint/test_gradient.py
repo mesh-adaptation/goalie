@@ -192,6 +192,7 @@ class TestGradientFieldInitialCondition(unittest.TestCase):
     can be computed correctly.
     """
 
+    # TODO: Make scaling a non-prognostic field (#283)
     def time_partition(self, num_subintervals, dt, unsteady=True):
         fields = [Field("field", unsteady=unsteady), Field("scaling", unsteady=False)]
         return TimePartition(1.0, num_subintervals, dt, fields)
@@ -267,7 +268,6 @@ class TestGradientScaling(unittest.TestCase):
     correctly.
     """
 
-    # TODO: Base class to avoid this duplication
     def time_partition(self, num_subintervals, dt):
         return TimePartition(1.0, num_subintervals, dt, ["field", "scaling"])
 
