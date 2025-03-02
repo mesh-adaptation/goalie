@@ -181,7 +181,7 @@ class TestGradientFieldInitialCondition(unittest.TestCase):
         mesh_seq.solve_adjoint(compute_gradient=True)
         self.assertTrue(
             np.allclose(
-                mesh_seq.gradient[0].dat.data,
+                mesh_seq.gradient["field"].dat.data,
                 mesh_seq.expected_gradient(),
             )
         )
@@ -208,7 +208,7 @@ class TestGradientFieldInitialCondition(unittest.TestCase):
         mesh_seq.solve_adjoint(compute_gradient=True)
         self.assertTrue(
             np.allclose(
-                mesh_seq.gradient[0].dat.data,
+                mesh_seq.gradient["field"].dat.data,
                 mesh_seq.expected_gradient(),
             )
         )
@@ -235,7 +235,7 @@ class TestGradientFieldInitialCondition(unittest.TestCase):
         mesh_seq.solve_adjoint(compute_gradient=True)
         self.assertTrue(
             np.allclose(
-                mesh_seq.gradient[0].dat.data,
+                mesh_seq.gradient["field"].dat.data,
                 mesh_seq.expected_gradient(),
             )
         )
@@ -262,7 +262,7 @@ class TestGradientFieldInitialCondition(unittest.TestCase):
         mesh_seq.solve_adjoint(compute_gradient=True)
         self.assertTrue(
             np.allclose(
-                mesh_seq.gradient[0].dat.data,
+                mesh_seq.gradient["field"].dat.data,
                 mesh_seq.expected_gradient(),
             )
         )
