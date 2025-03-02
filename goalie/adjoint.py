@@ -537,9 +537,10 @@ class AdjointMeshSeq(MeshSeq):
 
                 # Compute the gradient on the first subinterval
                 if i == 0 and compute_gradient:
-                    self._gradient = controls.delist(
-                        [control.get_derivative() for control in controls]
-                    )
+                    self._gradient = {
+                        field: control.get_derivative()
+                        for field, control in zip(self.fields, controls)
+                    }
 
             # Loop over prognostic variables
             for fieldname, fs in self.function_spaces.items():
