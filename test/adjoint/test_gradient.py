@@ -6,7 +6,6 @@ import unittest
 
 import numpy as np
 import ufl
-from firedrake.constant import Constant
 from firedrake.function import Function
 from firedrake.functionspace import FunctionSpace
 from firedrake.solving import solve
@@ -48,16 +47,18 @@ class GradientTestMeshSeq(AdjointMeshSeq):
         super().__init__(*args, **kwargs)
         self.initial_value = options_dict.get("initial_value", 1.0)
         self.qoi_degree = options_dict.get("qoi_degree", 2)
-        self.scalar = options_dict.get("scalar", 1.2)
+        self.scaling = options_dict.get("scaling", 1.2)
 
     @staticmethod
     def get_function_spaces(mesh):
-        return {"field": FunctionSpace(mesh, "R", 0)}
+        R = FunctionSpace(mesh, "R", 0)
+        return {"field": R, "scaling": R}
 
     def get_initial_condition(self):
-        u = Function(self.function_spaces["field"][0])
-        u.assign(self.initial_value)
-        return {"field": u}
+        R = self.function_spaces["field"][0]
+        u = Function(R).assign(self.initial_value)
+        scaling = Function(R).assign(self.scaling)
+        return {"field": u, "scaling": scaling}
 
     def get_solver(self):
         def solver(index):
@@ -69,10 +70,15 @@ class GradientTestMeshSeq(AdjointMeshSeq):
             if tp.steady:
                 u = self.field_functions["field"]
                 u_ = Function(fs, name="field_old").assign(u)
+                scaling = self.fields["scaling"]
+                scaling_ = Function(fs, name="scaling_old")
+                scaling_.assign(scaling)
             else:
                 u, u_ = self.field_functions["field"]
+                scaling, scaling_ = self.field_functions["scaling"]
             v = TestFunction(fs)
-            F = u * v * ufl.dx - Constant(self.scalar) * u_ * v * ufl.dx
+            F_scale = scaling * v * ufl.dx - scaling_ * v * ufl.dx
+            F = u * v * ufl.dx - scaling * u_ * v * ufl.dx
 
             # Scale the initial condition at each timestep
             t_start, t_end = self.subintervals[index]
@@ -80,11 +86,13 @@ class GradientTestMeshSeq(AdjointMeshSeq):
             t = t_start
             qoi = self.get_qoi(index)
             while t < t_end - 1.0e-05:
+                solve(F_scale == 0, scaling, ad_block_tag="scaling")
                 solve(F == 0, u, ad_block_tag="field")
                 if self.qoi_type == "time_integrated":
                     self.J += qoi(t)
                 yield
 
+                scaling_.assign(scaling)
                 u_.assign(u)
                 t += dt
 
@@ -128,7 +136,7 @@ class GradientTestMeshSeq(AdjointMeshSeq):
         if self.qoi_type in ("steady", "end_time"):
             # In the steady and end-time cases, the gradient accumulates the scale
             # factor as many times as there are timesteps
-            scaling = self.integrand(self.scalar**tp.num_timesteps)
+            scaling = self.integrand(self.scaling**tp.num_timesteps)
         else:
             # In the time-integrated case, the gradient becomes a sum, where each term
             # accumulates an additional scale factor in each timestep. Each contribution
@@ -139,19 +147,19 @@ class GradientTestMeshSeq(AdjointMeshSeq):
                 dt = tp.timesteps[subinterval]
                 for _ in range(tp.num_timesteps_per_subinterval[subinterval]):
                     p += 1
-                    scaling += dt * self.integrand(self.scalar**p)
+                    scaling += dt * self.integrand(self.scaling**p)
         return scaling * self.qoi_degree * self.initial_value ** (self.qoi_degree - 1)
 
 
-class TestGradientComputation(unittest.TestCase):
+class TestGradientFieldInitialCondition(unittest.TestCase):
     """
-    Unit tests that check gradient values can be computed correctly.
+    Unit tests that check gradients with respect to the initial condition of the field
+    can be computed correctly.
     """
 
     def time_partition(self, num_subintervals, dt, unsteady=True):
-        return TimePartition(
-            1.0, num_subintervals, dt, Field("field", unsteady=unsteady)
-        )
+        fields = [Field("field", unsteady=unsteady), Field("scaling", unsteady=False)]
+        return TimePartition(1.0, num_subintervals, dt, fields)
 
     @parameterized.expand(
         [
@@ -260,3 +268,6 @@ class TestGradientComputation(unittest.TestCase):
                 mesh_seq.expected_gradient(),
             )
         )
+
+
+# TODO: Gradient w.r.t. scaling, renaming as "control"
