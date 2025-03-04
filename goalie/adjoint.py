@@ -648,6 +648,8 @@ class AdjointMeshSeq(MeshSeq):
                 )
 
         tape.clear_tape()
+        if not compute_gradient:
+            self._gradient = None
 
     def solve_adjoint(
         self,
