@@ -107,12 +107,22 @@ class AdjointMeshSeq(MeshSeq):
                 f" '{self.qoi_type}'."
             )
         self._controls = None
+        self._gradient = None
         self.qoi_values = []
 
     @property
     @pyadjoint.no_annotations
     def initial_condition(self):
         return super().initial_condition
+
+    @property
+    def gradient(self):
+        if self._gradient is None:
+            raise AttributeError(
+                "To compute the gradient, pass compute_gradient=True to the"
+                " solve_adjoint method."
+            )
+        return self._gradient
 
     @annotate_qoi
     def get_qoi(self, subinterval):
@@ -360,6 +370,7 @@ class AdjointMeshSeq(MeshSeq):
         get_adj_values=False,
         test_checkpoint_qoi=False,
         track_coefficients=False,
+        compute_gradient=False,
     ):
         """
         A generator for solving an adjoint problem on a sequence of subintervals.
@@ -381,10 +392,14 @@ class AdjointMeshSeq(MeshSeq):
         :type get_adj_values: :class:`bool`
         :kwarg test_checkpoint_qoi: solve over the final subinterval when checkpointing
             so that the QoI value can be checked across runs
-        :kwarg: track_coefficients: if ``True``, coefficients in the variational form
+        :kwarg track_coefficients: if ``True``, coefficients in the variational form
             will be stored whenever they change between export times. Only relevant for
             goal-oriented error estimation on unsteady problems.
         :type track_coefficients: :class:`bool`
+        :kwarg compute_gradient: if ``True``, the gradient of the QoI with respect to
+            the initial conditions is computed and is available via the `gradient`
+            attribute
+        :type compute_gradient: :class:`bool`
         :yields: the solution data of the forward and adjoint solves
         :ytype: :class:`~.AdjointSolutionData`
         """
@@ -512,10 +527,16 @@ class AdjointMeshSeq(MeshSeq):
             # Solve adjoint problem
             tape = pyadjoint.get_working_tape()
             with PETSc.Log.Event("goalie.AdjointMeshSeq.solve_adjoint.evaluate_adj"):
-                m = pyadjoint.enlisting.Enlist(self._controls)
+                controls = pyadjoint.enlisting.Enlist(self._controls)
                 with pyadjoint.stop_annotating():
-                    with tape.marked_nodes(m):
+                    with tape.marked_nodes(controls):
                         tape.evaluate_adj(markings=True)
+
+                # Compute the gradient on the first subinterval
+                if i == 0 and compute_gradient:
+                    self._gradient = controls.delist(
+                        [control.get_derivative() for control in controls]
+                    )
 
             # Loop over prognostic variables
             for field, fs in self.function_spaces.items():
@@ -627,6 +648,8 @@ class AdjointMeshSeq(MeshSeq):
                 )
 
         tape.clear_tape()
+        if not compute_gradient:
+            self._gradient = None
 
     def solve_adjoint(
         self,
@@ -634,6 +657,7 @@ class AdjointMeshSeq(MeshSeq):
         adj_solver_kwargs=None,
         get_adj_values=False,
         test_checkpoint_qoi=False,
+        compute_gradient=False,
     ):
         """
         Solve an adjoint problem on a sequence of subintervals.
@@ -654,6 +678,10 @@ class AdjointMeshSeq(MeshSeq):
         :type get_adj_values: :class:`bool`
         :kwarg test_checkpoint_qoi: solve over the final subinterval when checkpointing
             so that the QoI value can be checked across runs
+        :kwarg compute_gradient: if ``True``, the gradient of the QoI with respect to
+            the initial conditions is computed and is available via the `gradient`
+            attribute
+        :type compute_gradient: :class:`bool`
         :returns: the solution data of the forward and adjoint solves
         :rtype: :class:`~.AdjointSolutionData`
         """
@@ -664,6 +692,7 @@ class AdjointMeshSeq(MeshSeq):
             adj_solver_kwargs=adj_solver_kwargs,
             get_adj_values=get_adj_values,
             test_checkpoint_qoi=test_checkpoint_qoi,
+            compute_gradient=compute_gradient,
         )
         # Solve the adjoint problem over each subinterval
         for _ in range(len(self)):
