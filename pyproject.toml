@@ -1,5 +1,8 @@
 [build-system]
-requires = ["setuptools"]
+requires = [
+  "matplotlib",
+  "setuptools",
+]
 
 [project]
 name = "goalie"
@@ -34,6 +37,7 @@ dev = [
   "parameterized",
   "pre-commit",
   "ruff",
+  "vtk",
 ]
 
 [project.urls]
