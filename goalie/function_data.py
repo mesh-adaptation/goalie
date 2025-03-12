@@ -44,19 +44,19 @@ class FunctionData(ABC):
         tp = self.time_partition
         self._data = AttrDict(
             {
-                field: AttrDict(
+                field.name: AttrDict(
                     {
                         label: [
                             [
-                                ffunc.Function(fs, name=f"{field}_{label}")
+                                ffunc.Function(fs, name=f"{field.name}_{label}")
                                 for j in range(tp.num_exports_per_subinterval[i] - 1)
                             ]
-                            for i, fs in enumerate(self.function_spaces[field])
+                            for i, fs in enumerate(self.function_spaces[field.name])
                         ]
                         for label in self.labels
                     }
                 )
-                for field in tp.field_names
+                for field in tp.fields
             }
         )
 
@@ -90,7 +90,10 @@ class FunctionData(ABC):
         return AttrDict(
             {
                 label: AttrDict(
-                    {f: self._data_by_field[f][label] for f in tp.field_names}
+                    {
+                        field.name: self._data_by_field[field.name][label]
+                        for field in tp.fields
+                    }
                 )
                 for label in self.labels
             }
@@ -109,13 +112,13 @@ class FunctionData(ABC):
         return [
             AttrDict(
                 {
-                    field: AttrDict(
+                    field.name: AttrDict(
                         {
-                            label: self._data_by_field[field][label][subinterval]
+                            label: self._data_by_field[field.name][label][subinterval]
                             for label in self.labels
                         }
                     )
-                    for field in tp.field_names
+                    for field in tp.fields
                 }
             )
             for subinterval in range(tp.num_subintervals)
@@ -242,16 +245,18 @@ class FunctionData(ABC):
                     + (j + 1) * tp.timesteps[i] * tp.num_timesteps_per_export[i]
                 )
                 fs = []
-                for field in sorted(tp.field_names):
-                    mixed = hasattr(self.function_spaces[field][0], "num_sub_spaces")
+                for field in sorted(tp.fields):
+                    mixed = hasattr(
+                        self.function_spaces[field.name][0], "num_sub_spaces"
+                    )
                     for field_type in export_field_types:
-                        f = self._data[field][field_type][i][j].copy(deepcopy=True)
+                        f = self._data[field.name][field_type][i][j].copy(deepcopy=True)
                         if mixed:
                             for idx, sf in enumerate(f.subfunctions):
-                                sf.rename(f"{field}[{idx}]_{field_type}")
+                                sf.rename(f"{field.name}[{idx}]_{field_type}")
                                 fs.append(sf)
                         else:
-                            f.rename(f"{field}_{field_type}")
+                            f.rename(f"{field.name}_{field_type}")
                             fs.append(f)
                 outfile.write(*fs, time=time)
 
@@ -263,7 +268,7 @@ class FunctionData(ABC):
         tp = self.time_partition
 
         # Mesh names must be unique
-        mesh_names = [fs.mesh().name for fs in self.function_spaces[tp.field_names[0]]]
+        mesh_names = [fs.mesh().name for fs in self.function_spaces[tp.fields[0].name]]
         rename_meshes = len(set(mesh_names)) != len(mesh_names)
         with CheckpointFile(output_fpath, "w") as outfile:
             if initial_condition is not None:
@@ -272,14 +277,14 @@ class FunctionData(ABC):
             for i in range(tp.num_subintervals):
                 if rename_meshes:
                     mesh_name = f"mesh_{i}"
-                    mesh = self.function_spaces[tp.field_names[0]][i].mesh()
+                    mesh = self.function_spaces[tp.fields[0].name][i].mesh()
                     mesh.name = mesh_name
                     mesh.topology_dm.name = mesh_name
-                for field in tp.field_names:
+                for field in tp.fields:
                     for field_type in export_field_types:
-                        name = f"{field}_{field_type}"
+                        name = f"{field.name}_{field_type}"
                         for j in range(tp.num_exports_per_subinterval[i] - 1):
-                            f = self._data[field][field_type][i][j]
+                            f = self._data[field.name][field_type][i][j]
                             outfile.save_function(f, name=name, idx=j)
 
     def transfer(self, target, method="interpolate"):
@@ -311,7 +316,9 @@ class FunctionData(ABC):
                 "Source and target have different numbers of exports per subinterval."
             )
 
-        common_fields = set(stp.field_names) & set(ttp.field_names)
+        common_fields = {field.name for field in stp.fields} & {
+            field.name for field in ttp.fields
+        }
         if not common_fields:
             raise ValueError("No common fields between source and target.")
 
@@ -392,8 +399,8 @@ class IndicatorData(FunctionData):
         super().__init__(
             time_partition,
             {
-                key: [ffs.FunctionSpace(mesh, "DG", 0) for mesh in meshes]
-                for key in time_partition.field_names
+                field.name: [ffs.FunctionSpace(mesh, "DG", 0) for mesh in meshes]
+                for field in time_partition.fields
             },
         )
 
@@ -408,8 +415,8 @@ class IndicatorData(FunctionData):
             self._create_data()
         return AttrDict(
             {
-                field: self._data[field]["error_indicator"]
-                for field in self.time_partition.field_names
+                field.name: self._data[field.name]["error_indicator"]
+                for field in self.time_partition.fields
             }
         )
 
@@ -430,6 +437,11 @@ class IndicatorData(FunctionData):
         """
         tp = self.time_partition
         return [
-            AttrDict({f: self._data_by_field[f][subinterval] for f in tp.field_names})
+            AttrDict(
+                {
+                    field.name: self._data_by_field[field.name][subinterval]
+                    for field in tp.fields
+                }
+            )
             for subinterval in range(tp.num_subintervals)
         ]
