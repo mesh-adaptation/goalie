@@ -15,6 +15,7 @@ from firedrake.utility_meshes import UnitIntervalMesh
 from parameterized import parameterized
 
 from goalie.adjoint import AdjointMeshSeq, annotate_qoi
+from goalie.field import Field
 from goalie.time_partition import TimeInterval, TimePartition
 
 
@@ -25,7 +26,7 @@ class TestExceptions(unittest.TestCase):
 
     def test_attribute_error(self):
         mesh_seq = AdjointMeshSeq(
-            TimeInterval(1.0, 1.0, "field"),
+            TimeInterval(1.0, 1.0, Field("field")),
             UnitIntervalMesh(1),
             qoi_type="steady",
         )
@@ -148,7 +149,7 @@ class TestGradientComputation(unittest.TestCase):
     """
 
     def time_partition(self, num_subintervals, dt):
-        return TimePartition(1.0, num_subintervals, dt, "field")
+        return TimePartition(1.0, num_subintervals, dt, Field("field"))
 
     @parameterized.expand(
         [

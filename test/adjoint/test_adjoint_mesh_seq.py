@@ -19,6 +19,7 @@ from parameterized import parameterized
 from pyadjoint.block_variable import BlockVariable
 
 from goalie.adjoint import AdjointMeshSeq
+from goalie.field import Field
 from goalie.go_mesh_seq import GoalOrientedMeshSeq
 from goalie.log import WARNING
 from goalie.time_partition import TimeInterval, TimePartition
@@ -44,7 +45,7 @@ class BaseClasses:
         """
 
         def setUp(self):
-            self.field = "field"
+            self.field = Field("field")
             self.time_interval = TimeInterval(1.0, [1.0], [self.field])
             self.meshes = [UnitSquareMesh(1, 1)]
 
@@ -68,13 +69,17 @@ class BaseClasses:
         """
 
         def setUp(self):
-            self.field = "field"
+            self.field = Field("field")
             self.time_partition = TimePartition(1.0, 1, 0.5, [self.field])
             self.meshes = [UnitSquareMesh(1, 1)]
 
         def go_mesh_seq(self, coeff_diff=0.0):
             def get_initial_condition(mesh_seq):
-                return {self.field: Function(mesh_seq.function_spaces[self.field][0])}
+                return {
+                    self.field.name: Function(
+                        mesh_seq.function_spaces[self.field.name][0]
+                    )
+                }
 
             def get_solver(mesh_seq):
                 def solver(index):
@@ -82,14 +87,14 @@ class BaseClasses:
                     R = FunctionSpace(mesh_seq[index], "R", 0)
                     dt = Function(R).assign(tp.timesteps[index])
 
-                    u, u_ = mesh_seq.fields[self.field]
+                    u, u_ = mesh_seq.fields[self.field.name]
                     f = Function(R).assign(1.0001)
                     v = TestFunction(u.function_space())
                     F = (u - u_) / dt * v * ufl.dx - f * v * ufl.dx
-                    mesh_seq.read_forms({self.field: F})
+                    mesh_seq.read_forms({self.field.name: F})
 
                     for _ in range(tp.num_timesteps_per_subinterval[index]):
-                        solve(F == 0, u, ad_block_tag=self.field)
+                        solve(F == 0, u, ad_block_tag=self.field.name)
                         yield
 
                         u_.assign(u)
@@ -99,7 +104,7 @@ class BaseClasses:
 
             def get_qoi(mesh_seq, i):
                 def end_time_qoi():
-                    u = mesh_seq.fields[self.field][0]
+                    u = mesh_seq.fields[self.field.name][0]
                     return ufl.inner(u, u) * ufl.dx
 
                 return end_time_qoi
@@ -121,7 +126,8 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
     """
 
     def setUp(self):
-        self.time_interval = TimeInterval(1.0, 0.5, "field")
+        self.field = Field("field")
+        self.time_interval = TimeInterval(1.0, 0.5, self.field)
         self.mesh = UnitTriangleMesh()
         self.mesh_seq = AdjointMeshSeq(
             self.time_interval,
@@ -238,7 +244,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
 
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_steady(self, MockSolveBlock):
-        time_interval = TimeInterval(1.0, 0.5, "field", field_types="steady")
+        time_interval = TimeInterval(1.0, 0.5, Field("field"), field_types="steady")
         mesh_seq = AdjointMeshSeq(
             time_interval,
             self.mesh,
@@ -255,7 +261,7 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
     """
 
     def setUp(self):
-        time_interval = TimeInterval(1.0, [1.0], ["field"])
+        time_interval = TimeInterval(1.0, [1.0], Field("field"))
         self.mesh_seq = AdjointMeshSeq(
             time_interval,
             [UnitSquareMesh(1, 1)],
@@ -325,7 +331,7 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
         self.assertEqual(str(cm.exception), msg)
 
     def test_too_many_timesteps(self):
-        time_interval = TimeInterval(1.0, [0.5], ["field"])
+        time_interval = TimeInterval(1.0, [0.5], Field("field"))
         mesh_seq = AdjointMeshSeq(
             time_interval,
             [UnitSquareMesh(1, 1)],
@@ -344,7 +350,7 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
         self.assertEqual(str(cm.exception), msg)
 
     def test_incompatible_timesteps(self):
-        time_interval = TimeInterval(1.0, [0.5], ["field"])
+        time_interval = TimeInterval(1.0, [0.5], Field("field"))
         mesh_seq = AdjointMeshSeq(
             time_interval,
             [UnitSquareMesh(1, 1)],
@@ -378,15 +384,18 @@ class TestGoalOrientedMeshSeq(
             mesh_seq.read_forms({"field2": None})
         msg = (
             "Unexpected field 'field2' in forms dictionary."
-            f" Expected one of ['{self.field}']."
+            f" Expected one of ['{self.field.name}']."
         )
         self.assertEqual(str(cm.exception), msg)
 
     def test_read_forms_error_form(self):
         mesh_seq = self.go_mesh_seq(self.get_function_spaces)
         with self.assertRaises(TypeError) as cm:
-            mesh_seq.read_forms({self.field: None})
-        msg = f"Expected a UFL form for field '{self.field}', not '<class 'NoneType'>'."
+            mesh_seq.read_forms({self.field.name: None})
+        msg = (
+            f"Expected a UFL form for field '{self.field.name}',"
+            " not '<class 'NoneType'>'."
+        )
         self.assertEqual(str(cm.exception), msg)
 
 
@@ -398,9 +407,9 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
     def get_function_spaces_decorator(self, degree, family, rank):
         def get_function_spaces(mesh):
             if rank == 0:
-                return {self.field: FunctionSpace(mesh, degree, family)}
+                return {self.field.name: FunctionSpace(mesh, degree, family)}
             elif rank == 1:
-                return {self.field: VectorFunctionSpace(mesh, degree, family)}
+                return {self.field.name: VectorFunctionSpace(mesh, degree, family)}
             else:
                 raise NotImplementedError
 
@@ -434,7 +443,7 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
         num_subintervals = 2
         dt = end_time / num_subintervals
         mesh_seq = GoalOrientedMeshSeq(
-            TimePartition(end_time, num_subintervals, dt, "field"),
+            TimePartition(end_time, num_subintervals, dt, Field("field")),
             [UnitTriangleMesh()] * num_subintervals,
             get_qoi=self.constant_qoi,
             qoi_type="end_time",
@@ -491,9 +500,9 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
         mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
             enrichment_method="h", num_enrichments=1
         )
-        fspace = mesh_seq.function_spaces[self.field][0]
+        fspace = mesh_seq.function_spaces[self.field.name][0]
         element = fspace.ufl_element()
-        enriched_fspace = mesh_seq_e.function_spaces[self.field][0]
+        enriched_fspace = mesh_seq_e.function_spaces[self.field.name][0]
         enriched_element = enriched_fspace.ufl_element()
         self.assertEqual(element.family(), enriched_element.family())
         self.assertEqual(element.degree(), enriched_element.degree())
@@ -530,9 +539,9 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
         mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
             enrichment_method="p", num_enrichments=num_enrichments
         )
-        fspace = mesh_seq.function_spaces[self.field][0]
+        fspace = mesh_seq.function_spaces[self.field.name][0]
         element = fspace.ufl_element()
-        enriched_fspace = mesh_seq_e.function_spaces[self.field][0]
+        enriched_fspace = mesh_seq_e.function_spaces[self.field.name][0]
         enriched_element = enriched_fspace.ufl_element()
         self.assertEqual(element.family(), enriched_element.family())
         self.assertEqual(element.degree() + num_enrichments, enriched_element.degree())
@@ -595,7 +604,7 @@ class TestDetectChangedCoefficients(BaseClasses.GoalOrientedBaseClass):
         # Solve over the first (only) subinterval
         next(mesh_seq._solve_adjoint(track_coefficients=True))
         # Check no coefficients have changed
-        self.assertEqual(mesh_seq._changed_form_coeffs, {self.field: {}})
+        self.assertEqual(mesh_seq._changed_form_coeffs, {self.field.name: {}})
 
     def test_changed_coefficients(self):
         # Change coefficient f by coeff_diff every timestep
@@ -603,7 +612,7 @@ class TestDetectChangedCoefficients(BaseClasses.GoalOrientedBaseClass):
         mesh_seq = self.go_mesh_seq(coeff_diff=coeff_diff)
         # Solve over the first (only) subinterval
         next(mesh_seq._solve_adjoint(track_coefficients=True))
-        changed_coeffs_dict = mesh_seq._changed_form_coeffs[self.field]
+        changed_coeffs_dict = mesh_seq._changed_form_coeffs[self.field.name]
         coeff_idx = next(iter(changed_coeffs_dict))
         for export_idx, f in changed_coeffs_dict[coeff_idx].items():
             self.assertTrue(f.vector().gather() == [1.0001 + export_idx * coeff_diff])
