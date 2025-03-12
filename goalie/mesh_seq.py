@@ -55,6 +55,7 @@ class MeshSeq:
         self.num_subintervals = time_partition.num_subintervals
         self.set_meshes(initial_meshes)
         self._fs = None
+        # TODO: No need to accept get_function_spaces - can be deduced
         self._get_function_spaces = kwargs.get("get_function_spaces")
         self._get_initial_condition = kwargs.get("get_initial_condition")
         self._get_solver = kwargs.get("get_solver")

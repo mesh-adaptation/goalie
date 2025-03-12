@@ -54,6 +54,7 @@ class TimePartition:
             derivatives or not?
         :type field_types: :class:`list` of :class:`str`\s or :class:`str`
         """
+        # TODO: Move field_types into Field, too
         debug(100 * "-")
         if isinstance(fields, Field):
             fields = [fields]
