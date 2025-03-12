@@ -14,6 +14,7 @@ from firedrake import (
 )
 from parameterized import parameterized
 
+from goalie.field import Field
 from goalie.mesh_seq import MeshSeq
 from goalie.time_partition import TimeInterval, TimePartition
 
@@ -29,8 +30,9 @@ class BaseClasses:
         """
 
         def setUp(self):
-            self.time_partition = TimePartition(1.0, 2, [0.5, 0.5], ["field"])
-            self.time_interval = TimeInterval(1.0, [0.5], ["field"])
+            self.field = Field("field")
+            self.time_partition = TimePartition(1.0, 2, [0.5, 0.5], Field("field"))
+            self.time_interval = TimeInterval(1.0, [0.5], Field("field"))
 
         def trivial_mesh(self, dim):
             try:
@@ -112,10 +114,6 @@ class TestGeneric(BaseClasses.MeshSeqTestCase):
     """
     Generic unit tests for :class:`MeshSeq`.
     """
-
-    def setUp(self):
-        self.time_partition = TimePartition(1.0, 2, [0.5, 0.5], ["field"])
-        self.time_interval = TimeInterval(1.0, [0.5], ["field"])
 
     def test_setitem(self):
         mesh1 = UnitSquareMesh(1, 1, diagonal="left")
