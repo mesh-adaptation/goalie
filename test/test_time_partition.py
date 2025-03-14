@@ -114,21 +114,6 @@ class TestExceptions(BaseTestCase):
             TimeInstant("field")
         self.assertEqual(str(cm.exception), "All fields must be instances of Field.")
 
-    def test_field_type_error(self):
-        with self.assertRaises(ValueError) as cm:
-            TimeInstant(self.field, field_types="type")
-        msg = (
-            "Expected field type for field 'field' to be either 'unsteady' or"
-            " 'steady', but got 'type'."
-        )
-        self.assertEqual(str(cm.exception), msg)
-
-    def test_num_field_types_error(self):
-        with self.assertRaises(ValueError) as cm:
-            TimeInstant(self.field, field_types=["type1", "type2"])
-        msg = "Number of field names does not match number of field types: 1 != 2."
-        self.assertEqual(str(cm.exception), msg)
-
 
 class TestSetup(BaseTestCase):
     """

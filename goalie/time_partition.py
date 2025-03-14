@@ -29,7 +29,6 @@ class TimePartition:
         num_timesteps_per_export=1,
         start_time=0.0,
         subintervals=None,
-        field_types=None,
     ):
         r"""
         :arg end_time: end time of the interval of interest
@@ -49,12 +48,7 @@ class TimePartition:
         :kwarg subinterals: sequence of subintervals (which need not be of uniform
             length), or ``None`` to use uniform subintervals (the default)
         :type subintervals: :class:`list` of :class:`tuple`\s
-        :kwarg field_types: a list of strings indicating whether each field is
-            'unsteady' or 'steady', i.e., does the corresponding equation involve time
-            derivatives or not?
-        :type field_types: :class:`list` of :class:`str`\s or :class:`str`
         """
-        # TODO: Move field_types into Field, too
         debug(100 * "-")
         if isinstance(fields, Field):
             fields = [fields]
@@ -124,16 +118,6 @@ class TimePartition:
             self.num_subintervals == 1 and self.num_timesteps_per_subinterval[0] == 1
         )
         self.debug("steady")
-
-        # Process field types
-        if field_types is None:
-            num_fields = len(self.fields)
-            field_types = ["steady" if self.steady else "unsteady"] * num_fields
-        elif isinstance(field_types, str):
-            field_types = [field_types]
-        self.field_types = field_types
-        self._check_field_types()
-        debug("field_types")
         debug(100 * "-")
 
     def debug(self, attr):
@@ -191,7 +175,6 @@ class TimePartition:
             fields=self.fields,
             num_timesteps_per_export=self.num_timesteps_per_export[sl],
             start_time=self.subintervals[sl.start][0],
-            field_types=self.field_types,
         )
 
     @property
@@ -257,19 +240,6 @@ class TimePartition:
                     f" {tsps} | {tspe} != 0."
                 )
 
-    def _check_field_types(self):
-        if len(self.fields) != len(self.field_types):
-            raise ValueError(
-                "Number of field names does not match number of field types:"
-                f" {len(self.fields)} != {len(self.field_types)}."
-            )
-        for field, field_type in zip(self.fields, self.field_types):
-            if field_type not in ("unsteady", "steady"):
-                raise ValueError(
-                    f"Expected field type for field '{field.name}' to be either"
-                    f" 'unsteady' or 'steady', but got '{field_type}'."
-                )
-
     def __eq__(self, other):
         if len(self) != len(other):
             return False
@@ -280,7 +250,6 @@ class TimePartition:
                 self.num_exports_per_subinterval, other.num_exports_per_subinterval
             )
             and self.fields == other.fields
-            and self.field_types == other.field_types
         )
 
     def __ne__(self, other):

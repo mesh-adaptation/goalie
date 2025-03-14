@@ -244,7 +244,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
 
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_steady(self, MockSolveBlock):
-        time_interval = TimeInterval(1.0, 0.5, Field("field"), field_types="steady")
+        time_interval = TimeInterval(1.0, 0.5, Field("field", unsteady=False))
         mesh_seq = AdjointMeshSeq(
             time_interval,
             self.mesh,
