@@ -23,7 +23,8 @@ from goalie import *
 # `previous demo <./point_discharge2d.py.html>`__, approximating the tracer
 # concentration :math:`c` in :math:`\mathbb P1` space. ::
 
-field_names = ["c"]
+# TODO: Finite element
+fields = [Field("c")]
 
 
 def get_function_spaces(mesh):
@@ -75,7 +76,7 @@ def get_solver(mesh_seq):
 # steady-state problem), and put everything together in a :class:`MeshSeq`. ::
 
 mesh = RectangleMesh(50, 10, 50, 10)
-time_partition = TimeInstant(field_names)
+time_partition = TimeInstant(fields)
 mesh_seq = MeshSeq(
     time_partition,
     mesh,

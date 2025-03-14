@@ -19,7 +19,8 @@ from matplotlib import ticker
 
 from goalie_adjoint import *
 
-field_names = ["c"]
+# TODO: Finite element
+fields = [Field("c")]
 
 
 def get_function_spaces(mesh):
@@ -85,7 +86,7 @@ def get_qoi(mesh_seq, index):
 # :class:`GoalOrientedMeshSeq`. ::
 
 mesh = RectangleMesh(50, 10, 50, 10)
-time_partition = TimeInstant(field_names)
+time_partition = TimeInstant(fields)
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     mesh,

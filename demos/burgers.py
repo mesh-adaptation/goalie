@@ -24,11 +24,11 @@ from firedrake import *
 
 from goalie import *
 
-# In this problem, we have a single prognostic variable,
-# :math:`\mathbf u`. Its name is recorded in a list of
-# field names. ::
+# In this problem, we have a single prognostic variable, :math:`\mathbf u`. Its name
+# and other metadata are recorded in a :class:`~.Field` object. ::
 
-field_names = ["u"]
+# TODO: Finite element
+fields = [Field("u")]
 
 # For each such field, we need to be able to specify how to
 # build a :class:`FunctionSpace`, given some mesh. Since there
@@ -125,7 +125,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    field_names,
+    fields,
     num_timesteps_per_export=2,
 )
 

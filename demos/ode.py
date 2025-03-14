@@ -50,7 +50,7 @@ from goalie import *
 # which only has one subinterval. ::
 
 end_time = 1
-time_partition = TimeInterval(end_time, dt, "u")
+time_partition = TimeInterval(end_time, dt, Field("u"))
 
 # Much of the following might seem excessive for this example. However, it exists to
 # allow for the flexibility required in later PDE examples.
