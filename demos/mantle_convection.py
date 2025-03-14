@@ -85,9 +85,9 @@ def get_solver(mesh_seq):
         Z = mesh_seq.function_spaces["up"][index]
         Q = mesh_seq.function_spaces["T"][index]
 
-        up = mesh_seq.fields["up"]
+        up = mesh_seq.field_data["up"]
         u, p = split(up)
-        T, T_ = mesh_seq.fields["T"]
+        T, T_ = mesh_seq.field_data["T"]
 
         # Crank-Nicolson time discretisation for temperature
         Ttheta = 0.5 * (T + T_)

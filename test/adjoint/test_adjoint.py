@@ -113,7 +113,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     time_partition = TimeInterval(
         end_time,
         test_case.dt,
-        [Field(field) for field in test_case.fields],
+        test_case.fields,
         num_timesteps_per_export=test_case.dt_per_export,
     )
     mesh_seq = AdjointMeshSeq(
@@ -174,7 +174,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
             end_time,
             N,
             test_case.dt,
-            [Field(field) for field in test_case.fields],
+            test_case.fields,
             num_timesteps_per_export=test_case.dt_per_export,
         )
         mesh_seq = AdjointMeshSeq(
@@ -251,7 +251,7 @@ def plot_solutions(problem, qoi_type, debug=True):
     time_partition = TimeInterval(
         end_time,
         test_case.dt,
-        [Field(field) for field in test_case.fields],
+        test_case.fields,
         num_timesteps_per_export=test_case.dt_per_export,
     )
     solutions = AdjointMeshSeq(

@@ -24,7 +24,7 @@ from goalie import *
 # concentration :math:`c` in :math:`\mathbb P1` space. ::
 
 # TODO: Finite element
-fields = [Field("c")]
+fields = [Field("c", unsteady=False)]
 
 
 def get_function_spaces(mesh):
@@ -40,7 +40,7 @@ def source(mesh):
 def get_solver(mesh_seq):
     def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
-        c = mesh_seq.fields["c"]
+        c = mesh_seq.field_data["c"]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
 

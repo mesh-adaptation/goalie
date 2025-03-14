@@ -428,7 +428,7 @@ class AdjointMeshSeq(MeshSeq):
         self.J = 0
 
         if get_adj_values:
-            for field in self.fields:
+            for field in self.field_data:
                 self.solutions.extract(layout="field")[field]["adj_value"] = []
                 for i, fs in enumerate(self.function_spaces[field]):
                     self.solutions.extract(layout="field")[field]["adj_value"].append(
@@ -501,7 +501,7 @@ class AdjointMeshSeq(MeshSeq):
             # Final solution is used as the initial condition for the next subinterval
             checkpoint = {
                 field: sol[0] if self.tmp_fields[field].unsteady else sol
-                for field, sol in self.fields.items()
+                for field, sol in self.field_data.items()
             }
 
             # Get seed vector for reverse propagation
@@ -520,7 +520,7 @@ class AdjointMeshSeq(MeshSeq):
                     )
 
             # Update adjoint solver kwargs
-            for field in self.fields:
+            for field in self.field_data:
                 for block in self.get_solve_blocks(field, i):
                     block.adj_kwargs.update(adj_solver_kwargs)
 
@@ -622,7 +622,7 @@ class AdjointMeshSeq(MeshSeq):
 
             # Get adjoint action on each subinterval
             with pyadjoint.stop_annotating():
-                for field, control in zip(self.fields, self._controls):
+                for field, control in zip(self.field_data, self._controls):
                     seeds[field] = firedrake.Cofunction(
                         self.function_spaces[field][i].dual()
                     )

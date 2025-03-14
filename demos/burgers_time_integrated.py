@@ -34,7 +34,7 @@ def get_initial_condition(mesh_seq):
 
 def get_solver(mesh_seq):
     def solver(index):
-        u, u_ = mesh_seq.fields["u"]
+        u, u_ = mesh_seq.field_data["u"]
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
@@ -81,7 +81,7 @@ def get_qoi(mesh_seq, i):
     dt = Function(R).assign(mesh_seq.time_partition.timesteps[i])
 
     def time_integrated_qoi(t):
-        u = mesh_seq.fields["u"][0]
+        u = mesh_seq.field_data["u"][0]
         return dt * inner(u, u) * ds(2)
 
     return time_integrated_qoi

@@ -78,8 +78,8 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         )
 
     def test_time_partition_wrong_field_error(self):
-        mesh_seq = self.mesh_seq(self.field)
         time_partition = TimeInstant(Field("f"))
+        mesh_seq = self.mesh_seq(time_partition=time_partition)
         mesh_seq._indicators = IndicatorData(time_partition, mesh_seq.meshes)
         with self.assertRaises(ValueError) as cm:
             mesh_seq.error_estimate()

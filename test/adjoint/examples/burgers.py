@@ -14,10 +14,12 @@ from firedrake.solving import solve
 from firedrake.ufl_expr import TestFunction
 from firedrake.utility_meshes import UnitSquareMesh
 
+from goalie.field import Field
+
 # Problem setup
 n = 32
 mesh = UnitSquareMesh(n, n, diagonal="left")
-fields = ["uv_2d"]
+fields = [Field("uv_2d")]
 end_time = 0.5
 dt = 1 / n
 dt_per_export = 2
@@ -39,7 +41,7 @@ def get_solver(self):
         t_start, t_end = self.time_partition.subintervals[i]
         dt = self.time_partition.timesteps[i]
 
-        u, u_ = self.fields["uv_2d"]
+        u, u_ = self.field_data["uv_2d"]
 
         # Setup variational problem
         dt = self.time_partition.timesteps[i]
@@ -89,7 +91,7 @@ def get_qoi(self, i):
     dtc = Function(R).assign(self.time_partition.timesteps[i])
 
     def time_integrated_qoi(t):
-        u = self.fields["uv_2d"][0]
+        u = self.field_data["uv_2d"][0]
         return dtc * ufl.inner(u, u) * ufl.ds(2)
 
     def end_time_qoi():
