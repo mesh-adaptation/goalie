@@ -20,12 +20,13 @@ from firedrake.solving import solve
 from firedrake.ufl_expr import CellSize, TestFunction
 from firedrake.utility_meshes import RectangleMesh
 
+from goalie.field import Field
 from goalie.math import bessk0
 
 # Problem setup
 n = 0
 mesh = RectangleMesh(100 * 2**n, 20 * 2**n, 50, 10)
-fields = ["tracer_2d"]
+fields = [Field("tracer_2d", unsteady=False)]
 end_time = 1.0
 dt = 1.0
 dt_per_export = 1
@@ -56,7 +57,7 @@ def get_solver(self):
 
     def solver(i):
         fs = self.function_spaces["tracer_2d"][i]
-        c = self.fields["tracer_2d"]
+        c = self.field_data["tracer_2d"]
 
         # Define constants
         fs = self.function_spaces["tracer_2d"][i]
@@ -106,7 +107,7 @@ def get_qoi(self, i):
     """
 
     def steady_qoi():
-        c = self.fields["tracer_2d"]
+        c = self.field_data["tracer_2d"]
         x, y = ufl.SpatialCoordinate(self[i])
         kernel = ufl.conditional((x - rec_x) ** 2 + (y - rec_y) ** 2 < rec_r**2, 1, 0)
         area = assemble(kernel * ufl.dx)

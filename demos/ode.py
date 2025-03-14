@@ -109,7 +109,7 @@ def get_solver_forward_euler(point_seq):
         tp = point_seq.time_partition
 
         # Get the current and lagged solutions
-        u, u_ = point_seq.fields["u"]
+        u, u_ = point_seq.field_data["u"]
 
         # Define the (trivial) form
         R = point_seq.function_spaces["u"][index]
@@ -200,7 +200,7 @@ plt.savefig("ode-forward_euler.jpg")
 def get_solver_backward_euler(point_seq):
     def solver(index):
         tp = point_seq.time_partition
-        u, u_ = point_seq.fields["u"]
+        u, u_ = point_seq.field_data["u"]
         R = point_seq.function_spaces["u"][index]
         dt = Function(R).assign(tp.timesteps[index])
         v = TestFunction(R)
@@ -264,7 +264,7 @@ plt.savefig("ode-backward_euler.jpg")
 def get_solver_crank_nicolson(point_seq):
     def solver(index):
         tp = point_seq.time_partition
-        u, u_ = point_seq.fields["u"]
+        u, u_ = point_seq.field_data["u"]
         R = point_seq.function_spaces["u"][index]
         dt = Function(R).assign(tp.timesteps[index])
         v = TestFunction(R)
