@@ -44,7 +44,8 @@ k = Constant((0, 1))
 # :math:`p` using a *mixed* formulation, which was introduced in a `previous demo on
 # advection-diffusion reaction <./gray_scott.py.html>`__.
 
-fields = ["up", "T"]
+# TODO: Finite elements
+fields = [Field("up"), Field("T")]
 
 
 def get_function_spaces(mesh):

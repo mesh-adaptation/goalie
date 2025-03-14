@@ -18,7 +18,8 @@ from firedrake import *
 
 from goalie_adjoint import *
 
-fields = ["u"]
+# TODO: Finite element
+fields = [Field("u")]
 
 
 def get_function_spaces(mesh):

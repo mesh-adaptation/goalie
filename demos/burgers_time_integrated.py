@@ -96,8 +96,9 @@ meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="
 end_time = 0.5
 dt = 1 / n
 num_subintervals = len(meshes)
+# TODO: Finite element
 time_partition = TimePartition(
-    end_time, num_subintervals, dt, ["u"], num_timesteps_per_export=1
+    end_time, num_subintervals, dt, [Field("u")], num_timesteps_per_export=1
 )
 
 # The only difference when defining the :class:`AdjointMeshSeq` is that we specify
