@@ -50,7 +50,7 @@ class MeshSeq:
         """
         self.time_partition = time_partition
         # TODO: This should become self.field_data
-        self.tmp_fields = {field.name: field for field in time_partition.fields}
+        self.fields = {field.name: field for field in time_partition.fields}
         self.field_data = dict.fromkeys(self.tmp_fields)
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
@@ -444,7 +444,7 @@ class MeshSeq:
         """
         for field, ic in initial_conditions.items():
             fs = ic.function_space()
-            if self.tmp_fields[field].unsteady:
+            if self.fields[field].unsteady:
                 self.field_data[field] = (
                     firedrake.Function(fs, name=field),
                     firedrake.Function(fs, name=f"{field}_old").assign(ic),
@@ -499,7 +499,7 @@ class MeshSeq:
                         next(solver_gen)
                     # Update the solution data
                     for field, sol in self.field_data.items():
-                        if self.tmp_fields[field].unsteady:
+                        if self.fields[field].unsteady:
                             assert isinstance(sol, tuple)
                             solutions[field].forward[i][j].assign(sol[0])
                             solutions[field].forward_old[i][j].assign(sol[1])
@@ -517,7 +517,7 @@ class MeshSeq:
                     {
                         field: self._transfer(
                             self.field_data[field][0]
-                            if self.tmp_fields[field].unsteady
+                            if self.fields[field].unsteady
                             else self.field_data[field],
                             fs[i + 1],
                         )
