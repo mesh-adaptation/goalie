@@ -320,7 +320,7 @@ class AdjointMeshSeq(MeshSeq):
         :rtype: :class:`firedrake.function.Function`
         """
         # TODO #93: Inconsistent return value - can be None
-        if not self.tmp_fields[field].unsteady:
+        if not self.fields[field].unsteady:
             return
         fs = self.function_spaces[field][subinterval]
 
@@ -500,7 +500,7 @@ class AdjointMeshSeq(MeshSeq):
 
             # Final solution is used as the initial condition for the next subinterval
             checkpoint = {
-                field: sol[0] if self.tmp_fields[field].unsteady else sol
+                field: sol[0] if self.fields[field].unsteady else sol
                 for field, sol in self.field_data.items()
             }
 
