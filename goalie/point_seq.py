@@ -18,9 +18,6 @@ class PointSeq(MeshSeq):
         r"""
         :arg time_partition: the :class:`~.TimePartition` which partitions the temporal
             domain
-        :kwarg get_function_spaces: a function, whose only argument is a
-            :class:`~.MeshSeq`, which constructs prognostic
-            :class:`firedrake.functionspaceimpl.FunctionSpace`\s for each subinterval
         :kwarg get_initial_condition: a function, whose only argument is a
             :class:`~.MeshSeq`, which specifies initial conditions on the first mesh
         :kwarg get_solver: a function, whose only argument is a :class:`~.MeshSeq`,

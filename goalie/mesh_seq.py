@@ -5,6 +5,7 @@ Sequences of meshes corresponding to a :class:`~.TimePartition`.
 from collections.abc import Iterable
 
 import firedrake
+import firedrake.functionspace as ffs
 import numpy as np
 from animate.interpolation import transfer
 from animate.quality import QualityMeasure
@@ -35,8 +36,6 @@ class MeshSeq:
         :arg initial_meshes: a list of meshes corresponding to the subinterval of the
             time partition, or a single mesh to use for all subintervals
         :type initial_meshes: :class:`list` or :class:`~.MeshGeometry`
-        :kwarg get_function_spaces: a function as described in
-            :meth:`~.MeshSeq.get_function_spaces`
         :kwarg get_initial_condition: a function as described in
             :meth:`~.MeshSeq.get_initial_condition`
         :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
@@ -60,8 +59,11 @@ class MeshSeq:
 
         self.set_meshes(initial_meshes)
         self._fs = None
-        # TODO: No need to accept get_function_spaces - can be deduced
-        self._get_function_spaces = kwargs.get("get_function_spaces")
+        if "get_function_spaces" in kwargs:
+            raise KeyError(
+                "get_function_spaces is no longer supported. Specify the finite_element"
+                " argument for the Field class instead."
+            )
         self._get_initial_condition = kwargs.get("get_initial_condition")
         self._get_solver = kwargs.get("get_solver")
         self._transfer_method = kwargs.get("transfer_method", "project")
@@ -251,9 +253,10 @@ class MeshSeq:
         :rtype: :class:`dict` with :class:`str` keys and
             :class:`firedrake.functionspaceimpl.FunctionSpace` values
         """
-        if self._get_function_spaces is None:
-            raise NotImplementedError("'get_function_spaces' needs implementing.")
-        return self._get_function_spaces(mesh)
+        return {
+            name: ffs.FunctionSpace(mesh, field.finite_element)
+            for name, field in self.tmp_fields.items()
+        }
 
     def get_initial_condition(self):
         r"""
@@ -323,13 +326,11 @@ class MeshSeq:
         Assert that function spaces and initial conditions are given in a
         dictionary format with the same keys as :attr:`MeshSeq.field_metadata`.
         """
-        for method in ["function_spaces", "initial_condition", "solver"]:
+        for method in ["initial_condition", "solver"]:
             if getattr(self, f"_get_{method}") is None:
                 continue
             method_map = getattr(self, f"get_{method}")
-            if method == "function_spaces":
-                method_map = method_map(self.meshes[0])
-            elif method == "initial_condition":
+            if method == "initial_condition":
                 method_map = method_map()
             elif method == "solver":
                 self._reinitialise_fields(self.get_initial_condition())

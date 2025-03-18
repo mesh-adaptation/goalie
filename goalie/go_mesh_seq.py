@@ -153,7 +153,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         enriched_mesh_seq = type(self)(
             self.time_partition,
             meshes,
-            get_function_spaces=self._get_function_spaces,
             get_initial_condition=self._get_initial_condition,
             get_solver=self._get_solver,
             get_qoi=self._get_qoi,
