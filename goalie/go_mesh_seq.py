@@ -41,10 +41,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :type forms_dictionary: :class:`dict`
         """
         for field, form in forms_dictionary.items():
-            if field not in self.fields:
+            if field not in self.field_data:
                 raise ValueError(
                     f"Unexpected field '{field}' in forms dictionary."
-                    f" Expected one of {self.time_partition.field_names}."
+                    f" Expected one of {list(self.fields.keys())}."
                 )
             if not isinstance(form, ufl.Form):
                 raise TypeError(
@@ -89,17 +89,17 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 field: deepcopy(form.coefficients())
                 for field, form in self.forms.items()
             }
-            self._changed_form_coeffs = {field: {} for field in self.fields}
+            self._changed_form_coeffs = {field: {} for field in self.field_data}
         else:
             # Store coefficients that have changed since the previous export timestep
-            for field in self.fields:
+            for field in self.field_data:
                 # Coefficients at the current timestep
                 coeffs = self.forms[field].coefficients()
                 for coeff_idx, (coeff, init_coeff) in enumerate(
                     zip(coeffs, self._prev_form_coeffs[field])
                 ):
                     # Skip solution fields since they are stored separately
-                    if coeff.name().split("_old")[0] in self.time_partition.field_names:
+                    if coeff.name().split("_old")[0] in self.function_spaces:
                         continue
                     if not np.allclose(
                         coeff.vector().array(), init_coeff.vector().array()
@@ -262,13 +262,13 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
             enriched_spaces = {
-                f: enriched_mesh_seq.function_spaces[f][i] for f in self.fields
+                f: enriched_mesh_seq.function_spaces[f][i] for f in self.field_data
             }
             for f, fs_e in enriched_spaces.items():
-                if self.field_types[f] == "steady":
-                    u[f] = enriched_mesh_seq.fields[f]
+                if self.fields[f].unsteady:
+                    u[f], u_[f] = enriched_mesh_seq.field_data[f]
                 else:
-                    u[f], u_[f] = enriched_mesh_seq.fields[f]
+                    u[f] = enriched_mesh_seq.field_data[f]
                 u_star[f] = Function(fs_e)
                 u_star_next[f] = Function(fs_e)
                 u_star_e[f] = Function(fs_e)
@@ -280,14 +280,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 # latter fields from the previous timestep. Therefore, we must transfer
                 # the lagged solution of latter fields as if they were the current
                 # timestep solutions. This assumes that the order of fields being solved
-                # for in get_solver is the same as their order in self.fields
-                for f_next in self.time_partition.field_names[1:]:
+                # for in get_solver is the same as their order in self.field_data
+                for f_next in list(self.function_spaces.keys())[1:]:
                     transfer(self.solutions[f_next][FWD_OLD][i][j], u[f_next])
                 # Loop over each strongly coupled field
-                for f in self.fields:
+                for f in self.field_data:
                     # Transfer solutions associated with the current field f
                     transfer(self.solutions[f][FWD][i][j], u[f])
-                    if self.field_types[f] == "unsteady":
+                    if self.fields[f].unsteady:
                         transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
                     transfer(self.solutions[f][ADJ][i][j], u_star[f])
                     transfer(self.solutions[f][ADJ_NEXT][i][j], u_star_next[f])
@@ -339,7 +339,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             )
         estimator = 0
         for field, by_field in self.indicators.items():
-            if field not in self.time_partition.field_names:
+            if field not in self.function_spaces:
                 raise ValueError(
                     f"Key '{field}' does not exist in the TimePartition provided."
                 )

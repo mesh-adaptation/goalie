@@ -24,11 +24,11 @@ from firedrake import *
 
 from goalie import *
 
-# In this problem, we have a single prognostic variable,
-# :math:`\mathbf u`. Its name is recorded in a list of
-# field names. ::
+# In this problem, we have a single prognostic variable, :math:`\mathbf u`. Its name
+# and other metadata are recorded in a :class:`~.Field` object. ::
 
-field_names = ["u"]
+# TODO: Finite element
+fields = [Field("u")]
 
 # For each such field, we need to be able to specify how to
 # build a :class:`FunctionSpace`, given some mesh. Since there
@@ -64,7 +64,7 @@ def get_function_spaces(mesh):
 def get_solver(mesh_seq):
     def solver(index):
         # Get the current and lagged solutions
-        u, u_ = mesh_seq.fields["u"]
+        u, u_ = mesh_seq.field_data["u"]
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
@@ -125,7 +125,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    field_names,
+    fields,
     num_timesteps_per_export=2,
 )
 

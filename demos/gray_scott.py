@@ -15,7 +15,8 @@ from goalie_adjoint import *
 
 # The problem is defined on a doubly periodic mesh of squares. ::
 
-field_names = ["ab"]
+# TODO: Finite element
+fields = [Field("ab")]
 mesh = PeriodicSquareMesh(65, 65, 2.5, quadrilateral=True, direction="both")
 
 # We solve for the tracer species using a mixed formulation, with a :math:`\mathbb P1`
@@ -53,7 +54,7 @@ def get_initial_condition(mesh_seq):
 
 def get_solver(mesh_seq):
     def solver(index):
-        ab, ab_ = mesh_seq.fields["ab"]
+        ab, ab_ = mesh_seq.field_data["ab"]
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
@@ -101,7 +102,7 @@ def get_solver(mesh_seq):
 
 def get_qoi(mesh_seq, index):
     def qoi():
-        ab = mesh_seq.fields["ab"][0]
+        ab = mesh_seq.field_data["ab"][0]
         a, b = split(ab)
         return a * b**2 * dx
 
@@ -120,7 +121,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    field_names,
+    fields,
     num_timesteps_per_export=dt_per_export,
     subintervals=[
         (0.0, 0.001),

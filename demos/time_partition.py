@@ -36,7 +36,7 @@ from goalie import *
 # * the end time;
 # * the number of subintervals;
 # * the timestep on each subinterval;
-# * a list of field names for the solution components.
+# * a list fields for the solution components.
 #
 # If the start time is not set then it is
 # assumed to be zero.
@@ -51,8 +51,11 @@ from goalie import *
 end_time = 1.0
 num_subintervals = 1
 dt = 0.125
-field_names = ["solution"]
+fields = [Field("solution")]
 
+# The :class:`~.Field` class accepts keyword arguments to customise more than just the
+# name, but we use the defaults here for simplicity.
+#
 # With these definitions, we should get
 # one subinterval of :math:`(0,1]` containing
 # eight timesteps. When constructing a
@@ -61,7 +64,7 @@ field_names = ["solution"]
 # mode. This is specified using :func:`set_log_level`. ::
 
 set_log_level(DEBUG)
-tp = TimePartition(end_time, num_subintervals, dt, field_names)
+tp = TimePartition(end_time, num_subintervals, dt, fields)
 
 # Notice that one of the things which is printed
 # out is ``num_timesteps_per_export``, which controls
@@ -81,9 +84,7 @@ tp = TimePartition(end_time, num_subintervals, dt, field_names)
 # than one subinterval. ::
 
 num_subintervals = 2
-tp = TimePartition(
-    end_time, num_subintervals, dt, field_names, num_timesteps_per_export=2
-)
+tp = TimePartition(end_time, num_subintervals, dt, fields, num_timesteps_per_export=2)
 
 # In some problems, the dynamics evolve such
 # that different timesteps are suitable during
@@ -92,9 +93,7 @@ tp = TimePartition(
 # timesteps corresponding to each subinterval. ::
 
 dt = [0.125, 0.0625]
-tp = TimePartition(
-    end_time, num_subintervals, dt, field_names, num_timesteps_per_export=2
-)
+tp = TimePartition(end_time, num_subintervals, dt, fields, num_timesteps_per_export=2)
 
 # Note that this means that there are more
 # exports in the second subinterval than the first.
@@ -102,7 +101,7 @@ tp = TimePartition(
 # ``num_timesteps_per_export`` as a list. ::
 
 tp = TimePartition(
-    end_time, num_subintervals, dt, field_names, num_timesteps_per_export=[2, 4]
+    end_time, num_subintervals, dt, fields, num_timesteps_per_export=[2, 4]
 )
 
 # So far, we have assumed that the subintervals
@@ -116,7 +115,7 @@ tp = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    field_names,
+    fields,
     num_timesteps_per_export=[2, 4],
     subintervals=subintervals,
 )

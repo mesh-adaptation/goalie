@@ -13,6 +13,7 @@ from firedrake.functionspace import TensorFunctionSpace
 from parameterized import parameterized
 from utility import mesh_for_sensors, uniform_mesh
 
+from goalie.field import Field
 from goalie.metric import (
     enforce_variable_constraints,
     ramp_complexity,
@@ -65,10 +66,10 @@ class TestMetricNormalisation(BaseClasses.MetricTestCase):
 
     def setUp(self):
         super().setUp()
-        self.time_partition = TimeInterval(1.0, 1.0, "u")
+        self.time_partition = TimeInterval(1.0, 1.0, Field("u"))
 
     def test_time_partition_length_error(self):
-        time_partition = TimePartition(1.0, 2, [0.5, 0.5], "u")
+        time_partition = TimePartition(1.0, 2, [0.5, 0.5], Field("u"))
         mp = {"dm_plex_metric_target_complexity": 1.0}
         with self.assertRaises(ValueError) as cm:
             space_time_normalise([self.simple_metric], time_partition, [mp])

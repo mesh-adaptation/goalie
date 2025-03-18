@@ -34,7 +34,7 @@ def get_initial_condition(mesh_seq):
 
 def get_solver(mesh_seq):
     def solver(index):
-        u, u_ = mesh_seq.fields["u"]
+        u, u_ = mesh_seq.field_data["u"]
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
@@ -81,7 +81,7 @@ def get_qoi(mesh_seq, i):
     dt = Function(R).assign(mesh_seq.time_partition.timesteps[i])
 
     def time_integrated_qoi(t):
-        u = mesh_seq.fields["u"][0]
+        u = mesh_seq.field_data["u"][0]
         return dt * inner(u, u) * ds(2)
 
     return time_integrated_qoi
@@ -96,8 +96,9 @@ meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="
 end_time = 0.5
 dt = 1 / n
 num_subintervals = len(meshes)
+# TODO: Finite element
 time_partition = TimePartition(
-    end_time, num_subintervals, dt, ["u"], num_timesteps_per_export=1
+    end_time, num_subintervals, dt, [Field("u")], num_timesteps_per_export=1
 )
 
 # The only difference when defining the :class:`AdjointMeshSeq` is that we specify

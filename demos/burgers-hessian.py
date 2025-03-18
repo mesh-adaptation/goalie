@@ -16,7 +16,8 @@ from firedrake import *
 
 from goalie import *
 
-field_names = ["u"]
+# TODO: Finite element
+fields = [Field("u")]
 
 
 def get_function_spaces(mesh):
@@ -25,7 +26,7 @@ def get_function_spaces(mesh):
 
 def get_solver(mesh_seq):
     def solver(index):
-        u, u_ = mesh_seq.fields["u"]
+        u, u_ = mesh_seq.field_data["u"]
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
@@ -71,7 +72,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    field_names,
+    fields,
     num_timesteps_per_export=2,
 )
 

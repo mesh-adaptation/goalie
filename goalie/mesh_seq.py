@@ -49,12 +49,14 @@ class MeshSeq:
             take various types
         """
         self.time_partition = time_partition
-        self.fields = {field_name: None for field_name in time_partition.field_names}
-        self.field_types = dict(zip(self.fields, time_partition.field_types))
+        # TODO: This should become self.field_data
+        self.fields = {field.name: field for field in time_partition.fields}
+        self.field_data = {field: None for field in self.fields}
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
         self.set_meshes(initial_meshes)
         self._fs = None
+        # TODO: No need to accept get_function_spaces - can be deduced
         self._get_function_spaces = kwargs.get("get_function_spaces")
         self._get_initial_condition = kwargs.get("get_initial_condition")
         self._get_solver = kwargs.get("get_solver")
@@ -331,7 +333,7 @@ class MeshSeq:
                 assert hasattr(solver_gen, "__next__"), "solver should yield"
                 if logger.level == DEBUG:
                     next(solver_gen)
-                    f, f_ = self.fields[next(iter(self.fields))]
+                    f, f_ = self.field_data[next(iter(self.field_data))]
                     if np.array_equal(f.vector().array(), f_.vector().array()):
                         self.debug(
                             "Current and lagged solutions are equal. Does the"
@@ -339,7 +341,7 @@ class MeshSeq:
                         )  # noqa
                 break
             assert isinstance(method_map, dict), f"get_{method} should return a dict"
-            mesh_seq_fields = set(self.fields)
+            mesh_seq_fields = set(self.field_data)
             method_fields = set(method_map.keys())
             diff = mesh_seq_fields.difference(method_fields)
             assert len(diff) == 0, f"missing fields {diff} in get_{method}"
@@ -356,8 +358,10 @@ class MeshSeq:
         :rtype: `:class:`bool`
         """
         consistent = len(self.time_partition) == len(self)
-        consistent &= all(len(self) == len(self._fs[field]) for field in self.fields)
-        for field in self.fields:
+        consistent &= all(
+            len(self) == len(self._fs[field]) for field in self.field_data
+        )
+        for field in self.field_data:
             consistent &= all(
                 mesh == fs.mesh() for mesh, fs in zip(self.meshes, self._fs[field])
             )
@@ -375,7 +379,7 @@ class MeshSeq:
             self._fs = AttrDict(
                 {
                     field: [self.get_function_spaces(mesh)[field] for mesh in self]
-                    for field in self.fields
+                    for field in self.field_data
                 }
             )
         assert (
@@ -440,12 +444,14 @@ class MeshSeq:
         """
         for field, ic in initial_conditions.items():
             fs = ic.function_space()
-            if self.field_types[field] == "steady":
-                self.fields[field] = firedrake.Function(fs, name=f"{field}").assign(ic)
-            else:
-                self.fields[field] = (
+            if self.fields[field].unsteady:
+                self.field_data[field] = (
                     firedrake.Function(fs, name=field),
                     firedrake.Function(fs, name=f"{field}_old").assign(ic),
+                )
+            else:
+                self.field_data[field] = firedrake.Function(fs, name=f"{field}").assign(
+                    ic
                 )
 
     @PETSc.Log.EventDecorator()
@@ -492,8 +498,8 @@ class MeshSeq:
                     for _ in range(tp.num_timesteps_per_export[i]):
                         next(solver_gen)
                     # Update the solution data
-                    for field, sol in self.fields.items():
-                        if not self.field_types[field] == "steady":
+                    for field, sol in self.field_data.items():
+                        if self.fields[field].unsteady:
                             assert isinstance(sol, tuple)
                             solutions[field].forward[i][j].assign(sol[0])
                             solutions[field].forward_old[i][j].assign(sol[1])
@@ -510,9 +516,9 @@ class MeshSeq:
                 checkpoint = AttrDict(
                     {
                         field: self._transfer(
-                            self.fields[field]
-                            if self.field_types[field] == "steady"
-                            else self.fields[field][0],
+                            self.field_data[field][0]
+                            if self.fields[field].unsteady
+                            else self.field_data[field],
                             fs[i + 1],
                         )
                         for field, fs in self._fs.items()

@@ -14,7 +14,7 @@ from firedrake import *
 
 from goalie_adjoint import *
 
-# For ease, the list of field names and functions for obtaining the
+# For ease, the list of fields and functions for obtaining the
 # function spaces, solvers, and initial conditions
 # are redefined as in the previous demo. The only difference
 # is that now we are solving the adjoint problem, which
@@ -22,7 +22,8 @@ from goalie_adjoint import *
 # ``ad_block_tag`` that matches the corresponding prognostic
 # variable name. ::
 
-field_names = ["u"]
+# TODO: Finite element
+fields = [Field("u")]
 
 
 def get_function_spaces(mesh):
@@ -31,7 +32,7 @@ def get_function_spaces(mesh):
 
 def get_solver(mesh_seq):
     def solver(index):
-        u, u_ = mesh_seq.fields["u"]
+        u, u_ = mesh_seq.field_data["u"]
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
@@ -83,7 +84,7 @@ def get_initial_condition(mesh_seq):
 
 def get_qoi(mesh_seq, i):
     def end_time_qoi():
-        u = mesh_seq.fields["u"][0]
+        u = mesh_seq.field_data["u"][0]
         return inner(u, u) * ds(2)
 
     return end_time_qoi
@@ -102,7 +103,7 @@ dt = 1 / n
 # single mesh, so the partition is trivial and we can use the
 # :class:`TimeInterval` constructor. ::
 
-time_partition = TimeInterval(end_time, dt, field_names, num_timesteps_per_export=2)
+time_partition = TimeInterval(end_time, dt, fields, num_timesteps_per_export=2)
 
 # Finally, we are able to construct an :class:`AdjointMeshSeq` and
 # thereby call its :meth:`solve_adjoint` method. This computes the QoI

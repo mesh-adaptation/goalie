@@ -19,7 +19,8 @@ from matplotlib import ticker
 
 from goalie_adjoint import *
 
-field_names = ["c"]
+# TODO: Finite element
+fields = [Field("c", unsteady=False)]
 
 
 def get_function_spaces(mesh):
@@ -35,7 +36,7 @@ def source(mesh):
 def get_solver(mesh_seq):
     def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
-        c = mesh_seq.fields["c"]
+        c = mesh_seq.field_data["c"]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
 
@@ -72,7 +73,7 @@ def get_solver(mesh_seq):
 
 def get_qoi(mesh_seq, index):
     def qoi():
-        c = mesh_seq.fields["c"]
+        c = mesh_seq.field_data["c"]
         x, y = SpatialCoordinate(mesh_seq[index])
         xr, yr, rr = 20, 7.5, 0.5
         kernel = conditional((x - xr) ** 2 + (y - yr) ** 2 < rr**2, 1, 0)
@@ -85,7 +86,7 @@ def get_qoi(mesh_seq, index):
 # :class:`GoalOrientedMeshSeq`. ::
 
 mesh = RectangleMesh(50, 10, 50, 10)
-time_partition = TimeInstant(field_names)
+time_partition = TimeInstant(fields)
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     mesh,

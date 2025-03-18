@@ -44,7 +44,8 @@ from goalie_adjoint import *
 # unit square, in this case shifted to have its centre at
 # the origin. ::
 
-field_names = ["c"]
+# TODO: Finite element
+fields = [Field("c")]
 
 
 def get_function_spaces(mesh):
@@ -100,7 +101,7 @@ dt = pi / 300
 time_partition = TimeInterval(
     end_time,
     dt,
-    field_names,
+    fields,
     num_timesteps_per_export=25,
 )
 
@@ -143,7 +144,7 @@ plt.savefig("solid_body_rotation-init.jpg")
 def get_solver(mesh_seq):
     def solver(index):
         V = mesh_seq.function_spaces["c"][index]
-        c, c_ = mesh_seq.fields["c"]
+        c, c_ = mesh_seq.field_data["c"]
 
         # Define velocity field
         x, y = SpatialCoordinate(mesh)
@@ -195,7 +196,7 @@ def get_solver(mesh_seq):
 
 def get_qoi(mesh_seq, index):
     def qoi():
-        c = mesh_seq.fields["c"][0]
+        c = mesh_seq.field_data["c"][0]
         x, y = SpatialCoordinate(mesh_seq[index])
         x0, y0, r0 = 0.0, 0.25, 0.15
         ball = conditional((x - x0) ** 2 + (y - y0) ** 2 < r0**2, 1.0, 0.0)

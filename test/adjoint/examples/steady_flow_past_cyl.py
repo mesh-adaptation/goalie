@@ -18,8 +18,10 @@ from firedrake.mesh import Mesh
 from firedrake.solving import solve
 from firedrake.ufl_expr import TestFunctions
 
+from goalie.field import Field
+
 mesh = Mesh(os.path.join(os.path.dirname(__file__), "mesh-with-hole.msh"))
-fields = ["up"]
+fields = [Field("up", unsteady=False)]
 dt = 1.0
 end_time = dt
 dt_per_export = 1
@@ -37,7 +39,7 @@ def get_solver(self):
 
     def solver(i):
         W = self.function_spaces["up"][i]
-        up = self.fields["up"]
+        up = self.field_data["up"]
 
         # Define variational problem
         R = FunctionSpace(self[i], "R", 0)
@@ -96,7 +98,7 @@ def get_qoi(self, i):
     """Quantity of interest which integrates pressure over the boundary of the hole."""
 
     def steady_qoi():
-        u, p = ufl.split(self.fields["up"])
+        u, p = ufl.split(self.field_data["up"])
         return p * ufl.ds(4)
 
     return steady_qoi
