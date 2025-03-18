@@ -21,7 +21,10 @@ class TestExceptions(unittest.TestCase):
     def test_field_invalid_finite_element(self):
         with self.assertRaises(TypeError) as cm:
             Field("field", "element")
-        msg = "Field finite element must be a FiniteElement object."
+        msg = (
+            "Field finite element must be a FiniteElement, VectorElement, or"
+            " TensorElement object."
+        )
         self.assertEqual(str(cm.exception), msg)
 
 
