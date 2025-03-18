@@ -25,25 +25,19 @@ from firedrake import *
 from goalie import *
 
 # In this problem, we have a single prognostic variable, :math:`\mathbf u`. Its name
-# and other metadata are recorded in a :class:`~.Field` object. ::
+# and other metadata are recorded in a :class:`~.Field` object. One important piece of
+# metadata is the finite element used to define function spaces for the field (given
+# some mesh). We define this using the :class:`finat.ufl.FiniteElement` class, which is
+# imported along with the Firedrake namespace. Since Burgers is a vector equation, we
+# need to define the finite element in as a :class:`finat.ufl.VectorElement`. ::
 
-# TODO: Finite element
-fields = [Field("u")]
+finite_element = VectorElement(FiniteElement("Lagrange", triangle, 2), dim=2)
+fields = [Field("u", finite_element=finite_element)]
 
-# For each such field, we need to be able to specify how to
-# build a :class:`FunctionSpace`, given some mesh. Since there
-# could be more than one field, function spaces are given as a
-# dictionary, indexed by the prognostic solution field names. ::
-
-
-def get_function_spaces(mesh):
-    return {"u": VectorFunctionSpace(mesh, "CG", 2)}
-
-
-# The solution :class:`Function`\s are automatically built on the function spaces given
-# by the :func:`get_function_spaces` function and are accessed via the :attr:`fields`
-# attribute of the :class:`MeshSeq`. This attribute provides a dictionary of tuples
-# containing the current and lagged solutions for each field.
+# The solution :class:`Function`\s are automatically built on the function spaces
+# defined by the finite element and are accessed via the :attr:`field_data` attribute of
+# the :class:`MeshSeq`. This attribute provides a dictionary of tuples containing the
+# current and lagged solutions for each field.
 #
 # In order to solve the PDE, we need to choose a time integration routine and solver
 # parameters for the underlying linear and nonlinear systems. This is achieved below by
@@ -135,7 +129,6 @@ time_partition = TimePartition(
 mesh_seq = MeshSeq(
     time_partition,
     meshes,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
 )

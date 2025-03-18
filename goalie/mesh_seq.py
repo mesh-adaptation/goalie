@@ -255,7 +255,7 @@ class MeshSeq:
         """
         return {
             name: ffs.FunctionSpace(mesh, field.finite_element)
-            for name, field in self.tmp_fields.items()
+            for name, field in self.fields.items()
         }
 
     def get_initial_condition(self):
