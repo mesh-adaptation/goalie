@@ -8,8 +8,9 @@ Code here is based on that found at
 """
 
 import ufl
+from finat.ufl import FiniteElement, VectorElement
 from firedrake.function import Function
-from firedrake.functionspace import FunctionSpace, VectorFunctionSpace
+from firedrake.functionspace import FunctionSpace
 from firedrake.solving import solve
 from firedrake.ufl_expr import TestFunction
 from firedrake.utility_meshes import UnitSquareMesh
@@ -19,17 +20,13 @@ from goalie.field import Field
 # Problem setup
 n = 32
 mesh = UnitSquareMesh(n, n, diagonal="left")
-fields = [Field("uv_2d")]
+finite_element = VectorElement(FiniteElement("Lagrange", ufl.triangle, 2), dim=2)
+fields = [Field("uv_2d", finite_element=finite_element)]
 end_time = 0.5
 dt = 1 / n
 dt_per_export = 2
 steady = False
 get_bcs = None
-
-
-def get_function_spaces(mesh):
-    r""":math:`\mathbb P2` space."""
-    return {"uv_2d": VectorFunctionSpace(mesh, "CG", 2)}
 
 
 def get_solver(self):
