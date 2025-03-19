@@ -119,7 +119,6 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     mesh_seq = AdjointMeshSeq(
         time_partition,
         test_case.mesh,
-        get_function_spaces=test_case.get_function_spaces,
         get_initial_condition=test_case.get_initial_condition,
         get_solver=test_case.get_solver,
         get_qoi=test_case.get_qoi,
@@ -180,7 +179,6 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         mesh_seq = AdjointMeshSeq(
             time_partition,
             test_case.mesh,
-            get_function_spaces=test_case.get_function_spaces,
             get_initial_condition=test_case.get_initial_condition,
             get_solver=test_case.get_solver,
             get_qoi=test_case.get_qoi,
@@ -257,7 +255,6 @@ def plot_solutions(problem, qoi_type, debug=True):
     solutions = AdjointMeshSeq(
         time_partition,
         test_case.mesh,
-        get_function_spaces=test_case.get_function_spaces,
         get_initial_condition=test_case.get_initial_condition,
         get_solver=test_case.get_solver,
         get_qoi=test_case.get_qoi,

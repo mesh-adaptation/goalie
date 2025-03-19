@@ -12,6 +12,7 @@ effectivity index can be computed.
 
 import numpy as np
 import ufl
+from finat.ufl import FiniteElement
 from firedrake.assemble import assemble
 from firedrake.bcs import DirichletBC
 from firedrake.function import Function
@@ -26,7 +27,8 @@ from goalie.math import bessk0
 # Problem setup
 n = 0
 mesh = RectangleMesh(100 * 2**n, 20 * 2**n, 50, 10)
-fields = [Field("tracer_2d", unsteady=False)]
+finite_element = FiniteElement("Lagrange", ufl.triangle, 1)
+fields = [Field("tracer_2d", finite_element=finite_element, unsteady=False)]
 end_time = 1.0
 dt = 1.0
 dt_per_export = 1
@@ -34,13 +36,6 @@ src_x, src_y, src_r = 2.0, 5.0, 0.05606388
 rec_x, rec_y, rec_r = 20.0, 7.5, 0.5
 steady = True
 get_initial_condition = None
-
-
-def get_function_spaces(mesh):
-    r"""
-    :math:`\mathbb P1` space.
-    """
-    return {"tracer_2d": FunctionSpace(mesh, "CG", 1)}
 
 
 def source(mesh):
