@@ -49,7 +49,7 @@ class MeshSeq:
             take various types
         """
         self.time_partition = time_partition
-        self.fields = {field_name: None for field_name in time_partition.field_names}
+        self.fields = dict.fromkeys(time_partition.field_names)
         self.field_types = dict(zip(self.fields, time_partition.field_types))
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
@@ -166,7 +166,7 @@ class MeshSeq:
             :class:`firedrake.MeshGeometry`
         """
         # TODO #122: Refactor to use the set method
-        if not isinstance(meshes, Iterable):
+        if not isinstance(meshes, list):
             meshes = [Mesh(meshes) for subinterval in self.subintervals]
         self.meshes = meshes
         dim = np.array([mesh.topological_dimension() for mesh in meshes])
