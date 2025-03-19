@@ -107,7 +107,7 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
     elif isinstance(test_space, WithGeometry):
         if len(adjoint_error.keys()) != 1:
             raise ValueError("Inconsistent input for 'adjoint_error' and 'test_space'.")
-        test_space = {key: test_space for key in adjoint_error}
+        test_space = dict.fromkeys(adjoint_error, test_space)
     elif not isinstance(test_space, dict):
         raise TypeError(
             "Expected 'test_space' to be a FunctionSpace or dict, not"

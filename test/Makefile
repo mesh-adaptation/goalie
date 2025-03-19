@@ -2,7 +2,8 @@ all: run
 
 run:
 	@echo "Running all non-adjoint tests..."
-	@python3 -m pytest -v -n auto --durations=20 test_*.py
+	@python3 -m pytest -v -n auto --durations=20 -k "not test_parallel.py" test_*.py
+	@mpiexec -n 2 python3 -m pytest -v test_parallel.py
 	@echo "Done."
 
 clean:

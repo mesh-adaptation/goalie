@@ -107,12 +107,22 @@ class AdjointMeshSeq(MeshSeq):
                 f" '{self.qoi_type}'."
             )
         self._controls = None
+        self._gradient = None
         self.qoi_values = []
 
     @property
     @pyadjoint.no_annotations
     def initial_condition(self):
         return super().initial_condition
+
+    @property
+    def gradient(self):
+        if self._gradient is None:
+            raise AttributeError(
+                "To compute the gradient, pass compute_gradient=True to the"
+                " solve_adjoint method."
+            )
+        return self._gradient
 
     @annotate_qoi
     def get_qoi(self, subinterval):
@@ -179,7 +189,7 @@ class AdjointMeshSeq(MeshSeq):
         return checkpoints
 
     @PETSc.Log.EventDecorator()
-    def get_solve_blocks(self, field, subinterval, has_adj_sol=True):
+    def get_solve_blocks(self, field, subinterval):
         r"""
         Get all blocks of the tape corresponding to solve steps for prognostic solution
         field on a given subinterval.
@@ -188,18 +198,10 @@ class AdjointMeshSeq(MeshSeq):
         :type field: :class:`str`
         :arg subinterval: subinterval index
         :type subinterval: :class:`int`
-        :kwarg has_adj_sol: if ``True``, only blocks with ``adj_sol`` attributes will be
-            considered
-        :type has_adj_sol: :class:`bool`
         :returns: list of solve blocks
         :rtype: :class:`list` of :class:`pyadjoint.block.Block`\s
         """
-        tape = pyadjoint.get_working_tape()
-        if tape is None:
-            self.warning("Tape does not exist!")
-            return []
-
-        blocks = tape.get_blocks()
+        blocks = pyadjoint.get_working_tape().get_blocks()
         if len(blocks) == 0:
             self.warning("Tape has no blocks!")
             return blocks
@@ -252,22 +254,6 @@ class AdjointMeshSeq(MeshSeq):
                 f" field '{field}' on subinterval {subinterval}: {num_timesteps} vs."
                 f" {N}."
             )
-        if not has_adj_sol:
-            return solve_blocks
-
-        # Check that adjoint solutions exist
-        if all(block.adj_sol is None for block in solve_blocks):
-            self.warning(
-                "No block has an adjoint solution. Has the adjoint equation been"
-                " solved?"
-            )
-
-        # Default adjoint solution to zero, rather than None
-        for block in solve_blocks:
-            if block.adj_sol is None:
-                block.adj_sol = firedrake.Function(
-                    self.function_spaces[field][subinterval], name=field
-                )
         return solve_blocks
 
     def _output(self, field, subinterval, solve_block):
@@ -289,7 +275,7 @@ class AdjointMeshSeq(MeshSeq):
 
         # Loop through the solve block's outputs
         candidates = []
-        for out in solve_block._outputs:
+        for out in solve_block.get_outputs():
             # Look for Functions with matching function spaces
             if not isinstance(out.output, firedrake.Function):
                 continue
@@ -340,7 +326,7 @@ class AdjointMeshSeq(MeshSeq):
 
         # Loop through the solve block's dependencies
         candidates = []
-        for dep in solve_block._dependencies:
+        for dep in solve_block.get_dependencies():
             # Look for Functions with matching function spaces
             if not isinstance(dep.output, firedrake.Function):
                 continue
@@ -384,6 +370,7 @@ class AdjointMeshSeq(MeshSeq):
         get_adj_values=False,
         test_checkpoint_qoi=False,
         track_coefficients=False,
+        compute_gradient=False,
     ):
         """
         A generator for solving an adjoint problem on a sequence of subintervals.
@@ -405,10 +392,14 @@ class AdjointMeshSeq(MeshSeq):
         :type get_adj_values: :class:`bool`
         :kwarg test_checkpoint_qoi: solve over the final subinterval when checkpointing
             so that the QoI value can be checked across runs
-        :kwarg: track_coefficients: if ``True``, coefficients in the variational form
+        :kwarg track_coefficients: if ``True``, coefficients in the variational form
             will be stored whenever they change between export times. Only relevant for
             goal-oriented error estimation on unsteady problems.
         :type track_coefficients: :class:`bool`
+        :kwarg compute_gradient: if ``True``, the gradient of the QoI with respect to
+            the initial conditions is computed and is available via the `gradient`
+            attribute
+        :type compute_gradient: :class:`bool`
         :yields: the solution data of the forward and adjoint solves
         :ytype: :class:`~.AdjointSolutionData`
         """
@@ -530,16 +521,22 @@ class AdjointMeshSeq(MeshSeq):
 
             # Update adjoint solver kwargs
             for field in self.fields:
-                for block in self.get_solve_blocks(field, i, has_adj_sol=False):
+                for block in self.get_solve_blocks(field, i):
                     block.adj_kwargs.update(adj_solver_kwargs)
 
             # Solve adjoint problem
             tape = pyadjoint.get_working_tape()
             with PETSc.Log.Event("goalie.AdjointMeshSeq.solve_adjoint.evaluate_adj"):
-                m = pyadjoint.enlisting.Enlist(self._controls)
+                controls = pyadjoint.enlisting.Enlist(self._controls)
                 with pyadjoint.stop_annotating():
-                    with tape.marked_nodes(m):
+                    with tape.marked_nodes(controls):
                         tape.evaluate_adj(markings=True)
+
+                # Compute the gradient on the first subinterval
+                if i == 0 and compute_gradient:
+                    self._gradient = controls.delist(
+                        [control.get_derivative() for control in controls]
+                    )
 
             # Loop over prognostic variables
             for field, fs in self.function_spaces.items():
@@ -580,8 +577,7 @@ class AdjointMeshSeq(MeshSeq):
                         solutions.forward[i][j].assign(out.saved_output)
 
                     # Current adjoint solution is determined from the adj_sol attribute
-                    if block.adj_sol is not None:
-                        solutions.adjoint[i][j].assign(block.adj_sol)
+                    solutions.adjoint[i][j].assign(block.adj_sol)
 
                     # Lagged forward solution comes from dependencies
                     dep = self._dependency(field, i, block)
@@ -596,10 +592,9 @@ class AdjointMeshSeq(MeshSeq):
                     # adj_sol attribute of the next solve block
                     if not steady:
                         if (j + 1) * stride < num_solve_blocks:
-                            if solve_blocks[(j + 1) * stride].adj_sol is not None:
-                                solutions.adjoint_next[i][j].assign(
-                                    solve_blocks[(j + 1) * stride].adj_sol
-                                )
+                            solutions.adjoint_next[i][j].assign(
+                                solve_blocks[(j + 1) * stride].adj_sol
+                            )
                         elif (j + 1) * stride > num_solve_blocks:
                             raise IndexError(
                                 "Cannot extract solve block"
@@ -608,7 +603,7 @@ class AdjointMeshSeq(MeshSeq):
 
                 # The initial timestep of the current subinterval is the 'next' timestep
                 # after the final timestep of the previous subinterval
-                if i > 0 and solve_blocks[0].adj_sol is not None:
+                if i > 0:
                     self._transfer(
                         solve_blocks[0].adj_sol, solutions.adjoint_next[i - 1][-1]
                     )
@@ -653,6 +648,8 @@ class AdjointMeshSeq(MeshSeq):
                 )
 
         tape.clear_tape()
+        if not compute_gradient:
+            self._gradient = None
 
     def solve_adjoint(
         self,
@@ -660,6 +657,7 @@ class AdjointMeshSeq(MeshSeq):
         adj_solver_kwargs=None,
         get_adj_values=False,
         test_checkpoint_qoi=False,
+        compute_gradient=False,
     ):
         """
         Solve an adjoint problem on a sequence of subintervals.
@@ -680,6 +678,10 @@ class AdjointMeshSeq(MeshSeq):
         :type get_adj_values: :class:`bool`
         :kwarg test_checkpoint_qoi: solve over the final subinterval when checkpointing
             so that the QoI value can be checked across runs
+        :kwarg compute_gradient: if ``True``, the gradient of the QoI with respect to
+            the initial conditions is computed and is available via the `gradient`
+            attribute
+        :type compute_gradient: :class:`bool`
         :returns: the solution data of the forward and adjoint solves
         :rtype: :class:`~.AdjointSolutionData`
         """
@@ -690,6 +692,7 @@ class AdjointMeshSeq(MeshSeq):
             adj_solver_kwargs=adj_solver_kwargs,
             get_adj_values=get_adj_values,
             test_checkpoint_qoi=test_checkpoint_qoi,
+            compute_gradient=compute_gradient,
         )
         # Solve the adjoint problem over each subinterval
         for _ in range(len(self)):
