@@ -44,12 +44,7 @@ from goalie_adjoint import *
 # unit square, in this case shifted to have its centre at
 # the origin. ::
 
-# TODO: Finite element
-fields = [Field("c")]
-
-
-def get_function_spaces(mesh):
-    return {"c": FunctionSpace(mesh, "CG", 1)}
+fields = [Field("c", finite_element=FiniteElement("Lagrange", triangle, 1))]
 
 
 mesh = UnitSquareMesh(40, 40)
@@ -105,24 +100,16 @@ time_partition = TimeInterval(
     num_timesteps_per_export=25,
 )
 
-# For the purposes of plotting, we set up a :class:`MeshSeq` with
-# only the :meth:`get_function_spaces` and :meth:`get_initial_condition`
-# methods implemented. ::
+# For the purposes of plotting, we set up a :class:`MeshSeq` with only the
+# :meth:`get_initial_condition` method implemented. ::
 
 import matplotlib.pyplot as plt
 from firedrake.pyplot import tricontourf
 
-mesh_seq = MeshSeq(
-    time_partition,
-    mesh,
-    get_function_spaces=get_function_spaces,
-    get_initial_condition=get_initial_condition,
-)
-
-c_init = mesh_seq.get_initial_condition()["c"]
+mesh_seq = MeshSeq(time_partition, mesh, get_initial_condition=get_initial_condition)
 
 fig, axes = plt.subplots()
-tc = tricontourf(c_init, axes=axes)
+tc = tricontourf(mesh_seq.get_initial_condition()["c"], axes=axes)
 fig.colorbar(tc)
 axes.set_aspect("equal")
 plt.tight_layout()
@@ -210,7 +197,6 @@ def get_qoi(mesh_seq, index):
 mesh_seq = AdjointMeshSeq(
     time_partition,
     mesh,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,

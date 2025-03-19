@@ -15,18 +15,13 @@ from goalie_adjoint import *
 
 # The problem is defined on a doubly periodic mesh of squares. ::
 
-# TODO: Finite element
-fields = [Field("ab")]
 mesh = PeriodicSquareMesh(65, 65, 2.5, quadrilateral=True, direction="both")
 
 # We solve for the tracer species using a mixed formulation, with a :math:`\mathbb P1`
 # approximation for both components. ::
 
-
-def get_function_spaces(mesh):
-    V = FunctionSpace(mesh, "CG", 1)
-    return {"ab": V * V}
-
+p1_element = FiniteElement("Lagrange", triangle, 1)
+fields = [Field("ab", finite_element=MixedElement([p1_element, p1_element]))]
 
 # The initial conditions are localised within the region :math:`[1, 1.5]^2`. ::
 
@@ -137,7 +132,6 @@ time_partition = TimePartition(
 mesh_seq = AdjointMeshSeq(
     time_partition,
     mesh,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,

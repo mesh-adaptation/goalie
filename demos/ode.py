@@ -45,25 +45,21 @@ from firedrake import *
 
 from goalie import *
 
+# Much of the following might seem excessive for this example. However, it exists to
+# allow for the flexibility required in later PDE examples.
+#
+# We need to create :class:`~.FunctionSpace`\s for the solution field to live in. Given
+# that we have a scalar ODE, the solution is just a real number at each time level. We
+# represent this using the degree-0 :math:`R`-space, as follows. ::
+
+fe = FiniteElement("Real", interval, 0)
+
 # Next, create a simple :class:`~.TimeInterval` object to hold information related to
 # the time discretisation. This is a simplified version of :class:`~.TimePartition`,
 # which only has one subinterval. ::
 
 end_time = 1
 time_partition = TimeInterval(end_time, dt, Field("u"))
-
-# Much of the following might seem excessive for this example. However, it exists to
-# allow for the flexibility required in later PDE examples.
-#
-# We need to create a :class:`~.FunctionSpace` for the solution field to live in. Given
-# that we have a scalar ODE, the solution is just a real number at each time level. We
-# represent this using the degree-0 :math:`R`-space, as follows. A mesh is required to
-# define a function space in Firedrake, although what the mesh is doesn't actually
-# matter for this example. ::
-
-
-def get_function_spaces(mesh):
-    return {"u": FunctionSpace(mesh, "R", 0)}
 
 
 # Next, we need to supply the initial condition :math:`u(0) = 1`. We do this by creating
@@ -141,7 +137,6 @@ def get_solver_forward_euler(point_seq):
 
 point_seq = PointSeq(
     time_partition,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver_forward_euler,
 )
@@ -224,7 +219,6 @@ def get_solver_backward_euler(point_seq):
 
 point_seq = PointSeq(
     time_partition,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver_backward_euler,
 )
@@ -289,7 +283,6 @@ def get_solver_crank_nicolson(point_seq):
 
 point_seq = PointSeq(
     time_partition,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver_crank_nicolson,
 )

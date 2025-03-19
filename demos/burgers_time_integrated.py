@@ -10,12 +10,11 @@ from firedrake import *
 
 from goalie_adjoint import *
 
-# Redefine the ``get_initial_condition`` and ``get_function_spaces``, functions as in
-# the first Burgers demo. ::
+# Redefine the fields and ``get_initial_condition`` function as in the first Burgers
+# demo. ::
 
-
-def get_function_spaces(mesh):
-    return {"u": VectorFunctionSpace(mesh, "CG", 2)}
+finite_element = VectorElement(FiniteElement("Lagrange", triangle, 2), dim=2)
+fields = [Field("u", finite_element=finite_element)]
 
 
 def get_initial_condition(mesh_seq):
@@ -96,9 +95,8 @@ meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="
 end_time = 0.5
 dt = 1 / n
 num_subintervals = len(meshes)
-# TODO: Finite element
 time_partition = TimePartition(
-    end_time, num_subintervals, dt, [Field("u")], num_timesteps_per_export=1
+    end_time, num_subintervals, dt, fields, num_timesteps_per_export=1
 )
 
 # The only difference when defining the :class:`AdjointMeshSeq` is that we specify
@@ -107,7 +105,6 @@ time_partition = TimePartition(
 mesh_seq = AdjointMeshSeq(
     time_partition,
     meshes,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,

@@ -10,8 +10,9 @@ import pyadjoint
 import pytest
 import ufl
 from animate.utility import norm
+from finat.ufl import FiniteElement, VectorElement
 from firedrake.function import Function
-from firedrake.functionspace import FunctionSpace, VectorFunctionSpace
+from firedrake.functionspace import FunctionSpace
 from firedrake.solving import solve
 from firedrake.ufl_expr import TestFunction, TrialFunction
 from firedrake.utility_meshes import UnitSquareMesh, UnitTriangleMesh
@@ -35,9 +36,8 @@ class BaseClasses:
         Unit test case using R-space.
         """
 
-        @staticmethod
-        def get_function_spaces(mesh):
-            return {"field": FunctionSpace(mesh, "R", 0)}
+        def setUp(self):
+            self.field = Field("field")
 
     class TrivialGoalOrientedBaseClass(unittest.TestCase):
         """
@@ -45,8 +45,6 @@ class BaseClasses:
         """
 
         def setUp(self):
-            self.field = Field("field")
-            self.time_interval = TimeInterval(1.0, [1.0], [self.field])
             self.meshes = [UnitSquareMesh(1, 1)]
 
         @staticmethod
@@ -54,11 +52,13 @@ class BaseClasses:
             R = FunctionSpace(mesh_seq[index], "R", 0)
             return lambda: Function(R).assign(1) * ufl.dx
 
-        def go_mesh_seq(self, get_function_spaces, parameters=None):
+        def go_mesh_seq(self, element=None, parameters=None):
+            if element is None:
+                element = FiniteElement("Real", ufl.triangle, 0)
+            field = Field("field", finite_element=element)
             return GoalOrientedMeshSeq(
-                self.time_interval,
+                TimeInterval(1.0, [1.0], field),
                 self.meshes,
-                get_function_spaces=get_function_spaces,
                 qoi_type="steady",
                 parameters=parameters,
             )
@@ -68,12 +68,10 @@ class BaseClasses:
         Base class for tests with a complete :class:`GoalOrientedMeshSeq`.
         """
 
-        def setUp(self):
-            self.field = Field("field")
+        def go_mesh_seq(self, coeff_diff=0.0):
             self.time_partition = TimePartition(1.0, 1, 0.5, [self.field])
             self.meshes = [UnitSquareMesh(1, 1)]
 
-        def go_mesh_seq(self, coeff_diff=0.0):
             def get_initial_condition(mesh_seq):
                 return {
                     self.field.name: Function(
@@ -113,7 +111,6 @@ class BaseClasses:
                 self.time_partition,
                 self.meshes,
                 get_initial_condition=get_initial_condition,
-                get_function_spaces=self.get_function_spaces,
                 get_solver=get_solver,
                 get_qoi=get_qoi,
                 qoi_type="end_time",
@@ -127,12 +124,10 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
 
     def setUp(self):
         self.field = Field("field")
-        self.time_interval = TimeInterval(1.0, 0.5, self.field)
         self.mesh = UnitTriangleMesh()
         self.mesh_seq = AdjointMeshSeq(
-            self.time_interval,
+            TimeInterval(1.0, 0.5, self.field),
             self.mesh,
-            get_function_spaces=self.get_function_spaces,
             qoi_type="end_time",
         )
 
@@ -149,7 +144,9 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_wrong_function_space(self, MockSolveBlock):
         solve_block = MockSolveBlock()
-        block_variable = BlockVariable(Function(FunctionSpace(self.mesh, "CG", 1)))
+        block_variable = BlockVariable(
+            Function(FunctionSpace(self.mesh, "Lagrange", 1))
+        )
         solve_block.get_outputs = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
             self.mesh_seq._output("field", 0, solve_block)
@@ -202,7 +199,9 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_wrong_function_space(self, MockSolveBlock):
         solve_block = MockSolveBlock()
-        block_variable = BlockVariable(Function(FunctionSpace(self.mesh, "CG", 1)))
+        block_variable = BlockVariable(
+            Function(FunctionSpace(self.mesh, "Lagrange", 1))
+        )
         solve_block.get_dependencies = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
             self.mesh_seq._dependency("field", 0, solve_block)
@@ -244,11 +243,10 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
 
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_steady(self, MockSolveBlock):
-        time_interval = TimeInterval(1.0, 0.5, Field("field", unsteady=False))
+        self.time_interval = TimeInterval(1.0, 0.5, Field("field", unsteady=False))
         mesh_seq = AdjointMeshSeq(
-            time_interval,
+            self.time_interval,
             self.mesh,
-            get_function_spaces=self.get_function_spaces,
             qoi_type="end_time",
         )
         solve_block = MockSolveBlock()
@@ -265,7 +263,6 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
         self.mesh_seq = AdjointMeshSeq(
             time_interval,
             [UnitSquareMesh(1, 1)],
-            get_function_spaces=self.get_function_spaces,
             qoi_type="steady",
         )
         if not pyadjoint.annotate_tape():
@@ -319,7 +316,7 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
         self.assertTrue(msg in str(self._caplog.records[0]))
 
     def test_wrong_function_space(self):
-        fs = FunctionSpace(self.mesh_seq[0], "CG", 1)
+        fs = FunctionSpace(self.mesh_seq[0], "Lagrange", 1)
         u = Function(fs, name="field")
         self.arbitrary_solve(u)
         msg = (
@@ -335,7 +332,6 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
         mesh_seq = AdjointMeshSeq(
             time_interval,
             [UnitSquareMesh(1, 1)],
-            get_function_spaces=self.get_function_spaces,
             qoi_type="end_time",
         )
         fs = mesh_seq.function_spaces["field"][0]
@@ -354,7 +350,6 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
         mesh_seq = AdjointMeshSeq(
             time_interval,
             [UnitSquareMesh(1, 1)],
-            get_function_spaces=self.get_function_spaces,
             qoi_type="end_time",
         )
         fs = mesh_seq.function_spaces["field"][0]
@@ -371,31 +366,23 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
         self.assertEqual(str(cm.exception), msg)
 
 
-class TestGoalOrientedMeshSeq(
-    BaseClasses.RSpaceTestCase, BaseClasses.TrivialGoalOrientedBaseClass
-):
+class TestGoalOrientedMeshSeq(BaseClasses.TrivialGoalOrientedBaseClass):
     """
     Unit tests for a :class:`GoalOrientedMeshSeq`.
     """
 
     def test_read_forms_error_field(self):
-        mesh_seq = self.go_mesh_seq(self.get_function_spaces)
         with self.assertRaises(ValueError) as cm:
-            mesh_seq.read_forms({"field2": None})
+            self.go_mesh_seq().read_forms({"field2": None})
         msg = (
-            "Unexpected field 'field2' in forms dictionary."
-            f" Expected one of ['{self.field.name}']."
+            "Unexpected field 'field2' in forms dictionary. Expected one of ['field']."
         )
         self.assertEqual(str(cm.exception), msg)
 
     def test_read_forms_error_form(self):
-        mesh_seq = self.go_mesh_seq(self.get_function_spaces)
         with self.assertRaises(TypeError) as cm:
-            mesh_seq.read_forms({self.field.name: None})
-        msg = (
-            f"Expected a UFL form for field '{self.field.name}',"
-            " not '<class 'NoneType'>'."
-        )
+            self.go_mesh_seq().read_forms({"field": None})
+        msg = "Expected a UFL form for field 'field', not '<class 'NoneType'>'."
         self.assertEqual(str(cm.exception), msg)
 
 
@@ -404,34 +391,28 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
     Unit tests for global enrichment of a :class:`GoalOrientedMeshSeq`.
     """
 
-    def get_function_spaces_decorator(self, degree, family, rank):
-        def get_function_spaces(mesh):
-            if rank == 0:
-                return {self.field.name: FunctionSpace(mesh, degree, family)}
-            elif rank == 1:
-                return {self.field.name: VectorFunctionSpace(mesh, degree, family)}
-            else:
-                raise NotImplementedError
-
-        return get_function_spaces
+    def element(self, family, degree, rank):
+        if rank == 0:
+            return FiniteElement(family, ufl.triangle, degree)
+        elif rank == 1:
+            return VectorElement(FiniteElement(family, ufl.triangle, degree))
+        else:
+            raise NotImplementedError
 
     def test_enrichment_error(self):
-        mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("R", 0, 0))
         with self.assertRaises(ValueError) as cm:
-            mesh_seq.get_enriched_mesh_seq(enrichment_method="q")
+            self.go_mesh_seq().get_enriched_mesh_seq(enrichment_method="q")
         self.assertEqual(str(cm.exception), "Enrichment method 'q' not supported.")
 
     def test_num_enrichments_error(self):
-        mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("R", 0, 0))
         with self.assertRaises(ValueError) as cm:
-            mesh_seq.get_enriched_mesh_seq(num_enrichments=0)
+            self.go_mesh_seq().get_enriched_mesh_seq(num_enrichments=0)
         msg = "A positive number of enrichments is required."
         self.assertEqual(str(cm.exception), msg)
 
     def test_form_error(self):
-        mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("R", 0, 0))
         with self.assertRaises(AttributeError) as cm:
-            mesh_seq.forms()
+            self.go_mesh_seq().forms()
         msg = (
             "Forms have not been read in. Use read_forms({'field_name': F}) in"
             " get_solver to read in the forms."
@@ -468,7 +449,7 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
          |/      |     |/  |/  |      |/|/|/|/|
          o-------o     o---o---o      o-o-o-o-o
         """
-        mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("R", 0, 0))
+        mesh_seq = self.go_mesh_seq()
         mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
             enrichment_method="h", num_enrichments=num_enrichments
         )
@@ -485,31 +466,30 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
 
     @parameterized.expand(
         [
-            ("DG", 0, 0),
-            ("DG", 0, 1),
-            ("CG", 1, 0),
-            ("CG", 1, 1),
-            ("CG", 2, 0),
-            ("CG", 2, 1),
+            ("Discontinuous Lagrange", 0, 0),
+            ("Discontinuous Lagrange", 0, 1),
+            ("Lagrange", 1, 0),
+            ("Lagrange", 1, 1),
+            ("Lagrange", 2, 0),
+            ("Lagrange", 2, 1),
         ]
     )
     def test_h_enrichment_space(self, family, degree, rank):
-        mesh_seq = self.go_mesh_seq(
-            self.get_function_spaces_decorator(family, degree, rank)
-        )
+        mesh_seq = self.go_mesh_seq(element=self.element(family, degree, rank))
         mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
             enrichment_method="h", num_enrichments=1
         )
-        fspace = mesh_seq.function_spaces[self.field.name][0]
+        field_name = list(mesh_seq.fields.keys())[0]
+        fspace = mesh_seq.function_spaces[field_name][0]
         element = fspace.ufl_element()
-        enriched_fspace = mesh_seq_e.function_spaces[self.field.name][0]
+        enriched_fspace = mesh_seq_e.function_spaces[field_name][0]
         enriched_element = enriched_fspace.ufl_element()
         self.assertEqual(element.family(), enriched_element.family())
         self.assertEqual(element.degree(), enriched_element.degree())
         self.assertEqual(fspace.value_shape, enriched_fspace.value_shape)
 
     def test_p_enrichment_mesh(self):
-        mesh_seq = self.go_mesh_seq(self.get_function_spaces_decorator("CG", 1, 0))
+        mesh_seq = self.go_mesh_seq(self.element("Lagrange", 1, 0))
         mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
             enrichment_method="p", num_enrichments=1
         )
@@ -518,30 +498,29 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
 
     @parameterized.expand(
         [
-            ("DG", 0, 0, 1),
-            ("DG", 0, 0, 2),
-            ("DG", 0, 1, 1),
-            ("DG", 0, 1, 2),
-            ("CG", 1, 0, 1),
-            ("CG", 1, 0, 2),
-            ("CG", 1, 1, 1),
-            ("CG", 1, 1, 2),
-            ("CG", 2, 0, 1),
-            ("CG", 2, 0, 2),
-            ("CG", 2, 1, 1),
-            ("CG", 2, 1, 2),
+            ("Discontinuous Lagrange", 0, 0, 1),
+            ("Discontinuous Lagrange", 0, 0, 2),
+            ("Discontinuous Lagrange", 0, 1, 1),
+            ("Discontinuous Lagrange", 0, 1, 2),
+            ("Lagrange", 1, 0, 1),
+            ("Lagrange", 1, 0, 2),
+            ("Lagrange", 1, 1, 1),
+            ("Lagrange", 1, 1, 2),
+            ("Lagrange", 2, 0, 1),
+            ("Lagrange", 2, 0, 2),
+            ("Lagrange", 2, 1, 1),
+            ("Lagrange", 2, 1, 2),
         ]
     )
     def test_p_enrichment_space(self, family, degree, rank, num_enrichments):
-        mesh_seq = self.go_mesh_seq(
-            self.get_function_spaces_decorator(family, degree, rank)
-        )
+        mesh_seq = self.go_mesh_seq(element=self.element(family, degree, rank))
         mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
             enrichment_method="p", num_enrichments=num_enrichments
         )
-        fspace = mesh_seq.function_spaces[self.field.name][0]
+        field_name = list(mesh_seq.fields.keys())[0]
+        fspace = mesh_seq.function_spaces[field_name][0]
         element = fspace.ufl_element()
-        enriched_fspace = mesh_seq_e.function_spaces[self.field.name][0]
+        enriched_fspace = mesh_seq_e.function_spaces[field_name][0]
         enriched_element = enriched_fspace.ufl_element()
         self.assertEqual(element.family(), enriched_element.family())
         self.assertEqual(element.degree() + num_enrichments, enriched_element.degree())
@@ -549,38 +528,36 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
 
     @parameterized.expand(
         [
-            ("DG", 0, 0, "h", 1),
-            ("DG", 0, 0, "h", 2),
-            ("CG", 1, 0, "h", 1),
-            ("CG", 1, 0, "h", 2),
-            ("CG", 2, 0, "h", 1),
-            ("CG", 2, 0, "h", 2),
-            ("DG", 0, 0, "p", 1),
-            ("DG", 0, 0, "p", 2),
-            ("CG", 1, 0, "p", 1),
-            ("CG", 1, 0, "p", 2),
-            ("CG", 2, 0, "p", 1),
-            ("CG", 2, 0, "p", 2),
-            ("DG", 0, 1, "h", 1),
-            ("DG", 0, 1, "h", 2),
-            ("CG", 1, 1, "h", 1),
-            ("CG", 1, 1, "h", 2),
-            ("CG", 2, 1, "h", 1),
-            ("CG", 2, 1, "h", 2),
-            ("DG", 0, 1, "p", 1),
-            ("DG", 0, 1, "p", 2),
-            ("CG", 1, 1, "p", 1),
-            ("CG", 1, 1, "p", 2),
-            ("CG", 2, 1, "p", 1),
-            ("CG", 2, 1, "p", 2),
+            ("Discontinuous Lagrange", 0, 0, "h", 1),
+            ("Discontinuous Lagrange", 0, 0, "h", 2),
+            ("Lagrange", 1, 0, "h", 1),
+            ("Lagrange", 1, 0, "h", 2),
+            ("Lagrange", 2, 0, "h", 1),
+            ("Lagrange", 2, 0, "h", 2),
+            ("Discontinuous Lagrange", 0, 0, "p", 1),
+            ("Discontinuous Lagrange", 0, 0, "p", 2),
+            ("Lagrange", 1, 0, "p", 1),
+            ("Lagrange", 1, 0, "p", 2),
+            ("Lagrange", 2, 0, "p", 1),
+            ("Lagrange", 2, 0, "p", 2),
+            ("Discontinuous Lagrange", 0, 1, "h", 1),
+            ("Discontinuous Lagrange", 0, 1, "h", 2),
+            ("Lagrange", 1, 1, "h", 1),
+            ("Lagrange", 1, 1, "h", 2),
+            ("Lagrange", 2, 1, "h", 1),
+            ("Lagrange", 2, 1, "h", 2),
+            ("Discontinuous Lagrange", 0, 1, "p", 1),
+            ("Discontinuous Lagrange", 0, 1, "p", 2),
+            ("Lagrange", 1, 1, "p", 1),
+            ("Lagrange", 1, 1, "p", 2),
+            ("Lagrange", 2, 1, "p", 1),
+            ("Lagrange", 2, 1, "p", 2),
         ]
     )
     def test_enrichment_transfer(
         self, family, degree, rank, enrichment_method, num_enrichments
     ):
-        mesh_seq = self.go_mesh_seq(
-            self.get_function_spaces_decorator(family, degree, rank)
-        )
+        mesh_seq = self.go_mesh_seq(element=self.element(family, degree, rank))
         mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
             enrichment_method=enrichment_method, num_enrichments=num_enrichments
         )
