@@ -78,12 +78,13 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         )
 
     def test_time_partition_wrong_field_error(self):
-        time_partition = TimeInstant(Field("f"))
-        mesh_seq = self.mesh_seq(time_partition=time_partition)
-        mesh_seq._indicators = IndicatorData(time_partition, mesh_seq.meshes)
+        time_partition1 = TimeInstant(Field("field1"))
+        time_partition2 = TimeInstant(Field("field2"))
+        mesh_seq = self.mesh_seq(time_partition=time_partition1)
+        mesh_seq._indicators = IndicatorData(time_partition2, mesh_seq.meshes)
         with self.assertRaises(ValueError) as cm:
             mesh_seq.error_estimate()
-        msg = "Key 'f' does not exist in the TimePartition provided."
+        msg = "Key 'field2' does not exist in the TimePartition provided."
         self.assertEqual(str(cm.exception), msg)
 
     def test_absolute_value_type_error(self):
