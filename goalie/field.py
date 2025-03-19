@@ -1,5 +1,5 @@
 import ufl
-from finat.ufl import FiniteElement, TensorElement, VectorElement
+from finat.ufl import FiniteElement, MixedElement, TensorElement, VectorElement
 
 
 class Field:
@@ -27,11 +27,11 @@ class Field:
         if finite_element is None:
             finite_element = FiniteElement("Real", ufl.interval, 0)
         if not isinstance(
-            finite_element, (FiniteElement, VectorElement, TensorElement)
+            finite_element, (FiniteElement, MixedElement, VectorElement, TensorElement)
         ):
             raise TypeError(
-                "Field finite element must be a FiniteElement, VectorElement, or"
-                " TensorElement object."
+                "Field finite element must be a FiniteElement, MixedElement,"
+                " VectorElement, or TensorElement object."
             )
         self.finite_element = finite_element
         assert isinstance(solved_for, bool), "'solved_for' argument must be a bool"
