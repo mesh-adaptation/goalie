@@ -23,12 +23,8 @@ from goalie import *
 # `previous demo <./point_discharge2d.py.html>`__, approximating the tracer
 # concentration :math:`c` in :math:`\mathbb P1` space. ::
 
-# TODO: Finite element
-fields = [Field("c", unsteady=False)]
-
-
-def get_function_spaces(mesh):
-    return {"c": FunctionSpace(mesh, "CG", 1)}
+finite_element = FiniteElement("Lagrange", triangle, 1)
+fields = [Field("c", finite_element=finite_element, unsteady=False)]
 
 
 def source(mesh):
@@ -80,7 +76,6 @@ time_partition = TimeInstant(fields)
 mesh_seq = MeshSeq(
     time_partition,
     mesh,
-    get_function_spaces=get_function_spaces,
     get_solver=get_solver,
 )
 
