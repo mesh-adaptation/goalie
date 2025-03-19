@@ -22,8 +22,8 @@ class TestExceptions(unittest.TestCase):
         with self.assertRaises(TypeError) as cm:
             Field("field", "element")
         msg = (
-            "Field finite element must be a FiniteElement, VectorElement, or"
-            " TensorElement object."
+            "Field finite element must be a FiniteElement, MixedElement, VectorElement,"
+            " or TensorElement object."
         )
         self.assertEqual(str(cm.exception), msg)
 
