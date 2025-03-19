@@ -14,20 +14,13 @@ from firedrake import *
 
 from goalie_adjoint import *
 
-# For ease, the list of fields and functions for obtaining the
-# function spaces, solvers, and initial conditions
-# are redefined as in the previous demo. The only difference
-# is that now we are solving the adjoint problem, which
-# requires that the PDE solve is labelled with an
-# ``ad_block_tag`` that matches the corresponding prognostic
-# variable name. ::
+# For ease, the list of fields and functions for obtaining the solvers and initial
+# conditions are redefined as in the previous demo. The only difference is that now we
+# are solving the adjoint problem, which requires that the PDE solve is labelled with an
+# ``ad_block_tag`` that matches the corresponding prognostic variable name. ::
 
-# TODO: Finite element
-fields = [Field("u")]
-
-
-def get_function_spaces(mesh):
-    return {"u": VectorFunctionSpace(mesh, "CG", 2)}
+finite_element = VectorElement(FiniteElement("Lagrange", triangle, 2), dim=2)
+fields = [Field("u", finite_element=finite_element)]
 
 
 def get_solver(mesh_seq):
@@ -113,7 +106,6 @@ time_partition = TimeInterval(end_time, dt, fields, num_timesteps_per_export=2)
 mesh_seq = AdjointMeshSeq(
     time_partition,
     mesh,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,

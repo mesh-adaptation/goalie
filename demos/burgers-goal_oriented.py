@@ -18,12 +18,8 @@ from firedrake import *
 
 from goalie_adjoint import *
 
-# TODO: Finite element
-fields = [Field("u")]
-
-
-def get_function_spaces(mesh):
-    return {"u": VectorFunctionSpace(mesh, "CG", 2)}
+finite_element = VectorElement(FiniteElement("Lagrange", triangle, 2), dim=2)
+fields = [Field("u", finite_element=finite_element)]
 
 
 def get_initial_condition(mesh_seq):
@@ -108,7 +104,6 @@ time_partition = TimePartition(
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     meshes,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,
@@ -366,7 +361,6 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     meshes,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,
