@@ -388,9 +388,7 @@ class IndicatorData(FunctionData):
             in time
         :arg meshes: the list of meshes used to discretise the problem in space
         """
-        self._label_dict = {
-            time_dep: ("error_indicator",) for time_dep in ("steady", "unsteady")
-        }
+        self._label_dict = dict.fromkeys(("steady", "unsteady"), ("error_indicator",))
         super().__init__(
             time_partition,
             {
