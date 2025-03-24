@@ -50,7 +50,7 @@ class MeshSeq:
         """
         self.time_partition = time_partition
         self.fields = {field.name: field for field in time_partition.fields}
-        self.field_data = dict.fromkeys(self.tmp_fields)
+        self.field_data = dict.fromkeys(self.fields)
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
         self.set_meshes(initial_meshes)
