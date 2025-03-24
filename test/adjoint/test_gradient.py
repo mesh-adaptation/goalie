@@ -78,15 +78,15 @@ class GradientTestMeshSeq(AdjointMeshSeq):
             """
             fs = self.function_spaces["field"][index]
             tp = self.time_partition
-            if tp.steady:
-                u = self.field_functions["field"]
-                u_ = Function(fs, name="field_old").assign(u)
-                scaling = self.fields["scaling"]
-                scaling_ = Function(fs, name="scaling_old")
-                scaling_.assign(scaling)
-            else:
+            if self.fields["field"].unsteady:
                 u, u_ = self.field_functions["field"]
                 scaling, scaling_ = self.field_functions["scaling"]
+            else:
+                u = self.field_functions["field"]
+                u_ = Function(fs, name="field_old").assign(u)
+            scaling = self.field_functions["scaling"]
+            scaling_ = Function(fs, name="scaling_old")
+            scaling_.assign(scaling)
             v = TestFunction(fs)
             F_scale = scaling * v * ufl.dx - scaling_ * v * ufl.dx
             F = u * v * ufl.dx - scaling * u_ * v * ufl.dx
@@ -193,7 +193,8 @@ class TestGradientFieldInitialCondition(unittest.TestCase):
     """
 
     # TODO: Make scaling a non-prognostic field (#283)
-    def time_partition(self, num_subintervals, dt, unsteady=True):
+    def time_partition(self, num_subintervals, dt):
+        unsteady = num_subintervals > 1 or not np.allclose(dt, 1.0)
         fields = [Field("field", unsteady=unsteady), Field("scaling", unsteady=False)]
         return TimePartition(1.0, num_subintervals, dt, fields)
 
@@ -201,7 +202,7 @@ class TestGradientFieldInitialCondition(unittest.TestCase):
     def test_single_timestep_steady_qoi(self, qoi_degree, initial_value):
         mesh_seq = GradientTestMeshSeq(
             {"qoi_degree": qoi_degree, "initial_value": initial_value},
-            self.time_partition(1, 1.0, unsteady=False),
+            self.time_partition(1, 1.0),
             UnitIntervalMesh(1),
             qoi_type="steady",
         )
@@ -269,7 +270,9 @@ class TestGradientScaling(unittest.TestCase):
     """
 
     def time_partition(self, num_subintervals, dt):
-        return TimePartition(1.0, num_subintervals, dt, ["field", "scaling"])
+        unsteady = num_subintervals > 1 or not np.allclose(dt, 1.0)
+        fields = [Field("field", unsteady=unsteady), Field("scaling", unsteady=False)]
+        return TimePartition(1.0, num_subintervals, dt, fields)
 
     @parameterized.expand(fixture_pairs)
     def test_single_timestep_steady_qoi(self, qoi_degree, initial_value):
