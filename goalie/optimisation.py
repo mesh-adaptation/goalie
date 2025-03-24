@@ -241,7 +241,7 @@ class QoIOptimiser_LBFGS(QoIOptimiser_Base):
         raise NotImplementedError  # TODO: Upstream L-BFGS implementation
 
 
-def QoIOptimiser(mesh_seq, params, method="gradient_descent"):
+def QoIOptimiser(mesh_seq, control, params, method="gradient_descent"):
     """
     Factory method for constructing handlers for PDE-constrained optimisation.
     """
@@ -252,6 +252,6 @@ def QoIOptimiser(mesh_seq, params, method="gradient_descent"):
             "newton": QoIOptimiser_Newton,
             "bfgs": QoIOptimiser_BFGS,
             "lbfgs": QoIOptimiser_LBFGS,
-        }[method](mesh_seq, params)
+        }[method](mesh_seq, control, params)
     except KeyError as ke:
         raise ValueError(f"Method {method} not supported.") from ke
