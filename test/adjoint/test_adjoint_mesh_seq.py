@@ -134,6 +134,20 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         assert len(self.meshes) == 1
         self.mesh = self.meshes[0]
 
+    def test_field_not_solved_for(self):
+        mesh_seq = AdjointMeshSeq(
+            TimeInterval(1.0, 0.5, Field("field", solved_for=False)),
+            self.mesh,
+            qoi_type="end_time",
+        )
+        with self.assertRaises(ValueError) as cm:
+            mesh_seq.get_solve_blocks("field", 0)
+        msg = (
+            "Cannot retrieve solve blocks for field 'field' because it isn't solved"
+            " for."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_not_function(self, MockSolveBlock):
         solve_block = MockSolveBlock()
