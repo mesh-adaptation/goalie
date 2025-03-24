@@ -4,7 +4,6 @@ Module for handling PDE-constrained optimisation.
 
 import abc
 
-import firedrake.function as ffunc
 import numpy as np
 import pyadjoint
 from firedrake import ConvergenceError
@@ -33,32 +32,36 @@ class QoIOptimiser_Base(abc.ABC):
     """
 
     # TODO: Use Goalie Solver rather than MeshSeq
-    def __init__(self, mesh_seq, params):
+    def __init__(self, mesh_seq, control, params):
         """
         :arg mesh_seq: a mesh sequence that implements the forward model and
             computes the objective functional
         :type mesh_seq: :class:`~.AdjointMeshSeq`
+        :arg control: name of the field to use as the control
+        :type control: :class:`str`
         :kwarg params: Class holding parameters for optimisation routine
         :type params: :class:`~.OptimisationParameters`
         """
         self.mesh_seq = mesh_seq
-        control = mesh_seq._control
-        if (not isinstance(control, ffunc.Function)) or (
-            control.ufl_element().family() != "Real"
-        ):
+        self.control = control
+        if control not in mesh_seq.fields:
+            raise ValueError("Invalid choice of control.")
+        if mesh_seq.fields[control].finite_element.family() != "Real":
             raise NotImplementedError(
                 "Only controls in R-space are currently implemented."
             )
         self.params = params
         self.progress = OptimisationProgress()
 
-    def line_search(self, P, J, dJ):
+    def line_search(self, P, u, J, dJ):
         """
         Apply a backtracking line search method to update the step length (i.e.,
         learning rate).
 
         :arg P: the current descent direction
         :type P: :class:`firedrake.function.Function`
+        :arg u: the current control
+        :type u: :class:`firedrake.function.Function`
         :arg J: the current value of objective function
         :type J: :class:`~.AdjFloat`
         :arg dJ: the current gradient value
@@ -82,9 +85,9 @@ class QoIOptimiser_Base(abc.ABC):
         ext = ""
         for i in range(maxiter):
             log(f"  {i:3d}:      lr = {lr:.4e}{ext}")
-            u_plus = self.mesh_seq._control + lr * P
-            # TODO: Use Solver rather than MeshSeq; better implementation of controls
-            self.mesh_seq._control = u_plus
+            u_plus = u + lr * P
+            u = u_plus
+            # TODO: Use Solver rather than MeshSeq
             self.mesh_seq.get_checkpoints(run_final_subinterval=True)
             J_plus = self.mesh_seq.J
             ext = f"  diff {J_plus - J:.4e}"
@@ -155,13 +158,11 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
         tape = pyadjoint.get_working_tape()
         tape.clear_tape()
         pyadjoint.continue_annotation()
-        self.mesh_seq.solve_adjoint()
+        self.mesh_seq.solve_adjoint(compute_gradient=True)
         pyadjoint.pause_annotation()
         J = self.mesh_seq.J
-        u = self.mesh_seq._control
-        control = pyadjoint.Control(u)
-        # TODO: Compute gradient in Goalie as part of solve_adjoint above
-        dJ = pyadjoint.compute_gradient(J, control)
+        u = self.mesh_seq.controls[self.control]
+        dJ = pyadjoint.compute_gradient(J, pyadjoint.Control(u))
         u = u.copy(deepcopy=True)
 
         P = dJ.copy(deepcopy=True)
@@ -178,7 +179,7 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
         #     self.params.lr = max(lr, self.params.lr_min)
 
         # Take a step downhill
-        self.mesh_seq._control.dat.data[:] += self.params.lr * P.dat.data
+        u.dat.data[:] += self.params.lr * P.dat.data
         return J, dJ, u
 
 
