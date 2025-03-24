@@ -99,7 +99,7 @@ for fieldname, gradient in point_seq.gradient.items():
 parameters = OptimisationParameters({"lr": 0.5, "maxiter": 100})
 print(parameters)
 
-optimiser = QoIOptimiser(point_seq, parameters, method="gradient_descent")
+optimiser = QoIOptimiser(point_seq, "theta", parameters, method="gradient_descent")
 optimiser.minimise()
 
 fig, axes = plt.subplots()
