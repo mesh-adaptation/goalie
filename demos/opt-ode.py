@@ -7,28 +7,26 @@ dt = 0.2
 times = np.arange(0, 1.01, dt)
 
 end_time = 1
-time_partition = TimeInterval(end_time, dt, "u")
-
-
-def get_function_spaces(mesh):
-    return {"u": FunctionSpace(mesh, "R", 0)}
+fields = [Field("u"), Field("theta", unsteady=False, solved_for=False)]
+time_partition = TimeInterval(end_time, dt, fields)
 
 
 def get_initial_condition(point_seq):
-    fs = point_seq.function_spaces["u"][0]
-    return {"u": Function(fs).assign(1.0)}
+    return {
+        "u": Function(point_seq.function_spaces["u"][0]).assign(1.0),
+        "theta": Function(point_seq.function_spaces["theta"][0]).assign(0.0),
+    }
 
 
 def get_solver_theta(point_seq):
     def solver(index):
-        u, u_ = point_seq.fields["u"]
+        u, u_ = point_seq.field_data["u"]
+        theta = point_seq.field_data["theta"]
         R = point_seq.function_spaces["u"][index]
         tp = point_seq.time_partition
         dt = Function(R).assign(tp.timesteps[index])
         v = TestFunction(R)
 
-        # TODO: Avoid such hackiness
-        theta = point_seq._control
         F = (u - u_ - dt * (theta * u + (1 - theta) * u_)) * v * dx
 
         sp = {"ksp_type": "preonly", "pc_type": "jacobi"}
@@ -48,7 +46,7 @@ def get_solver_theta(point_seq):
 def get_qoi(point_seq, index):
     def end_time_qoi():
         sol = exp(1.0)
-        u = point_seq.fields["u"][0]
+        u = point_seq.field_data["u"][0]
         return inner(u - sol, u - sol) * dx
 
     return end_time_qoi
@@ -57,21 +55,25 @@ def get_qoi(point_seq, index):
 point_seq = AdjointMeshSeq(
     time_partition,
     VertexOnlyMesh(UnitIntervalMesh(1), [[0.5]]),
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver_theta,
     get_qoi=get_qoi,
     qoi_type="end_time",
 )
 
-# Initialise control to zero
-# TODO: Avoid such hackiness
-R = point_seq.function_spaces["u"][0]
-point_seq._control = Function(R).assign(0.0)
+# Print initial field values
+ics = get_initial_condition(point_seq)
+for fieldname, field in ics.items():
+    if isinstance(field, tuple):
+        print(f"{fieldname}_0 = {float(field[0]):.4e}")
+    else:
+        print(f"{fieldname}_0 = {float(field):.4e}")
 
-solutions = point_seq.solve_adjoint()
+solutions = point_seq.solve_adjoint(compute_gradient=True)
+
+# Print QoI value
 J = point_seq.J
-print(f"J={J}")
+print(f"J = {J:.4e}")
 
 forward_euler_trajectory = [float(get_initial_condition(point_seq)["u"])]
 forward_euler_trajectory += [
@@ -89,6 +91,10 @@ axes.grid(True)
 axes.legend()
 plt.tight_layout()
 plt.savefig("opt-ode_forward_euler.jpg", bbox_inches="tight")
+
+# Print gradient values
+for fieldname, gradient in point_seq.gradient.items():
+    print(f"dJ/d{fieldname} = {float(gradient):.4e}")
 
 parameters = OptimisationParameters({"lr": 0.5, "maxiter": 100})
 print(parameters)
