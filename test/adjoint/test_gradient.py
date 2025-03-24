@@ -85,10 +85,7 @@ class GradientTestMeshSeq(AdjointMeshSeq):
                 u = self.field_functions["field"]
                 u_ = Function(fs, name="field_old").assign(u)
             scaling = self.field_functions["scaling"]
-            scaling_ = Function(fs, name="scaling_old")
-            scaling_.assign(scaling)
             v = TestFunction(fs)
-            F_scale = scaling * v * ufl.dx - scaling_ * v * ufl.dx
             F = u * v * ufl.dx - scaling * u_ * v * ufl.dx
 
             # Scale the initial condition at each timestep
@@ -97,13 +94,11 @@ class GradientTestMeshSeq(AdjointMeshSeq):
             t = t_start
             qoi = self.get_qoi(index)
             while t < t_end - 1.0e-05:
-                solve(F_scale == 0, scaling, ad_block_tag="scaling")
                 solve(F == 0, u, ad_block_tag="field")
                 if self.qoi_type == "time_integrated":
                     self.J += qoi(t)
                 yield
 
-                scaling_.assign(scaling)
                 u_.assign(u)
                 t += dt
 
@@ -189,10 +184,12 @@ class TestGradientFieldInitialCondition(unittest.TestCase):
     can be computed correctly.
     """
 
-    # TODO: Make scaling a non-prognostic field (#283)
     def time_partition(self, num_subintervals, dt):
         unsteady = num_subintervals > 1 or not np.allclose(dt, 1.0)
-        fields = [Field("field", unsteady=unsteady), Field("scaling", unsteady=False)]
+        fields = [
+            Field("field", unsteady=unsteady),
+            Field("scaling", unsteady=False, solved_for=False),
+        ]
         return TimePartition(1.0, num_subintervals, dt, fields)
 
     @parameterized.expand(fixture_pairs)
@@ -268,7 +265,10 @@ class TestGradientScaling(unittest.TestCase):
 
     def time_partition(self, num_subintervals, dt):
         unsteady = num_subintervals > 1 or not np.allclose(dt, 1.0)
-        fields = [Field("field", unsteady=unsteady), Field("scaling", unsteady=False)]
+        fields = [
+            Field("field", unsteady=unsteady),
+            Field("scaling", unsteady=False, solved_for=False),
+        ]
         return TimePartition(1.0, num_subintervals, dt, fields)
 
     @parameterized.expand(fixture_pairs)
