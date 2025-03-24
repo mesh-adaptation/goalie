@@ -49,7 +49,6 @@ class MeshSeq:
             take various types
         """
         self.time_partition = time_partition
-        # TODO: This should become self.field_data
         self.fields = {field.name: field for field in time_partition.fields}
         self.field_data = dict.fromkeys(self.tmp_fields)
         self.subintervals = time_partition.subintervals
