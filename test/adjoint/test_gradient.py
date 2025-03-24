@@ -176,12 +176,9 @@ class GradientTestMeshSeq(AdjointMeshSeq):
                     dt = tp.timesteps[subinterval]
                     for _ in range(tp.num_timesteps_per_subinterval[subinterval]):
                         k += 1
-                        integrand += (
-                            dt
-                            * k
-                            * q
-                            * self.integrand(alpha**k * self.initial_value)
-                            / alpha
+                        multiplier = dt * k * q / alpha
+                        integrand += multiplier * self.integrand(
+                            alpha**k * self.initial_value
                         )
                 return integrand
 
