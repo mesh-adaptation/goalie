@@ -450,9 +450,8 @@ class MeshSeq:
                     firedrake.Function(fs, name=f"{field}_old").assign(ic),
                 )
             else:
-                self.field_data[field] = firedrake.Function(fs, name=f"{field}").assign(
-                    ic
-                )
+                self.field_data[field] = firedrake.Function(fs, name=f"{field}")
+                self.field_data[field].assign(ic)
 
     @PETSc.Log.EventDecorator()
     def _solve_forward(self, update_solutions=True, solver_kwargs=None):
