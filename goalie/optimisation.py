@@ -161,10 +161,10 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
         self.mesh_seq.solve_adjoint(compute_gradient=True)
         pyadjoint.pause_annotation()
         J = self.mesh_seq.J
-        u = self.mesh_seq.controls[self.control]
-        dJ = pyadjoint.compute_gradient(J, pyadjoint.Control(u))
-        u = u.copy(deepcopy=True)
+        u = self.mesh_seq.controls[self.control].tape_value()
+        dJ = self.mesh_seq.gradient[self.control]
 
+        # Compute descent direction
         P = dJ.copy(deepcopy=True)
         P *= -1
 
@@ -180,6 +180,12 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
 
         # Take a step downhill
         u.dat.data[:] += self.params.lr * P.dat.data
+
+        # Update initial condition getter
+        ics = self.mesh_seq.get_initial_condition()
+        ics[self.control] = u
+        self.mesh_seq._get_initial_condition = lambda mesh_seq: ics
+
         return J, dJ, u
 
 
