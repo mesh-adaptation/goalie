@@ -115,6 +115,14 @@ class AdjointMeshSeq(MeshSeq):
         return super().initial_condition
 
     @property
+    def controls(self):
+        if self._controls is None:
+            raise AttributeError(
+                "To determine controls, call the solve_adjoint method."
+            )
+        return dict(zip(self.fields, self._controls))
+
+    @property
     def gradient(self):
         if self._gradient is None:
             raise AttributeError(
