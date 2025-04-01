@@ -14,7 +14,6 @@ from firedrake.petsc import PETSc
 from .function_data import AdjointSolutionData
 from .log import pyrint
 from .mesh_seq import MeshSeq
-from .utility import AttrDict
 
 __all__ = ["AdjointMeshSeq", "annotate_qoi"]
 
@@ -453,20 +452,15 @@ class AdjointMeshSeq(MeshSeq):
 
             All keyword arguments are passed to the solver.
             """
-            copy_map = AttrDict(
-                {
-                    field: initial_condition.copy(deepcopy=True)
-                    for field, initial_condition in initial_condition_map.items()
-                }
-            )
 
             # Stash a version of the above map as Controls
             self._controls = {
-                field: pyadjoint.Control(copy_map[field]) for field in copy_map
+                field: pyadjoint.Control(function)
+                for field, function in initial_condition_map.items()
             }
 
             # Reinitialise fields and assign initial conditions
-            self._reinitialise_fields(copy_map)
+            self._reinitialise_fields(initial_condition_map)
 
             return solver(subinterval, **kwargs)
 
