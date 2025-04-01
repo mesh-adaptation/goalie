@@ -459,7 +459,11 @@ class AdjointMeshSeq(MeshSeq):
                     for field, initial_condition in initial_condition_map.items()
                 }
             )
-            self._controls = list(map(pyadjoint.Control, copy_map.values()))
+
+            # Stash a version of the above map as Controls
+            self._controls = {
+                field: pyadjoint.Control(copy_map[field]) for field in copy_map
+            }
 
             # Reinitialise fields and assign initial conditions
             self._reinitialise_fields(copy_map)
@@ -527,7 +531,7 @@ class AdjointMeshSeq(MeshSeq):
             # Solve adjoint problem
             tape = pyadjoint.get_working_tape()
             with PETSc.Log.Event("goalie.AdjointMeshSeq.solve_adjoint.evaluate_adj"):
-                controls = pyadjoint.enlisting.Enlist(self._controls)
+                controls = pyadjoint.enlisting.Enlist(list(self._controls.values()))
                 with pyadjoint.stop_annotating():
                     with tape.marked_nodes(controls):
                         tape.evaluate_adj(markings=True)
@@ -622,7 +626,8 @@ class AdjointMeshSeq(MeshSeq):
 
             # Get adjoint action on each subinterval
             with pyadjoint.stop_annotating():
-                for field, control in zip(self.field_functions, self._controls):
+                for field in self.field_functions:
+                    control = self._controls[field]
                     seeds[field] = firedrake.Cofunction(
                         self.function_spaces[field][i].dual()
                     )
