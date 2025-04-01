@@ -25,7 +25,7 @@ class TimePartition:
         end_time,
         num_subintervals,
         timesteps,
-        fields,
+        field_metadata,
         num_timesteps_per_export=1,
         start_time=0.0,
         subintervals=None,
@@ -38,8 +38,8 @@ class TimePartition:
         :arg timesteps: a list timesteps to be used on each subinterval, or a single
             timestep to use for all subintervals
         :type timesteps: :class:`list` of :class:`float`\s or :class:`float`
-        :arg fields: the list of field names to consider
-        :type fields: :class:`list` of :class:`~.Field`\s or :class:`~.Field`
+        :arg field_metadata: the list of Fieldss to consider
+        :type field_metadata: :class:`list` of :class:`~.Field`\s or :class:`~.Field`
         :kwarg num_timesteps_per_export: a list of numbers of timesteps per export for
             each subinterval, or a single number to use for all subintervals
         :type num_timesteps_per_export: :class:`list` of :class`int`\s or :class:`int`
@@ -50,10 +50,10 @@ class TimePartition:
         :type subintervals: :class:`list` of :class:`tuple`\s
         """
         debug(100 * "-")
-        if isinstance(fields, Field):
-            fields = [fields]
-        self.fields = fields
-        if not all(isinstance(field, Field) for field in self.fields):
+        if isinstance(field_metadata, Field):
+            field_metadata = [field_metadata]
+        self.field_metadata = field_metadata
+        if not all(isinstance(field, Field) for field in self.field_metadata):
             raise TypeError("All fields must be instances of Field.")
         self.start_time = start_time
         self.end_time = end_time
@@ -140,13 +140,13 @@ class TimePartition:
 
     def __repr__(self):
         timesteps = ", ".join([str(dt) for dt in self.timesteps])
-        fields = ", ".join([repr(field) for field in self.fields])
+        fields = ", ".join([repr(field) for field in self.field_metadata])
         return (
             f"TimePartition("
             f"end_time={self.end_time}, "
             f"num_subintervals={self.num_subintervals}, "
             f"timesteps=[{timesteps}], "
-            f"fields=[{fields}])"
+            f"field_metadata=[{fields}])"
         )
 
     def __len__(self):
@@ -172,7 +172,7 @@ class TimePartition:
             end_time=self.subintervals[sl.stop - 1][1],
             num_subintervals=num_subintervals,
             timesteps=self.timesteps[sl],
-            fields=self.fields,
+            field_metadata=self.field_metadata,
             num_timesteps_per_export=self.num_timesteps_per_export[sl],
             start_time=self.subintervals[sl.start][0],
         )
@@ -249,7 +249,7 @@ class TimePartition:
             and np.allclose(
                 self.num_exports_per_subinterval, other.num_exports_per_subinterval
             )
-            and self.fields == other.fields
+            and self.field_metadata == other.field_metadata
         )
 
     def __ne__(self, other):
@@ -269,16 +269,16 @@ class TimeInterval(TimePartition):
         else:
             end_time = args[0]
         timestep = args[1]
-        fields = args[2]
-        super().__init__(end_time, 1, timestep, fields, **kwargs)
+        field_metadata = args[2]
+        super().__init__(end_time, 1, timestep, field_metadata, **kwargs)
 
     def __repr__(self):
-        fields = ", ".join([repr(field) for field in self.fields])
+        field_metadata = ", ".join([repr(field) for field in self.field_metadata])
         return (
             f"TimeInterval("
             f"end_time={self.end_time}, "
             f"timestep={self.timestep}, "
-            f"fields=[{fields}])"
+            f"field_metadata=[{field_metadata}])"
         )
 
     @property
@@ -297,7 +297,7 @@ class TimeInstant(TimeInterval):
     Under the hood this means dividing :math:`[0,1)` into a single timestep.
     """
 
-    def __init__(self, fields, **kwargs):
+    def __init__(self, field_metadata, **kwargs):
         if "end_time" in kwargs:
             if "time" in kwargs:
                 raise ValueError("Both 'time' and 'end_time' are set.")
@@ -305,11 +305,11 @@ class TimeInstant(TimeInterval):
         else:
             time = kwargs.pop("time", 1.0)
         timestep = time
-        super().__init__(time, timestep, fields, **kwargs)
+        super().__init__(time, timestep, field_metadata, **kwargs)
 
     def __str__(self):
         return f"({self.end_time})"
 
     def __repr__(self):
-        fields = ", ".join([repr(field) for field in self.fields])
-        return f"TimeInstant(" f"time={self.end_time}, " f"fields=[{fields}])"
+        field_metadata = ", ".join([repr(field) for field in self.field_metadata])
+        return f"TimeInstant(time={self.end_time}, field_metadata=[{field_metadata}])"

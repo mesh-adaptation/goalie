@@ -295,7 +295,7 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
 
         # Assign 1 to all functions
         tp = self.solution_data.time_partition
-        for field in tp.fields:
+        for field in tp.field_metadata:
             for label in self.solution_data.labels:
                 for i in range(tp.num_subintervals):
                     for j in range(tp.num_exports_per_subinterval[i] - 1):
@@ -319,7 +319,7 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
             1.5 * self.time_partition.end_time,
             self.time_partition.num_subintervals + 1,
             self.time_partition.timesteps + [0.25],
-            self.time_partition.fields,
+            self.time_partition.field_metadata,
         )
         target_function_spaces = {
             self.field.name: [
@@ -343,7 +343,7 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
             self.time_partition.end_time,
             self.time_partition.num_subintervals,
             self.time_partition.timesteps,
-            self.time_partition.fields,
+            self.time_partition.field_metadata,
             num_timesteps_per_export=[1, 2],
         )
         target_function_spaces = {
@@ -404,7 +404,7 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
         )
         target_solution_data._create_data()
         self.solution_data.transfer(target_solution_data, method="interpolate")
-        for field in self.solution_data.time_partition.fields:
+        for field in self.solution_data.time_partition.field_metadata:
             for label in self.solution_data.labels:
                 for i in range(self.solution_data.time_partition.num_subintervals):
                     for j in range(
@@ -428,7 +428,7 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
         )
         target_solution_data._create_data()
         self.solution_data.transfer(target_solution_data, method="project")
-        for field in self.solution_data.time_partition.fields:
+        for field in self.solution_data.time_partition.field_metadata:
             for label in self.solution_data.labels:
                 for i in range(self.solution_data.time_partition.num_subintervals):
                     for j in range(
@@ -459,7 +459,7 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
         )
         target_solution_data._create_data()
         self.solution_data.transfer(target_solution_data, method="prolong")
-        for field in self.solution_data.time_partition.fields:
+        for field in self.solution_data.time_partition.field_metadata:
             for label in self.solution_data.labels:
                 for i in range(self.solution_data.time_partition.num_subintervals):
                     for j in range(

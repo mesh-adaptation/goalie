@@ -49,8 +49,10 @@ class MeshSeq:
             take various types
         """
         self.time_partition = time_partition
-        self.fields = {field.name: field for field in time_partition.fields}
-        self.field_data = dict.fromkeys(self.fields)
+        self.field_metadata = {
+            field.name: field for field in time_partition.field_metadata
+        }
+        self.field_data = dict.fromkeys(self.field_metadata)
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
         self.set_meshes(initial_meshes)
@@ -316,7 +318,7 @@ class MeshSeq:
     def _outputs_consistent(self):
         """
         Assert that function spaces and initial conditions are given in a
-        dictionary format with :attr:`MeshSeq.fields` as keys.
+        dictionary format with the same keys as :attr:`MeshSeq.field_metadata`.
         """
         for method in ["function_spaces", "initial_condition", "solver"]:
             if getattr(self, f"_get_{method}") is None:
@@ -443,7 +445,7 @@ class MeshSeq:
         """
         for field, ic in initial_conditions.items():
             fs = ic.function_space()
-            if self.fields[field].unsteady:
+            if self.field_metadata[field].unsteady:
                 self.field_data[field] = (
                     firedrake.Function(fs, name=field),
                     firedrake.Function(fs, name=f"{field}_old").assign(ic),
@@ -497,7 +499,7 @@ class MeshSeq:
                         next(solver_gen)
                     # Update the solution data
                     for field, sol in self.field_data.items():
-                        if self.fields[field].unsteady:
+                        if self.field_metadata[field].unsteady:
                             assert isinstance(sol, tuple)
                             solutions[field].forward[i][j].assign(sol[0])
                             solutions[field].forward_old[i][j].assign(sol[1])
@@ -515,7 +517,7 @@ class MeshSeq:
                     {
                         field: self._transfer(
                             self.field_data[field][0]
-                            if self.fields[field].unsteady
+                            if self.field_metadata[field].unsteady
                             else self.field_data[field],
                             fs[i + 1],
                         )

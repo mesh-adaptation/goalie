@@ -16,7 +16,7 @@ class BaseTestCase(unittest.TestCase):
     def setUp(self):
         self.end_time = 1.0
         self.field = Field("field")
-        self.fields = [self.field]
+        self.field_metadata = [self.field]
 
 
 class TestExceptions(BaseTestCase):
@@ -212,7 +212,7 @@ class TestStringFormatting(BaseTestCase):
     def get_time_partition(self, n):
         split = self.end_time / n
         timesteps = [split if i % 2 else split / 2 for i in range(n)]
-        return TimePartition(self.end_time, n, timesteps, self.fields)
+        return TimePartition(self.end_time, n, timesteps, self.field_metadata)
 
     def test_time_partition1_str(self):
         expected = "[(0.0, 1.0)]"
@@ -228,18 +228,18 @@ class TestStringFormatting(BaseTestCase):
 
     def test_time_interval_str(self):
         expected = "[(0.0, 1.0)]"
-        time_interval = TimeInterval(self.end_time, [0.5], self.fields)
+        time_interval = TimeInterval(self.end_time, [0.5], self.field_metadata)
         self.assertEqual(str(time_interval), expected)
 
     def test_time_instant_str(self):
         expected = "(1.0)"
-        time_instant = TimeInstant(self.fields, time=self.end_time)
+        time_instant = TimeInstant(self.field_metadata, time=self.end_time)
         self.assertEqual(str(time_instant), expected)
 
     def test_time_partition1_repr(self):
         expected = (
             "TimePartition(end_time=1.0, num_subintervals=1,"
-            " timesteps=[0.5], fields=[Field('field', <R0 on a interval>,"
+            " timesteps=[0.5], field_metadata=[Field('field', <R0 on a interval>,"
             " solved_for=True, unsteady=True)])"
         )
         self.assertEqual(repr(self.get_time_partition(1)), expected)
@@ -247,7 +247,7 @@ class TestStringFormatting(BaseTestCase):
     def test_time_partition2_repr(self):
         expected = (
             "TimePartition(end_time=1.0, num_subintervals=2,"
-            " timesteps=[0.25, 0.5], fields=[Field('field', <R0 on a interval>,"
+            " timesteps=[0.25, 0.5], field_metadata=[Field('field', <R0 on a interval>,"
             " solved_for=True, unsteady=True)])"
         )
         self.assertEqual(repr(self.get_time_partition(2)), expected)
@@ -255,25 +255,25 @@ class TestStringFormatting(BaseTestCase):
     def test_time_partition4_repr(self):
         expected = (
             "TimePartition(end_time=1.0, num_subintervals=4,"
-            " timesteps=[0.125, 0.25, 0.125, 0.25], fields=[Field('field',"
+            " timesteps=[0.125, 0.25, 0.125, 0.25], field_metadata=[Field('field',"
             " <R0 on a interval>, solved_for=True, unsteady=True)])"
         )
         self.assertEqual(repr(self.get_time_partition(4)), expected)
 
     def test_time_interval_repr(self):
         expected = (
-            "TimeInterval(end_time=1.0, timestep=0.5, fields=[Field('field',"
+            "TimeInterval(end_time=1.0, timestep=0.5, field_metadata=[Field('field',"
             " <R0 on a interval>, solved_for=True, unsteady=True)])"
         )
-        time_interval = TimeInterval(self.end_time, [0.5], self.fields)
+        time_interval = TimeInterval(self.end_time, [0.5], self.field_metadata)
         self.assertEqual(repr(time_interval), expected)
 
     def test_time_instant_repr(self):
         expected = (
-            "TimeInstant(time=1.0, fields=[Field('field',"
+            "TimeInstant(time=1.0, field_metadata=[Field('field',"
             " <R0 on a interval>, solved_for=True, unsteady=True)])"
         )
-        time_instant = TimeInstant(self.fields, time=self.end_time)
+        time_instant = TimeInstant(self.field_metadata, time=self.end_time)
         self.assertEqual(repr(time_instant), expected)
 
 
@@ -284,23 +284,23 @@ class TestIndexing(BaseTestCase):
 
     def test_invalid_step(self):
         timesteps = [0.5, 0.25]
-        time_partition = TimePartition(self.end_time, 2, timesteps, self.fields)
+        time_partition = TimePartition(self.end_time, 2, timesteps, self.field_metadata)
         with self.assertRaises(NotImplementedError) as cm:
             time_partition[::2]
         msg = "Can only currently handle slices with step size 1."
         self.assertEqual(str(cm.exception), msg)
 
     def test_time_interval(self):
-        time_interval = TimeInterval(self.end_time, [0.5], self.fields)
+        time_interval = TimeInterval(self.end_time, [0.5], self.field_metadata)
         self.assertEqual(time_interval, time_interval[0])
 
     def test_time_instant(self):
-        time_instant = TimeInstant(self.fields, time=self.end_time)
+        time_instant = TimeInstant(self.field_metadata, time=self.end_time)
         self.assertEqual(time_instant, time_instant[0])
 
     def test_time_partition(self):
         timesteps = [0.5, 0.25]
-        time_partition = TimePartition(self.end_time, 2, timesteps, self.fields)
+        time_partition = TimePartition(self.end_time, 2, timesteps, self.field_metadata)
         tp0, tp1 = time_partition
         self.assertEqual(len(tp0), 1)
         self.assertEqual(len(tp1), 1)
@@ -310,8 +310,8 @@ class TestIndexing(BaseTestCase):
         self.assertAlmostEqual(tp1.end_time, 1.0)
         self.assertAlmostEqual(tp0.timesteps[0], timesteps[0])
         self.assertAlmostEqual(tp1.timesteps[0], timesteps[1])
-        self.assertEqual(tp0.fields, self.fields)
-        self.assertEqual(tp0.fields, tp1.fields)
+        self.assertEqual(tp0.field_metadata, self.field_metadata)
+        self.assertEqual(tp0.field_metadata, tp1.field_metadata)
 
 
 class TestSlicing(BaseTestCase):
@@ -320,22 +320,22 @@ class TestSlicing(BaseTestCase):
     """
 
     def test_time_interval(self):
-        time_interval = TimeInterval(self.end_time, [0.5], self.fields)
+        time_interval = TimeInterval(self.end_time, [0.5], self.field_metadata)
         self.assertEqual(time_interval, time_interval[0:1])
 
     def test_time_instant(self):
-        time_instant = TimeInstant(self.fields, time=self.end_time)
+        time_instant = TimeInstant(self.field_metadata, time=self.end_time)
         self.assertEqual(time_instant, time_instant[0:1])
 
     def test_time_partition(self):
         timesteps = [0.5, 0.25]
-        time_partition = TimePartition(self.end_time, 2, timesteps, self.fields)
+        time_partition = TimePartition(self.end_time, 2, timesteps, self.field_metadata)
         self.assertEqual(time_partition, time_partition[0:2])
 
     def test_time_partition_slice(self):
         end_time = 0.75
         timesteps = [0.25, 0.05, 0.01]
-        time_partition = TimePartition(end_time, 3, timesteps, self.fields)
+        time_partition = TimePartition(end_time, 3, timesteps, self.field_metadata)
         tp0 = time_partition[0]
         tp12 = time_partition[1:3]
         self.assertEqual(len(tp0), 1)
@@ -346,5 +346,5 @@ class TestSlicing(BaseTestCase):
         self.assertAlmostEqual(tp12.end_time, end_time)
         self.assertAlmostEqual(tp0.timesteps[0], timesteps[0])
         self.assertAlmostEqual(tp12.timesteps, timesteps[1:3])
-        self.assertEqual(tp0.fields, self.fields)
-        self.assertEqual(tp0.fields, tp12.fields)
+        self.assertEqual(tp0.field_metadata, self.field_metadata)
+        self.assertEqual(tp0.field_metadata, tp12.field_metadata)

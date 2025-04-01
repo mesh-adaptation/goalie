@@ -56,7 +56,7 @@ class FunctionData(ABC):
                         for label in self.labels
                     }
                 )
-                for field in tp.fields
+                for field in tp.field_metadata
             }
         )
 
@@ -92,7 +92,7 @@ class FunctionData(ABC):
                 label: AttrDict(
                     {
                         field.name: self._data_by_field[field.name][label]
-                        for field in tp.fields
+                        for field in tp.field_metadata
                     }
                 )
                 for label in self.labels
@@ -118,7 +118,7 @@ class FunctionData(ABC):
                             for label in self.labels
                         }
                     )
-                    for field in tp.fields
+                    for field in tp.field_metadata
                 }
             )
             for subinterval in range(tp.num_subintervals)
@@ -245,7 +245,7 @@ class FunctionData(ABC):
                     + (j + 1) * tp.timesteps[i] * tp.num_timesteps_per_export[i]
                 )
                 fs = []
-                for field in sorted(tp.fields):
+                for field in sorted(tp.field_metadata):
                     mixed = hasattr(
                         self.function_spaces[field.name][0], "num_sub_spaces"
                     )
@@ -268,7 +268,9 @@ class FunctionData(ABC):
         tp = self.time_partition
 
         # Mesh names must be unique
-        mesh_names = [fs.mesh().name for fs in self.function_spaces[tp.fields[0].name]]
+        mesh_names = [
+            fs.mesh().name for fs in self.function_spaces[tp.field_metadata[0].name]
+        ]
         rename_meshes = len(set(mesh_names)) != len(mesh_names)
         with CheckpointFile(output_fpath, "w") as outfile:
             if initial_condition is not None:
@@ -277,10 +279,10 @@ class FunctionData(ABC):
             for i in range(tp.num_subintervals):
                 if rename_meshes:
                     mesh_name = f"mesh_{i}"
-                    mesh = self.function_spaces[tp.fields[0].name][i].mesh()
+                    mesh = self.function_spaces[tp.field_metadata[0].name][i].mesh()
                     mesh.name = mesh_name
                     mesh.topology_dm.name = mesh_name
-                for field in tp.fields:
+                for field in tp.field_metadata:
                     for field_type in export_field_types:
                         name = f"{field.name}_{field_type}"
                         for j in range(tp.num_exports_per_subinterval[i] - 1):
@@ -316,8 +318,8 @@ class FunctionData(ABC):
                 "Source and target have different numbers of exports per subinterval."
             )
 
-        common_fields = {field.name for field in stp.fields} & {
-            field.name for field in ttp.fields
+        common_fields = {field.name for field in stp.field_metadata} & {
+            field.name for field in ttp.field_metadata
         }
         if not common_fields:
             raise ValueError("No common fields between source and target.")
@@ -400,7 +402,7 @@ class IndicatorData(FunctionData):
             time_partition,
             {
                 field.name: [ffs.FunctionSpace(mesh, "DG", 0) for mesh in meshes]
-                for field in time_partition.fields
+                for field in time_partition.field_metadata
             },
         )
 
@@ -416,7 +418,7 @@ class IndicatorData(FunctionData):
         return AttrDict(
             {
                 field.name: self._data[field.name]["error_indicator"]
-                for field in self.time_partition.fields
+                for field in self.time_partition.field_metadata
             }
         )
 
@@ -440,7 +442,7 @@ class IndicatorData(FunctionData):
             AttrDict(
                 {
                     field.name: self._data_by_field[field.name][subinterval]
-                    for field in tp.fields
+                    for field in tp.field_metadata
                 }
             )
             for subinterval in range(tp.num_subintervals)

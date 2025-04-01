@@ -44,7 +44,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             if field not in self.field_data:
                 raise ValueError(
                     f"Unexpected field '{field}' in forms dictionary."
-                    f" Expected one of {list(self.fields.keys())}."
+                    f" Expected one of {list(self.field_metadata.keys())}."
                 )
             if not isinstance(form, ufl.Form):
                 raise TypeError(
@@ -265,7 +265,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 f: enriched_mesh_seq.function_spaces[f][i] for f in self.field_data
             }
             for f, fs_e in enriched_spaces.items():
-                if self.fields[f].unsteady:
+                if self.field_metadata[f].unsteady:
                     u[f], u_[f] = enriched_mesh_seq.field_data[f]
                 else:
                     u[f] = enriched_mesh_seq.field_data[f]
@@ -287,7 +287,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 for f in self.field_data:
                     # Transfer solutions associated with the current field f
                     transfer(self.solutions[f][FWD][i][j], u[f])
-                    if self.fields[f].unsteady:
+                    if self.field_metadata[f].unsteady:
                         transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
                     transfer(self.solutions[f][ADJ][i][j], u_star[f])
                     transfer(self.solutions[f][ADJ_NEXT][i][j], u_star_next[f])
