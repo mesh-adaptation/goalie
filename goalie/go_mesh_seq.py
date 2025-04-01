@@ -40,15 +40,15 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             values are the UFL forms
         :type forms_dictionary: :class:`dict`
         """
-        for field, form in forms_dictionary.items():
-            if field not in self.field_functions:
+        for fieldname, form in forms_dictionary.items():
+            if fieldname not in self.field_functions:
                 raise ValueError(
-                    f"Unexpected field '{field}' in forms dictionary."
+                    f"Unexpected field '{fieldname}' in forms dictionary."
                     f" Expected one of {list(self.field_metadata.keys())}."
                 )
             if not isinstance(form, ufl.Form):
                 raise TypeError(
-                    f"Expected a UFL form for field '{field}', not '{type(form)}'."
+                    f"Expected a UFL form for field '{fieldname}', not '{type(form)}'."
                 )
         self._forms = forms_dictionary
 
@@ -86,17 +86,19 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         if export_idx == 0:
             # Copy coefficients at subinterval's first export timestep
             self._prev_form_coeffs = {
-                field: deepcopy(form.coefficients())
-                for field, form in self.forms.items()
+                fieldname: deepcopy(form.coefficients())
+                for fieldname, form in self.forms.items()
             }
-            self._changed_form_coeffs = {field: {} for field in self.field_functions}
+            self._changed_form_coeffs = {
+                fieldname: {} for fieldname in self.field_names
+            }
         else:
             # Store coefficients that have changed since the previous export timestep
-            for field in self.field_functions:
+            for fieldname, form in self.forms.items():
                 # Coefficients at the current timestep
-                coeffs = self.forms[field].coefficients()
+                coeffs = form.coefficients()
                 for coeff_idx, (coeff, init_coeff) in enumerate(
-                    zip(coeffs, self._prev_form_coeffs[field])
+                    zip(coeffs, self._prev_form_coeffs[fieldname])
                 ):
                     # Skip solution fields since they are stored separately
                     if coeff.name().split("_old")[0] in self.function_spaces:
@@ -104,11 +106,11 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     if not np.allclose(
                         coeff.vector().array(), init_coeff.vector().array()
                     ):
-                        if coeff_idx not in self._changed_form_coeffs[field]:
-                            self._changed_form_coeffs[field][coeff_idx] = {
+                        if coeff_idx not in self._changed_form_coeffs[fieldname]:
+                            self._changed_form_coeffs[fieldname][coeff_idx] = {
                                 0: deepcopy(init_coeff)
                             }
-                        self._changed_form_coeffs[field][coeff_idx][export_idx] = (
+                        self._changed_form_coeffs[fieldname][coeff_idx][export_idx] = (
                             deepcopy(coeff)
                         )
                         # Use the current coeff for comparison in the next timestep
@@ -338,10 +340,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 f"Expected 'absolute_value' to be a bool, not '{type(absolute_value)}'."
             )
         estimator = 0
-        for field, by_field in self.indicators.items():
-            if field not in self.function_spaces:
+        for fieldname, by_field in self.indicators.items():
+            if fieldname not in self.function_spaces:
                 raise ValueError(
-                    f"Key '{field}' does not exist in the TimePartition provided."
+                    f"Key '{fieldname}' does not exist in the TimePartition provided."
                 )
             assert not isinstance(by_field, Function) and isinstance(by_field, Iterable)
             for by_mesh, dt in zip(by_field, self.time_partition.timesteps):

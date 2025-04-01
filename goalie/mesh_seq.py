@@ -51,6 +51,7 @@ class MeshSeq:
         self.time_partition = time_partition
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
+        self.field_names = [field.name for field in time_partition.field_metadata]
 
         # Extract field metadata as a dictionary with field names as keys
         self.field_metadata = {
@@ -270,8 +271,8 @@ class MeshSeq:
         if self._get_initial_condition is not None:
             return self._get_initial_condition(self)
         return {
-            field: firedrake.Function(fs[0])
-            for field, fs in self.function_spaces.items()
+            fieldname: firedrake.Function(fs[0])
+            for fieldname, fs in self.function_spaces.items()
         }
 
     def get_solver(self):
@@ -366,15 +367,15 @@ class MeshSeq:
         """
         consistent = len(self.time_partition) == len(self)
         consistent &= all(
-            len(self) == len(self._fs[field]) for field in self.field_functions
+            len(self) == len(self._fs[fieldname]) for fieldname in self.field_functions
         )
-        for field in self.field_functions:
+        for fieldname in self.field_functions:
             consistent &= all(
-                mesh == fs.mesh() for mesh, fs in zip(self.meshes, self._fs[field])
+                mesh == fs.mesh() for mesh, fs in zip(self.meshes, self._fs[fieldname])
             )
             consistent &= all(
-                self._fs[field][0].ufl_element() == fs.ufl_element()
-                for fs in self._fs[field]
+                self._fs[fieldname][0].ufl_element() == fs.ufl_element()
+                for fs in self._fs[fieldname]
             )
         return consistent
 
@@ -385,8 +386,10 @@ class MeshSeq:
         if self._fs is None or not self._function_spaces_consistent():
             self._fs = AttrDict(
                 {
-                    field: [self.get_function_spaces(mesh)[field] for mesh in self]
-                    for field in self.field_functions
+                    fieldname: [
+                        self.get_function_spaces(mesh)[fieldname] for mesh in self
+                    ]
+                    for fieldname in self.field_functions
                 }
             )
         assert (
@@ -449,16 +452,17 @@ class MeshSeq:
         :type initial_conditions: :class:`dict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        for field, ic in initial_conditions.items():
+        for fieldname in self.field_names:
+            ic = initial_conditions[fieldname]
             fs = ic.function_space()
-            if self.field_metadata[field].unsteady:
-                self.field_functions[field] = (
-                    firedrake.Function(fs, name=field),
-                    firedrake.Function(fs, name=f"{field}_old").assign(ic),
+            if self.field_metadata[fieldname].unsteady:
+                self.field_functions[fieldname] = (
+                    firedrake.Function(fs, name=fieldname),
+                    firedrake.Function(fs, name=f"{fieldname}_old").assign(ic),
                 )
             else:
-                self.field_functions[field] = firedrake.Function(fs, name=f"{field}")
-                self.field_functions[field].assign(ic)
+                self.field_functions[fieldname] = firedrake.Function(fs, name=fieldname)
+                self.field_functions[fieldname].assign(ic)
 
     @PETSc.Log.EventDecorator()
     def _solve_forward(self, update_solutions=True, solver_kwargs=None):
@@ -504,14 +508,14 @@ class MeshSeq:
                     for _ in range(tp.num_timesteps_per_export[i]):
                         next(solver_gen)
                     # Update the solution data
-                    for field, sol in self.field_functions.items():
-                        if self.field_metadata[field].unsteady:
+                    for fieldname, sol in self.field_functions.items():
+                        if self.field_metadata[fieldname].unsteady:
                             assert isinstance(sol, tuple)
-                            solutions[field].forward[i][j].assign(sol[0])
-                            solutions[field].forward_old[i][j].assign(sol[1])
+                            solutions[fieldname].forward[i][j].assign(sol[0])
+                            solutions[fieldname].forward_old[i][j].assign(sol[1])
                         else:
                             assert isinstance(sol, firedrake.Function)
-                            solutions[field].forward[i][j].assign(sol)
+                            solutions[fieldname].forward[i][j].assign(sol)
             else:
                 # Solve over the entire subinterval in one go
                 for _ in range(tp.num_timesteps_per_subinterval[i]):
@@ -521,13 +525,13 @@ class MeshSeq:
             if i < num_subintervals - 1:
                 checkpoint = AttrDict(
                     {
-                        field: self._transfer(
-                            self.field_functions[field][0]
-                            if self.field_metadata[field].unsteady
-                            else self.field_functions[field],
+                        fieldname: self._transfer(
+                            self.field_functions[fieldname][0]
+                            if self.field_metadata[fieldname].unsteady
+                            else self.field_functions[fieldname],
                             fs[i + 1],
                         )
-                        for field, fs in self._fs.items()
+                        for fieldname, fs in self._fs.items()
                     }
                 )
 
