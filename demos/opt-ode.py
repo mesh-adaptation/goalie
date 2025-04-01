@@ -275,10 +275,11 @@ opt_trajectory = [float(get_initial_condition(point_seq)["u"])]
 opt_trajectory += [
     float(sol) for subinterval in solutions["u"]["forward"] for sol in subinterval
 ]
+c_opt = optimiser.progress["control"][-1]
 fig, axes = plt.subplots()
 axes.plot(times, np.exp(times), "--x", label="Analytical solution")
-axes.plot(times, forward_euler_trajectory, "--+", label="Forward Euler")
-axes.plot(times, opt_trajectory, "--+", label="Optimised")
+axes.plot(times, forward_euler_trajectory, "--+", label=r"Forward Euler ($\theta=0$)")
+axes.plot(times, opt_trajectory, "--+", label=rf"Optimised ($\theta={c_opt:.4f}$)")
 axes.set_xlabel(r"Time, $t$")
 axes.set_ylabel(r"$u$")
 axes.grid(True)
