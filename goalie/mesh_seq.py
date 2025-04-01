@@ -49,12 +49,18 @@ class MeshSeq:
             take various types
         """
         self.time_partition = time_partition
+        self.subintervals = time_partition.subintervals
+        self.num_subintervals = time_partition.num_subintervals
+
+        # Extract field metadata as a dictionary with field names as keys
         self.field_metadata = {
             field.name: field for field in time_partition.field_metadata
         }
+
+        # Create a dictionary to hold field Functions with field names as keys and None
+        # as values
         self.field_functions = dict.fromkeys(self.field_metadata)
-        self.subintervals = time_partition.subintervals
-        self.num_subintervals = time_partition.num_subintervals
+
         self.set_meshes(initial_meshes)
         self._fs = None
         # TODO: No need to accept get_function_spaces - can be deduced
