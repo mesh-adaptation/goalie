@@ -51,7 +51,7 @@ class MeshSeq:
         self.time_partition = time_partition
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
-        self.field_names = [field.name for field in time_partition.field_metadata]
+        self.field_names = time_partition.field_names
 
         # Extract field metadata as a dictionary with field names as keys
         self.field_metadata = {
