@@ -32,7 +32,7 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
 
     def get_solver(self):
         def solver(index):
-            u, u_ = self.field_data["u"]
+            u, u_ = self.field_functions["u"]
 
             # Define constants
             R = FunctionSpace(self[index], "R", 0)
@@ -77,11 +77,11 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
         dt = Function(R).assign(self.time_partition.timesteps[i])
 
         def end_time_qoi():
-            u = self.field_data["u"][0]
+            u = self.field_functions["u"][0]
             return inner(u, u) * ds(2)
 
         def time_integrated_qoi(t):
-            u = self.field_data["u"][0]
+            u = self.field_functions["u"][0]
             return dt * inner(u, u) * ds(2)
 
         if self.qoi_type == "end_time":

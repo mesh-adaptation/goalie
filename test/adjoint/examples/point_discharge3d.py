@@ -61,7 +61,7 @@ def get_solver(self):
 
     def solver(i):
         fs = self.function_spaces["tracer_3d"][i]
-        c = self.field_data["tracer_3d"]
+        c = self.field_functions["tracer_3d"]
 
         # Define constants
         fs = self.function_spaces["tracer_3d"][i]
@@ -112,7 +112,7 @@ def get_qoi(self, i):
     """
 
     def steady_qoi():
-        c = self.field_data["tracer_3d"]
+        c = self.field_functions["tracer_3d"]
         x, y, z = ufl.SpatialCoordinate(self[i])
         kernel = ufl.conditional(
             (x - rec_x) ** 2 + (y - rec_y) ** 2 + (z - rec_z) ** 2 < rec_r**2, 1, 0

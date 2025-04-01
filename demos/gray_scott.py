@@ -54,7 +54,7 @@ def get_initial_condition(mesh_seq):
 
 def get_solver(mesh_seq):
     def solver(index):
-        ab, ab_ = mesh_seq.field_data["ab"]
+        ab, ab_ = mesh_seq.field_functions["ab"]
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
@@ -102,7 +102,7 @@ def get_solver(mesh_seq):
 
 def get_qoi(mesh_seq, index):
     def qoi():
-        ab = mesh_seq.field_data["ab"][0]
+        ab = mesh_seq.field_functions["ab"][0]
         a, b = split(ab)
         return a * b**2 * dx
 

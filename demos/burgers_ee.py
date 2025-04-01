@@ -46,7 +46,7 @@ def get_function_spaces(mesh):
 
 def get_solver(mesh_seq):
     def solver(index):
-        u, u_ = mesh_seq.field_data["u"]
+        u, u_ = mesh_seq.field_functions["u"]
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
@@ -87,7 +87,7 @@ def get_initial_condition(mesh_seq):
 
 def get_qoi(mesh_seq, i):
     def end_time_qoi():
-        u = mesh_seq.field_data["u"][0]
+        u = mesh_seq.field_functions["u"][0]
         return inner(u, u) * ds(2)
 
     return end_time_qoi

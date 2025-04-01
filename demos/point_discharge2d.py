@@ -69,7 +69,7 @@ def source(mesh):
 #
 # where :math:`h` measures cell size.
 #
-# Note that :attr:`mesh_seq.field_data` now returns a single
+# Note that :attr:`mesh_seq.field_functions` now returns a single
 # :class:`~firedrake.function.Function` object since the problem is steady, so there is
 # no notion of a lagged solution, unlike in previous (time-dependent) demos.
 # With these ingredients, we can now define the :meth:`get_solver` method. Don't forget
@@ -82,7 +82,7 @@ def source(mesh):
 def get_solver(mesh_seq):
     def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
-        c = mesh_seq.field_data["c"]
+        c = mesh_seq.field_functions["c"]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
 
@@ -128,7 +128,7 @@ def get_solver(mesh_seq):
 
 def get_qoi(mesh_seq, index):
     def qoi():
-        c = mesh_seq.field_data["c"]
+        c = mesh_seq.field_functions["c"]
         x, y = SpatialCoordinate(mesh_seq[index])
         xr, yr, rr = 20, 7.5, 0.5
         kernel = conditional((x - xr) ** 2 + (y - yr) ** 2 < rr**2, 1, 0)

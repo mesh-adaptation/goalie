@@ -87,7 +87,7 @@ class BaseClasses:
                     R = FunctionSpace(mesh_seq[index], "R", 0)
                     dt = Function(R).assign(tp.timesteps[index])
 
-                    u, u_ = mesh_seq.field_data[self.field.name]
+                    u, u_ = mesh_seq.field_functions[self.field.name]
                     f = Function(R).assign(1.0001)
                     v = TestFunction(u.function_space())
                     F = (u - u_) / dt * v * ufl.dx - f * v * ufl.dx
@@ -104,7 +104,7 @@ class BaseClasses:
 
             def get_qoi(mesh_seq, i):
                 def end_time_qoi():
-                    u = mesh_seq.field_data[self.field.name][0]
+                    u = mesh_seq.field_functions[self.field.name][0]
                     return ufl.inner(u, u) * ufl.dx
 
                 return end_time_qoi

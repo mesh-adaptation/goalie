@@ -67,10 +67,10 @@ class GradientTestMeshSeq(AdjointMeshSeq):
             fs = self.function_spaces["field"][index]
             tp = self.time_partition
             if tp.steady:
-                u = self.field_data["field"]
+                u = self.field_functions["field"]
                 u_ = Function(fs, name="field_old").assign(u)
             else:
-                u, u_ = self.field_data["field"]
+                u, u_ = self.field_functions["field"]
             v = TestFunction(fs)
             F = u * v * ufl.dx - Constant(self.scalar) * u_ * v * ufl.dx
 
@@ -104,14 +104,14 @@ class GradientTestMeshSeq(AdjointMeshSeq):
         tp = self.time_partition
 
         def steady_qoi():
-            return self.integrand(self.field_data["field"]) * ufl.dx
+            return self.integrand(self.field_functions["field"]) * ufl.dx
 
         def end_time_qoi():
-            return self.integrand(self.field_data["field"][0]) * ufl.dx
+            return self.integrand(self.field_functions["field"][0]) * ufl.dx
 
         def time_integrated_qoi(t):
             dt = tp.timesteps[index]
-            return dt * self.integrand(self.field_data["field"][0]) * ufl.dx
+            return dt * self.integrand(self.field_functions["field"][0]) * ufl.dx
 
         if self.qoi_type == "steady":
             return steady_qoi

@@ -39,7 +39,7 @@ def get_solver(self):
 
     def solver(i):
         W = self.function_spaces["up"][i]
-        up = self.field_data["up"]
+        up = self.field_functions["up"]
 
         # Define variational problem
         R = FunctionSpace(self[i], "R", 0)
@@ -98,7 +98,7 @@ def get_qoi(self, i):
     """Quantity of interest which integrates pressure over the boundary of the hole."""
 
     def steady_qoi():
-        u, p = ufl.split(self.field_data["up"])
+        u, p = ufl.split(self.field_functions["up"])
         return p * ufl.ds(4)
 
     return steady_qoi

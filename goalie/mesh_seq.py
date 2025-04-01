@@ -52,7 +52,7 @@ class MeshSeq:
         self.field_metadata = {
             field.name: field for field in time_partition.field_metadata
         }
-        self.field_data = dict.fromkeys(self.field_metadata)
+        self.field_functions = dict.fromkeys(self.field_metadata)
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
         self.set_meshes(initial_meshes)
@@ -334,7 +334,7 @@ class MeshSeq:
                 assert hasattr(solver_gen, "__next__"), "solver should yield"
                 if logger.level == DEBUG:
                     next(solver_gen)
-                    f, f_ = self.field_data[next(iter(self.field_data))]
+                    f, f_ = self.field_functions[next(iter(self.field_functions))]
                     if np.array_equal(f.vector().array(), f_.vector().array()):
                         self.debug(
                             "Current and lagged solutions are equal. Does the"
@@ -342,7 +342,7 @@ class MeshSeq:
                         )  # noqa
                 break
             assert isinstance(method_map, dict), f"get_{method} should return a dict"
-            mesh_seq_fields = set(self.field_data)
+            mesh_seq_fields = set(self.field_functions)
             method_fields = set(method_map.keys())
             diff = mesh_seq_fields.difference(method_fields)
             assert len(diff) == 0, f"missing fields {diff} in get_{method}"
@@ -360,9 +360,9 @@ class MeshSeq:
         """
         consistent = len(self.time_partition) == len(self)
         consistent &= all(
-            len(self) == len(self._fs[field]) for field in self.field_data
+            len(self) == len(self._fs[field]) for field in self.field_functions
         )
-        for field in self.field_data:
+        for field in self.field_functions:
             consistent &= all(
                 mesh == fs.mesh() for mesh, fs in zip(self.meshes, self._fs[field])
             )
@@ -380,7 +380,7 @@ class MeshSeq:
             self._fs = AttrDict(
                 {
                     field: [self.get_function_spaces(mesh)[field] for mesh in self]
-                    for field in self.field_data
+                    for field in self.field_functions
                 }
             )
         assert (
@@ -446,13 +446,13 @@ class MeshSeq:
         for field, ic in initial_conditions.items():
             fs = ic.function_space()
             if self.field_metadata[field].unsteady:
-                self.field_data[field] = (
+                self.field_functions[field] = (
                     firedrake.Function(fs, name=field),
                     firedrake.Function(fs, name=f"{field}_old").assign(ic),
                 )
             else:
-                self.field_data[field] = firedrake.Function(fs, name=f"{field}")
-                self.field_data[field].assign(ic)
+                self.field_functions[field] = firedrake.Function(fs, name=f"{field}")
+                self.field_functions[field].assign(ic)
 
     @PETSc.Log.EventDecorator()
     def _solve_forward(self, update_solutions=True, solver_kwargs=None):
@@ -498,7 +498,7 @@ class MeshSeq:
                     for _ in range(tp.num_timesteps_per_export[i]):
                         next(solver_gen)
                     # Update the solution data
-                    for field, sol in self.field_data.items():
+                    for field, sol in self.field_functions.items():
                         if self.field_metadata[field].unsteady:
                             assert isinstance(sol, tuple)
                             solutions[field].forward[i][j].assign(sol[0])
@@ -516,9 +516,9 @@ class MeshSeq:
                 checkpoint = AttrDict(
                     {
                         field: self._transfer(
-                            self.field_data[field][0]
+                            self.field_functions[field][0]
                             if self.field_metadata[field].unsteady
-                            else self.field_data[field],
+                            else self.field_functions[field],
                             fs[i + 1],
                         )
                         for field, fs in self._fs.items()

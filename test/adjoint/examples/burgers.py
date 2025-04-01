@@ -41,7 +41,7 @@ def get_solver(self):
         t_start, t_end = self.time_partition.subintervals[i]
         dt = self.time_partition.timesteps[i]
 
-        u, u_ = self.field_data["uv_2d"]
+        u, u_ = self.field_functions["uv_2d"]
 
         # Setup variational problem
         dt = self.time_partition.timesteps[i]
@@ -91,7 +91,7 @@ def get_qoi(self, i):
     dtc = Function(R).assign(self.time_partition.timesteps[i])
 
     def time_integrated_qoi(t):
-        u = self.field_data["uv_2d"][0]
+        u = self.field_functions["uv_2d"][0]
         return dtc * ufl.inner(u, u) * ufl.ds(2)
 
     def end_time_qoi():

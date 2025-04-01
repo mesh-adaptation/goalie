@@ -64,7 +64,7 @@ def get_function_spaces(mesh):
 def get_solver(mesh_seq):
     def solver(index):
         # Get the current and lagged solutions
-        u, u_ = mesh_seq.field_data["u"]
+        u, u_ = mesh_seq.field_functions["u"]
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)

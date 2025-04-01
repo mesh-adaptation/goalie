@@ -40,7 +40,7 @@ def source(mesh):
 def get_solver(mesh_seq):
     def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
-        c = mesh_seq.field_data["c"]
+        c = mesh_seq.field_functions["c"]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
 
