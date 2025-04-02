@@ -53,9 +53,9 @@ class TimePartition:
         if isinstance(field_metadata, Field):
             field_metadata = [field_metadata]
         self.field_metadata = field_metadata  # TODO: Make field_metadata a dict?
-        self.field_names = [field.name for field in field_metadata]
         if not all(isinstance(field, Field) for field in self.field_metadata):
             raise TypeError("All fields must be instances of Field.")
+        self.field_names = [field.name for field in field_metadata]
         self.start_time = start_time
         self.end_time = end_time
         self.num_subintervals = int(np.round(num_subintervals))
