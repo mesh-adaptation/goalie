@@ -19,8 +19,9 @@ from goalie_adjoint import *
 # are solving the adjoint problem, which requires that the PDE solve is labelled with an
 # ``ad_block_tag`` that matches the corresponding prognostic variable name. ::
 
-finite_element = VectorElement(FiniteElement("Lagrange", triangle, 2), dim=2)
-fields = [Field("u", finite_element=finite_element)]
+n = 32
+mesh = UnitSquareMesh(n, n)
+fields = [Field("u", family="Lagrange", mesh=mesh, degree=2, vector=True)]
 
 
 def get_solver(mesh_seq):
@@ -83,19 +84,12 @@ def get_qoi(mesh_seq, i):
     return end_time_qoi
 
 
-# Now that we have the above functions defined, we move onto the
-# concrete parts of the solver, which mimic the original demo. ::
+# Next, we define the :class:`~.TimePartition`. In cases where we only solve over a
+# single time subinterval (as in this demo), the partition is trivial and we can use the
+# :class:`~.TimeInterval` constructor, which requires fewer arguments. ::
 
-n = 32
-mesh = UnitSquareMesh(n, n)
 end_time = 0.5
 dt = 1 / n
-
-# Another requirement to solve the adjoint problem using
-# Goalie is a :class:`TimePartition`. In our case, there is a
-# single mesh, so the partition is trivial and we can use the
-# :class:`TimeInterval` constructor. ::
-
 time_partition = TimeInterval(end_time, dt, fields, num_timesteps_per_export=2)
 
 # Finally, we are able to construct an :class:`AdjointMeshSeq` and

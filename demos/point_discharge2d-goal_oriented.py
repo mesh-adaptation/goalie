@@ -19,8 +19,8 @@ from matplotlib import ticker
 
 from goalie_adjoint import *
 
-finite_element = FiniteElement("Lagrange", triangle, 1)
-fields = [Field("c", finite_element=finite_element, unsteady=False)]
+mesh = RectangleMesh(50, 10, 50, 10)
+fields = [Field("c", mesh=mesh, family="Lagrange", degree=1, unsteady=False)]
 
 
 def source(mesh):
@@ -81,7 +81,6 @@ def get_qoi(mesh_seq, index):
 # Since we want to do goal-oriented mesh adaptation, we use a
 # :class:`GoalOrientedMeshSeq`. ::
 
-mesh = RectangleMesh(50, 10, 50, 10)
 time_partition = TimeInstant(fields)
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,

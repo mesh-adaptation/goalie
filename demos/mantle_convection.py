@@ -48,7 +48,9 @@ k = Constant((0, 1))
 # ``unsteady`` keyword argument of the initialiser for the :class:`~.Field` class to
 # ``False`` rather than the default ``True`` value to specify that the ``"up"``
 # field is *steady* (i.e. without a time derivative). The ``T`` field is *unsteady*
-# (i.e. involves a time derivative) so we can use ``unsteady=True``. ::
+# (i.e. involves a time derivative) so we can use ``unsteady=True``. Again, given the
+# mixed finite element space used for velocity, it is more convenient to define the
+# finite elements and pass these directly to the :class:`~.Field` constructor. ::
 
 p2v_element = VectorElement(FiniteElement("Lagrange", triangle, 2), dim=2)
 p1_element = FiniteElement("Lagrange", triangle, 1)

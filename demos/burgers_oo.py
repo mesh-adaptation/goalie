@@ -93,18 +93,17 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
 # We apply exactly the same setup as before, except that the
 # :class:`BurgersMeshSeq` class is used. ::
 
-finite_element = VectorElement(FiniteElement("Lagrange", triangle, 2), dim=2)
-fields = [Field("u", finite_element=finite_element)]
-
 n = 32
-meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
+mesh = UnitSquareMesh(n, n)
+fields = [Field("u", family="Lagrange", mesh=mesh, degree=2, vector=True)]
+
 end_time = 0.5
 dt = 1 / n
-num_subintervals = len(meshes)
+num_subintervals = 2
 time_partition = TimePartition(
     end_time, num_subintervals, dt, fields, num_timesteps_per_export=2
 )
-mesh_seq = BurgersMeshSeq(time_partition, meshes, qoi_type="time_integrated")
+mesh_seq = BurgersMeshSeq(time_partition, mesh, qoi_type="time_integrated")
 solutions, indicators = mesh_seq.indicate_errors(
     enrichment_kwargs={"enrichment_method": "h"}
 )

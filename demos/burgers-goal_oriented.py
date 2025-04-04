@@ -8,8 +8,9 @@
 # multiple meshes to adapt. We also chose to apply a QoI which integrates in time as
 # well as space.
 #
-# We copy over the setup as before. The only difference is that we import from
-# ``goalie_adjoint`` rather than ``goalie``. ::
+# We copy over the setup as before. The only differences are that we import from
+# ``goalie_adjoint`` rather than ``goalie`` and again need to specifically define the
+# initial mesh for each subinterval. ::
 
 import matplotlib.pyplot as plt
 from animate.adapt import adapt
@@ -18,8 +19,9 @@ from firedrake import *
 
 from goalie_adjoint import *
 
-finite_element = VectorElement(FiniteElement("Lagrange", triangle, 2), dim=2)
-fields = [Field("u", finite_element=finite_element)]
+n = 32
+meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
+fields = [Field("u", family="Lagrange", mesh=meshes[0], degree=2, vector=True)]
 
 
 def get_initial_condition(mesh_seq):
@@ -84,11 +86,8 @@ def get_qoi(mesh_seq, i):
 # as in a `previous demo <./burgers2.py.html>`__, except that we export
 # every timestep rather than every other timestep. ::
 
-n = 32
-meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
 end_time = 0.5
 dt = 1 / n
-
 num_subintervals = len(meshes)
 time_partition = TimePartition(
     end_time,

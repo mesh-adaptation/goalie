@@ -30,14 +30,15 @@ from goalie_adjoint import *
 
 set_log_level(DEBUG)
 
-# Redefine the ``fields`` variable and the getter functions as in the first
-# adjoint Burgers demo. The only difference is the inclusion of the
-# :meth:`GoalOrientedMeshSeq.read_forms()` method in the ``get_solver`` function. The
+# Redefine the meshes, fields and the getter functions as in the first adjoint Burgers
+# demo. The only difference is the inclusion of the
+# :meth:`~.GoalOrientedMeshSeq.read_forms()` method in the ``get_solver`` function. The
 # method is used to communicate the variational form to the mesh sequence object so that
 # Goalie can utilise it in the error estimation process described above. ::
 
-finite_element = VectorElement(FiniteElement("Lagrange", triangle, 2), dim=2)
-fields = [Field("u", finite_element=finite_element)]
+n = 32
+mesh = UnitSquareMesh(n, n)
+fields = [Field("u", family="Lagrange", mesh=mesh, degree=2, vector=True)]
 
 
 def get_solver(mesh_seq):
@@ -89,13 +90,11 @@ def get_qoi(mesh_seq, i):
     return end_time_qoi
 
 
-# Next, create a sequence of meshes and a :class:`TimePartition`. ::
+# Next, create a :class:`TimePartition`. ::
 
-n = 32
-meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
 end_time = 0.5
 dt = 1 / n
-num_subintervals = len(meshes)
+num_subintervals = 2
 time_partition = TimePartition(
     end_time,
     num_subintervals,
@@ -111,7 +110,7 @@ time_partition = TimePartition(
 
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
-    meshes,
+    mesh,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,

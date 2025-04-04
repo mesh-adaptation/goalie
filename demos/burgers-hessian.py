@@ -7,7 +7,12 @@
 # we consider the time-dependent case. Moreover, we consider a :class:`MeshSeq` with
 # multiple subintervals and hence multiple meshes to adapt.
 #
-# As before, we copy over what is now effectively boiler plate to set up our problem. ::
+# As before, we copy over what is now effectively boiler plate to set up our problem.
+#
+# The only difference is that we need to specifically define the initial mesh for each
+# subinterval and pass them as a list. When a single mesh is passed to the
+# :class:`~.MeshSeq` constructor, it is shallowed copied, which is insufficient for mesh
+# adaptation. ::
 
 import matplotlib.pyplot as plt
 from animate.adapt import adapt
@@ -16,8 +21,9 @@ from firedrake import *
 
 from goalie import *
 
-finite_element = VectorElement(FiniteElement("Lagrange", triangle, 2), dim=2)
-fields = [Field("u", finite_element=finite_element)]
+n = 32
+meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
+fields = [Field("u", family="Lagrange", mesh=meshes[0], degree=2, vector=True)]
 
 
 def get_solver(mesh_seq):
@@ -58,11 +64,8 @@ def get_initial_condition(mesh_seq):
     return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
-n = 32
-meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
 end_time = 0.5
 dt = 1 / n
-
 num_subintervals = len(meshes)
 time_partition = TimePartition(
     end_time,

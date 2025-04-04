@@ -39,18 +39,16 @@ from firedrake import *
 
 from goalie_adjoint import *
 
-# For simplicity, we use a :math:`\mathbb P1` space for the
-# concentration field. The domain of interest is again the
-# unit square, in this case shifted to have its centre at
-# the origin. ::
-
-fields = [Field("c", finite_element=FiniteElement("Lagrange", triangle, 1))]
-
+# The domain of interest is again the unit square, in this case shifted to have its
+# centre at the origin. For simplicity, we use a :math:`\mathbb P1` space for the
+# concentration field. ::
 
 mesh = UnitSquareMesh(40, 40)
 coords = mesh.coordinates.copy(deepcopy=True)
 coords.interpolate(coords - as_vector([0.5, 0.5]))
 mesh = Mesh(coords)
+
+fields = [Field("c", mesh=mesh, family="Lagrange", degree=1)]
 
 
 # Next, let's define the initial condition, to get a

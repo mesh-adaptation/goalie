@@ -32,8 +32,8 @@ from goalie_adjoint import *
 
 # We solve the advection-diffusion problem in :math:`\mathbb P1` space. ::
 
-finite_element = FiniteElement("Lagrange", triangle, 1)
-fields = [Field("c", finite_element=finite_element, unsteady=False)]
+mesh = RectangleMesh(200, 40, 50, 10)
+fields = [Field("c", mesh=mesh, family="Lagrange", degree=1, unsteady=False)]
 
 # Point sources are difficult to represent in numerical models. Here we
 # follow :cite:`Wallwork:2022` in using a Gaussian approximation. Let
@@ -135,7 +135,6 @@ def get_qoi(mesh_seq, index):
 # Finally, we can set up the problem. Instead of using a :class:`TimePartition`,
 # we use the subclass :class:`TimeInstant`, whose only input is the field list. ::
 
-mesh = RectangleMesh(200, 40, 50, 10)
 time_partition = TimeInstant(fields)
 
 # When creating the :class:`MeshSeq`, we need to set the ``"qoi_type"`` to

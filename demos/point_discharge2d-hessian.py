@@ -21,10 +21,11 @@ from goalie import *
 
 # We again consider the "point discharge with diffusion" test case from the
 # `previous demo <./point_discharge2d.py.html>`__, approximating the tracer
-# concentration :math:`c` in :math:`\mathbb P1` space. ::
+# concentration :math:`c` in :math:`\mathbb P1` space. We start with a relatively coarse
+# initial mesh. ::
 
-finite_element = FiniteElement("Lagrange", triangle, 1)
-fields = [Field("c", finite_element=finite_element, unsteady=False)]
+mesh = RectangleMesh(50, 10, 50, 10)
+fields = [Field("c", mesh=mesh, family="Lagrange", degree=1, unsteady=False)]
 
 
 def source(mesh):
@@ -68,10 +69,9 @@ def get_solver(mesh_seq):
     return solver
 
 
-# Take a relatively coarse initial mesh, a :class:`TimeInstant` (since we have a
-# steady-state problem), and put everything together in a :class:`MeshSeq`. ::
+# Take a :class:`TimeInstant` (since we have a steady-state problem), and put everything
+# together in a :class:`MeshSeq`. ::
 
-mesh = RectangleMesh(50, 10, 50, 10)
 time_partition = TimeInstant(fields)
 mesh_seq = MeshSeq(
     time_partition,

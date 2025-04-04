@@ -18,7 +18,9 @@ from goalie_adjoint import *
 mesh = PeriodicSquareMesh(65, 65, 2.5, quadrilateral=True, direction="both")
 
 # We solve for the tracer species using a mixed formulation, with a :math:`\mathbb P1`
-# approximation for both components. ::
+# approximation for both components. In this case, it's more convenient to define the
+# finite element and pass this directly to the constructor for :class:`~.Field`, rather
+# than using its other keyword arguments. ::
 
 p1_element = FiniteElement("Lagrange", triangle, 1)
 fields = [Field("ab", finite_element=MixedElement([p1_element, p1_element]))]
