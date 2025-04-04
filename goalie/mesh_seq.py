@@ -52,11 +52,7 @@ class MeshSeq:
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
         self.field_names = time_partition.field_names
-
-        # Extract field metadata as a dictionary with field names as keys
-        self.field_metadata = {
-            field.name: field for field in time_partition.field_metadata
-        }
+        self.field_metadata = time_partition.field_metadata
 
         # Create a dictionary to hold field Functions with field names as keys and None
         # as values

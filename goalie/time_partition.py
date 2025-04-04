@@ -52,6 +52,9 @@ class TimePartition:
         :type subintervals: :class:`list` of :class:`tuple`\s
         """
         debug(100 * "-")
+
+        # Extract field metadata as a dictionary with field names as keys, if not
+        # already in this format
         if isinstance(field_metadata, Field):
             field_metadata = [field_metadata]
         if not isinstance(field_metadata, (dict, list)):
@@ -67,6 +70,7 @@ class TimePartition:
             if not all(isinstance(field, Field) for field in field_metadata):
                 raise TypeError("All fields must be instances of Field.")
             self.field_metadata = {field.name: field for field in field_metadata}
+
         self.field_names = list(self.field_metadata.keys())
         self.start_time = start_time
         self.end_time = end_time
