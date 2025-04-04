@@ -2,6 +2,7 @@ import unittest
 
 import ufl
 from finat.ufl import FiniteElement
+from firedrake.utility_meshes import UnitTriangleMesh
 
 from goalie.field import Field
 
@@ -11,12 +12,43 @@ def p1_element():
 
 
 class TestExceptions(unittest.TestCase):
-    """Test exceptions raised by Field class."""
+    """
+    Test exceptions raised by Field class.
 
-    def test_field_invalid_name(self):
-        with self.assertRaises(TypeError) as cm:
-            Field(123, p1_element())
-        self.assertEqual(str(cm.exception), "Field name must be a string.")
+    NOTE: We don't check the exact exception raised in the
+    test_make_scalar_element_error* tests because those errors would be raised in
+    Firedrake.
+    """
+
+    def setUp(self):
+        self.mesh = UnitTriangleMesh()
+
+    def test_make_scalar_element_error1(self):
+        with self.assertRaises(AttributeError):
+            Field("field", mesh="mesh", family="Real")
+
+    def test_make_scalar_element_error2(self):
+        with self.assertRaises(ValueError):
+            Field("field", mesh=self.mesh, family="family")
+
+    def test_make_scalar_element_error3(self):
+        with self.assertRaises(ValueError):
+            Field("field", mesh=self.mesh, family="Real", degree=-1)
+
+    def test_rank_notimplementederror(self):
+        with self.assertRaises(NotImplementedError) as cm:
+            Field("field", rank=2)
+        msg = (
+            "rank=2 not supported. Please fully specify your element using the"
+            " finite_element argument instead."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_element_and_rank_error(self):
+        with self.assertRaises(Exception) as cm:
+            Field("field", p1_element(), rank=0)
+        msg = "The finite_element and rank arguments cannot be used in conjunction."
+        self.assertEqual(str(cm.exception), msg)
 
     def test_field_invalid_finite_element(self):
         with self.assertRaises(TypeError) as cm:
