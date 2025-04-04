@@ -1,5 +1,8 @@
 import ufl
-from finat.ufl import FiniteElement, MixedElement, TensorElement, VectorElement
+from finat.ufl import (
+    FiniteElement,
+    FiniteElementBase,
+)
 
 
 class Field:
@@ -26,9 +29,7 @@ class Field:
         self.name = name
         if finite_element is None:
             finite_element = FiniteElement("Real", ufl.interval, 0)
-        if not isinstance(
-            finite_element, (FiniteElement, MixedElement, VectorElement, TensorElement)
-        ):
+        if not isinstance(finite_element, FiniteElementBase):
             raise TypeError(
                 "Field finite element must be a FiniteElement, MixedElement,"
                 " VectorElement, or TensorElement object."
