@@ -254,8 +254,8 @@ class MeshSeq:
             :class:`firedrake.functionspaceimpl.FunctionSpace` values
         """
         return {
-            name: ffs.FunctionSpace(mesh, field.finite_element)
-            for name, field in self.fields.items()
+            fieldname: ffs.FunctionSpace(mesh, field.finite_element)
+            for fieldname, field in self.field_metadata.items()
         }
 
     def get_initial_condition(self):

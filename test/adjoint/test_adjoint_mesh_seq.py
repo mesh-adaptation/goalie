@@ -479,10 +479,10 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
         mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
             enrichment_method="h", num_enrichments=1
         )
-        field_name = list(mesh_seq.fields.keys())[0]
-        fspace = mesh_seq.function_spaces[field_name][0]
+        field_name0 = mesh_seq.field_names[0]
+        fspace = mesh_seq.function_spaces[field_name0][0]
         element = fspace.ufl_element()
-        enriched_fspace = mesh_seq_e.function_spaces[field_name][0]
+        enriched_fspace = mesh_seq_e.function_spaces[field_name0][0]
         enriched_element = enriched_fspace.ufl_element()
         self.assertEqual(element.family(), enriched_element.family())
         self.assertEqual(element.degree(), enriched_element.degree())
@@ -517,10 +517,10 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
         mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
             enrichment_method="p", num_enrichments=num_enrichments
         )
-        field_name = list(mesh_seq.fields.keys())[0]
-        fspace = mesh_seq.function_spaces[field_name][0]
+        field_name0 = mesh_seq.field_names[0]
+        fspace = mesh_seq.function_spaces[field_name0][0]
         element = fspace.ufl_element()
-        enriched_fspace = mesh_seq_e.function_spaces[field_name][0]
+        enriched_fspace = mesh_seq_e.function_spaces[field_name0][0]
         enriched_element = enriched_fspace.ufl_element()
         self.assertEqual(element.family(), enriched_element.family())
         self.assertEqual(element.degree() + num_enrichments, enriched_element.degree())
