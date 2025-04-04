@@ -38,7 +38,7 @@ class TimePartition:
         :arg timesteps: a list timesteps to be used on each subinterval, or a single
             timestep to use for all subintervals
         :type timesteps: :class:`list` of :class:`float`\s or :class:`float`
-        :arg field_metadata: the list of Fieldss to consider
+        :arg field_metadata: the list of Fields to consider
         :type field_metadata: :class:`list` of :class:`~.Field`\s or :class:`~.Field`
         :kwarg num_timesteps_per_export: a list of numbers of timesteps per export for
             each subinterval, or a single number to use for all subintervals
