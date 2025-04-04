@@ -44,19 +44,10 @@ class TestExceptions(unittest.TestCase):
         with self.assertRaises(ValueError):
             Field("field", mesh=mesh1d(), family="Real", degree=-1)
 
-    def test_rank_notimplementederror(self):
-        with self.assertRaises(NotImplementedError) as cm:
-            Field("field", rank=2)
-        msg = (
-            "rank=2 not supported. Please fully specify your element using the"
-            " finite_element argument instead."
-        )
-        self.assertEqual(str(cm.exception), msg)
-
     def test_element_and_rank_error(self):
         with self.assertRaises(Exception) as cm:
-            Field("field", p1_element(), rank=0)
-        msg = "The finite_element and rank arguments cannot be used in conjunction."
+            Field("field", p1_element(), vector=True)
+        msg = "The finite_element and vector arguments cannot be used in conjunction."
         self.assertEqual(str(cm.exception), msg)
 
     def test_field_invalid_finite_element(self):

@@ -16,7 +16,7 @@ class Field:
         self,
         name,
         finite_element=None,
-        rank=None,
+        vector=None,
         solved_for=True,
         unsteady=True,
         **kwargs,
@@ -32,13 +32,16 @@ class Field:
         If neither are specified, the default finite element is a scalar Real space on
         and interval.
 
+        To account for tensor elements, please fully specify the element using the
+        `finite_element` keyword argument.
+
         :arg name: The name of the field.
         :type name: :class:`str`
         :kwarg finite_element: The finite element associated with the field (default is
             Real space on an interval).
         :type finite_element: :class:`~.FiniteElement`
-        :kwarg rank: The rank of the field, where 0 implies scalar, 1 implies vector,
-            and 2 implies tensor.
+        :kwarg vector: Is the element a vector element? (default is False)
+        :type vector: :class:`bool`
         :arg solved_for: Indicates if the field is to be solved for (default is True).
         :type solved_for: :class:`bool`
         :arg unsteady: Indicates if the field is time-dependent (default is True).
@@ -58,20 +61,15 @@ class Field:
                 )
             else:
                 finite_element = FiniteElement("Real", ufl.interval, 0)
-            if rank is None:
-                rank = 0
-            if rank == 1:
+            if vector is None:
+                vector = False
+            if vector:
                 finite_element = VectorElement(
                     finite_element, dim=finite_element.cell.topological_dimension()
                 )
-            elif rank != 0:
-                raise NotImplementedError(
-                    f"rank={rank} not supported. Please fully specify your element"
-                    " using the finite_element argument instead."
-                )
-        elif rank is not None:
+        elif vector is not None:
             raise ValueError(
-                "The finite_element and rank arguments cannot be used in conjunction."
+                "The finite_element and vector arguments cannot be used in conjunction."
             )
         if not isinstance(finite_element, FiniteElementBase):
             raise TypeError(
