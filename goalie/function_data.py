@@ -269,9 +269,7 @@ class FunctionData(ABC):
         tp = self.time_partition
 
         # Mesh names must be unique
-        mesh_names = [
-            fs.mesh().name for fs in self.function_spaces[tp.field_metadata[0].name]
-        ]
+        mesh_names = [fs.mesh().name for fs in self.function_spaces[tp.field_names[0]]]
         rename_meshes = len(set(mesh_names)) != len(mesh_names)
         with CheckpointFile(output_fpath, "w") as outfile:
             if initial_condition is not None:
