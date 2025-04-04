@@ -38,8 +38,10 @@ class TimePartition:
         :arg timesteps: a list timesteps to be used on each subinterval, or a single
             timestep to use for all subintervals
         :type timesteps: :class:`list` of :class:`float`\s or :class:`float`
-        :arg field_metadata: the list of Fields to consider
-        :type field_metadata: :class:`list` of :class:`~.Field`\s or :class:`~.Field`
+        :arg field_metadata: the Field or list or dict thereof to consider. In the case
+            of a dict, the keys should be consistent with the field names
+        :type field_metadata: :class:`~.Field`, :class:`list` of :class:`~.Field`\s, or
+            :class:`dict` with :class:`str` keys and :class:`~.Field` values
         :kwarg num_timesteps_per_export: a list of numbers of timesteps per export for
             each subinterval, or a single number to use for all subintervals
         :type num_timesteps_per_export: :class:`list` of :class`int`\s or :class:`int`
@@ -52,10 +54,20 @@ class TimePartition:
         debug(100 * "-")
         if isinstance(field_metadata, Field):
             field_metadata = [field_metadata]
-        self.field_metadata = field_metadata  # TODO: Make field_metadata a dict?
-        if not all(isinstance(field, Field) for field in self.field_metadata):
-            raise TypeError("All fields must be instances of Field.")
-        self.field_names = [field.name for field in field_metadata]
+        if not isinstance(field_metadata, (dict, list)):
+            raise TypeError(
+                "field_metadata argument must be a Field or a dict or list thereof."
+            )
+        if isinstance(field_metadata, dict):
+            for fieldname, field in field_metadata.items():
+                if fieldname != field.name:
+                    raise ValueError("Inconstent field names passed as field_metadata.")
+            self.field_metadata = field_metadata
+        else:
+            if not all(isinstance(field, Field) for field in field_metadata):
+                raise TypeError("All fields must be instances of Field.")
+            self.field_metadata = {field.name: field for field in field_metadata}
+        self.field_names = list(self.field_metadata.keys())
         self.start_time = start_time
         self.end_time = end_time
         self.num_subintervals = int(np.round(num_subintervals))
@@ -141,7 +153,7 @@ class TimePartition:
 
     def __repr__(self):
         timesteps = ", ".join([str(dt) for dt in self.timesteps])
-        fields = ", ".join([repr(field) for field in self.field_metadata])
+        fields = ", ".join([repr(field) for field in self.field_metadata.values()])
         return (
             f"TimePartition("
             f"end_time={self.end_time}, "
@@ -274,7 +286,9 @@ class TimeInterval(TimePartition):
         super().__init__(end_time, 1, timestep, field_metadata, **kwargs)
 
     def __repr__(self):
-        field_metadata = ", ".join([repr(field) for field in self.field_metadata])
+        field_metadata = ", ".join(
+            [repr(field) for field in self.field_metadata.values()]
+        )
         return (
             f"TimeInterval("
             f"end_time={self.end_time}, "
@@ -312,5 +326,7 @@ class TimeInstant(TimeInterval):
         return f"({self.end_time})"
 
     def __repr__(self):
-        field_metadata = ", ".join([repr(field) for field in self.field_metadata])
+        field_metadata = ", ".join(
+            [repr(field) for field in self.field_metadata.values()]
+        )
         return f"TimeInstant(time={self.end_time}, field_metadata=[{field_metadata}])"
