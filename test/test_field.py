@@ -2,13 +2,25 @@ import unittest
 
 import ufl
 from finat.ufl import FiniteElement
-from firedrake.utility_meshes import UnitTriangleMesh
+from firedrake.utility_meshes import UnitIntervalMesh, UnitTriangleMesh
 
 from goalie.field import Field
 
 
 def p1_element():
     return FiniteElement("Lagrange", ufl.triangle, 1)
+
+
+def real_element():
+    return FiniteElement("Real", ufl.interval, 0)
+
+
+def mesh1d():
+    return UnitIntervalMesh(1)
+
+
+def mesh2d():
+    return UnitTriangleMesh()
 
 
 class TestExceptions(unittest.TestCase):
@@ -20,20 +32,17 @@ class TestExceptions(unittest.TestCase):
     Firedrake.
     """
 
-    def setUp(self):
-        self.mesh = UnitTriangleMesh()
-
     def test_make_scalar_element_error1(self):
         with self.assertRaises(AttributeError):
             Field("field", mesh="mesh", family="Real")
 
     def test_make_scalar_element_error2(self):
         with self.assertRaises(ValueError):
-            Field("field", mesh=self.mesh, family="family")
+            Field("field", mesh=mesh1d(), family="family")
 
     def test_make_scalar_element_error3(self):
         with self.assertRaises(ValueError):
-            Field("field", mesh=self.mesh, family="Real", degree=-1)
+            Field("field", mesh=mesh1d(), family="Real", degree=-1)
 
     def test_rank_notimplementederror(self):
         with self.assertRaises(NotImplementedError) as cm:
@@ -79,6 +88,24 @@ class TestInit(unittest.TestCase):
         self.assertEqual(field.finite_element, p1_element())
         self.assertFalse(field.solved_for)
         self.assertFalse(field.unsteady)
+
+    def test_field_alternative_real(self):
+        field = Field(
+            name="field",
+            mesh=mesh1d(),
+            family="Real",
+            degree=0,
+        )
+        self.assertEqual(field.finite_element, real_element())
+
+    def test_field_alternative_p1(self):
+        field = Field(
+            name="field",
+            mesh=mesh2d(),
+            family="Lagrange",
+            degree=1,
+        )
+        self.assertEqual(field.finite_element, p1_element())
 
 
 class TestInterrogation(unittest.TestCase):
