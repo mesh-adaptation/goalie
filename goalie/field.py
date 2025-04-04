@@ -52,12 +52,12 @@ class Field:
         if finite_element is None:
             if kwargs:
                 finite_element = make_scalar_element(
-                    kwargs.get("mesh"),
-                    kwargs.get("family"),
-                    kwargs.get("degree"),
-                    kwargs.get("vfamily"),
-                    kwargs.get("vdegree"),
-                    kwargs.get("variant"),
+                    kwargs.pop("mesh", None),
+                    kwargs.pop("family", None),
+                    kwargs.pop("degree", None),
+                    kwargs.pop("vfamily", None),
+                    kwargs.pop("vdegree", None),
+                    kwargs.pop("variant", None),
                 )
             else:
                 finite_element = FiniteElement("Real", ufl.interval, 0)
@@ -76,6 +76,8 @@ class Field:
                 "Field finite element must be a FiniteElement, MixedElement,"
                 " VectorElement, or TensorElement object."
             )
+        if kwargs:
+            raise ValueError(f"Unexpected keyword argument '{list(kwargs.keys())[0]}'.")
         self.finite_element = finite_element
         assert isinstance(solved_for, bool), "'solved_for' argument must be a bool"
         self.solved_for = solved_for

@@ -44,6 +44,11 @@ class TestExceptions(unittest.TestCase):
         with self.assertRaises(ValueError):
             Field("field", mesh=mesh1d(), family="Real", degree=-1)
 
+    def test_unexpected_kwarg_error(self):
+        with self.assertRaises(ValueError) as cm:
+            Field("field", mesh=mesh1d(), family="Real", degree=0, kwarg="blah")
+        self.assertEqual(str(cm.exception), "Unexpected keyword argument 'kwarg'.")
+
     def test_element_and_rank_error(self):
         with self.assertRaises(Exception) as cm:
             Field("field", p1_element(), vector=True)
