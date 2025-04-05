@@ -40,6 +40,7 @@ class BaseClasses:
             mesh = UnitSquareMesh(1, 1)
             self.meshes = [mesh]
             self.field = Field("field", mesh=mesh, family="Real", degree=0)
+            self.function_space = FunctionSpace(mesh, self.field.finite_element)
 
     class TrivialGoalOrientedBaseClass(unittest.TestCase):
         """
