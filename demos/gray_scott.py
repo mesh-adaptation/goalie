@@ -22,7 +22,7 @@ mesh = PeriodicSquareMesh(65, 65, 2.5, quadrilateral=True, direction="both")
 # finite element and pass this directly to the constructor for :class:`~.Field`, rather
 # than using its other keyword arguments. ::
 
-p1_element = FiniteElement("Lagrange", triangle, 1)
+p1_element = FiniteElement("Lagrange", quadrilateral, 1)
 fields = [Field("ab", finite_element=MixedElement([p1_element, p1_element]))]
 
 # The initial conditions are localised within the region :math:`[1, 1.5]^2`. ::

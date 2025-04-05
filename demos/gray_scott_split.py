@@ -16,7 +16,7 @@ from goalie_adjoint import *
 # :math:`\mathbb{P}1` spaces rather than a mixed space with two such components. ::
 
 mesh = PeriodicSquareMesh(65, 65, 2.5, quadrilateral=True, direction="both")
-p1_element = FiniteElement("Lagrange", triangle, 1)
+p1_element = FiniteElement("Lagrange", quadrilateral, 1)
 fields = [Field("a", finite_element=p1_element), Field("b", finite_element=p1_element)]
 
 # Therefore, the initial condition must be constructed using separate

@@ -253,10 +253,11 @@ class MeshSeq:
         :rtype: :class:`dict` with :class:`str` keys and
             :class:`firedrake.functionspaceimpl.FunctionSpace` values
         """
-        return {
-            fieldname: ffs.FunctionSpace(mesh, field.finite_element)
-            for fieldname, field in self.field_metadata.items()
-        }
+        function_spaces = {}
+        for fieldname, field in self.field_metadata.items():
+            assert field.finite_element.cell == mesh.coordinates.ufl_element().cell
+            function_spaces[fieldname] = ffs.FunctionSpace(mesh, field.finite_element)
+        return function_spaces
 
     def get_initial_condition(self):
         r"""
