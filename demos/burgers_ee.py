@@ -31,14 +31,22 @@ from goalie_adjoint import *
 set_log_level(DEBUG)
 
 # Redefine the meshes, fields and the getter functions as in the first adjoint Burgers
-# demo. The only difference is the inclusion of the
-# :meth:`~.GoalOrientedMeshSeq.read_forms()` method in the ``get_solver`` function. The
-# method is used to communicate the variational form to the mesh sequence object so that
-# Goalie can utilise it in the error estimation process described above. ::
+# demo, with two differences:
+#
+# * We need to specifically define the mesh for each subinterval and pass them as a
+#   list. When a single mesh is passed to the :class:`~.MeshSeq` constructor, it is
+#   shallow copied, which is insufficient for the :math:`h`-refinement used in the error
+#   estimation step. ::
+# * We need to call the :meth:`~.GoalOrientedMeshSeq.read_forms()` method in the
+#   ``get_solver`` function. This is used to communicate the variational form to the
+#   mesh sequence object so that Goalie can utilise it in the error estimation process
+#   described above.
+#
+# ::
 
 n = 32
-mesh = UnitSquareMesh(n, n)
-fields = [Field("u", family="Lagrange", mesh=mesh, degree=2, vector=True)]
+meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
+fields = [Field("u", family="Lagrange", mesh=meshes[0], degree=2, vector=True)]
 
 
 def get_solver(mesh_seq):
@@ -94,7 +102,7 @@ def get_qoi(mesh_seq, i):
 
 end_time = 0.5
 dt = 1 / n
-num_subintervals = 2
+num_subintervals = len(meshes)
 time_partition = TimePartition(
     end_time,
     num_subintervals,
@@ -110,7 +118,7 @@ time_partition = TimePartition(
 
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
-    mesh,
+    meshes,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,

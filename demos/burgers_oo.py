@@ -90,20 +90,21 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
 # methods have been modified to account for both ``"end_time"`` and
 # ``"time_integrated"`` QoIs.
 #
-# We apply exactly the same setup as before, except that the
-# :class:`BurgersMeshSeq` class is used. ::
+# We apply exactly the same setup as before, except that the :class:`BurgersMeshSeq`
+# class is used and we again need to specifically define the mesh for each subinterval.
+# ::
 
 n = 32
-mesh = UnitSquareMesh(n, n)
-fields = [Field("u", family="Lagrange", mesh=mesh, degree=2, vector=True)]
+meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
+fields = [Field("u", family="Lagrange", mesh=meshes[0], degree=2, vector=True)]
 
 end_time = 0.5
 dt = 1 / n
-num_subintervals = 2
+num_subintervals = len(meshes)
 time_partition = TimePartition(
     end_time, num_subintervals, dt, fields, num_timesteps_per_export=2
 )
-mesh_seq = BurgersMeshSeq(time_partition, mesh, qoi_type="time_integrated")
+mesh_seq = BurgersMeshSeq(time_partition, meshes, qoi_type="time_integrated")
 solutions, indicators = mesh_seq.indicate_errors(
     enrichment_kwargs={"enrichment_method": "h"}
 )
