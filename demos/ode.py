@@ -48,18 +48,19 @@ from goalie import *
 # Much of the following might seem excessive for this example. However, it exists to
 # allow for the flexibility required in later PDE examples.
 #
-# We need to create :class:`~.FunctionSpace`\s for the solution field to live in. Given
-# that we have a scalar ODE, the solution is just a real number at each time level. We
-# represent this using the degree-0 :math:`R`-space, as follows. ::
+# We need to be able to create :class:`~.FunctionSpace`\s for the solution field to live
+# in. Given that we have a scalar ODE, the solution is just a real number at each time
+# level. We can represent this using the degree-0 :math:`R`-space, which is the default
+# finite element used by the :class:`~.Field` class. ::
 
-fe = FiniteElement("Real", interval, 0)
+fields = [Field("u")]
 
 # Next, create a simple :class:`~.TimeInterval` object to hold information related to
 # the time discretisation. This is a simplified version of :class:`~.TimePartition`,
 # which only has one subinterval. ::
 
 end_time = 1
-time_partition = TimeInterval(end_time, dt, Field("u"))
+time_partition = TimeInterval(end_time, dt, fields)
 
 
 # Next, we need to supply the initial condition :math:`u(0) = 1`. We do this by creating
