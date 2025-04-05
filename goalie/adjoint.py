@@ -200,9 +200,9 @@ class AdjointMeshSeq(MeshSeq):
         :returns: list of solve blocks
         :rtype: :class:`list` of :class:`pyadjoint.block.Block`\s
         """
-        if not self.fields[field].solved_for:
+        if not self.field_metadata[fieldname].solved_for:
             raise ValueError(
-                f"Cannot retrieve solve blocks for field '{field}' because it isn't"
+                f"Cannot retrieve solve blocks for field '{fieldname}' because it isn't"
                 " solved for."
             )
         blocks = pyadjoint.get_working_tape().get_blocks()
@@ -546,7 +546,7 @@ class AdjointMeshSeq(MeshSeq):
                 if i == 0 and compute_gradient:
                     self._gradient = {
                         field: control.get_derivative()
-                        for field, control in zip(self.fields, controls)
+                        for field, control in zip(self.field_metadata, controls)
                     }
 
             # Loop over prognostic variables

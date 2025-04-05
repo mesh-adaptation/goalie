@@ -78,9 +78,8 @@ class GradientTestMeshSeq(AdjointMeshSeq):
             """
             fs = self.function_spaces["field"][index]
             tp = self.time_partition
-            if self.fields["field"].unsteady:
+            if self.field_metadata["field"].unsteady:
                 u, u_ = self.field_functions["field"]
-                scaling, scaling_ = self.field_functions["scaling"]
             else:
                 u = self.field_functions["field"]
                 u_ = Function(fs, name="field_old").assign(u)
