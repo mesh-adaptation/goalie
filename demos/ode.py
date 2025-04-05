@@ -49,11 +49,12 @@ from goalie import *
 # allow for the flexibility required in later PDE examples.
 #
 # We need to be able to create :class:`~.FunctionSpace`\s for the solution field to live
-# in. Given that we have a scalar ODE, the solution is just a real number at each time
-# level. We can represent this using the degree-0 :math:`R`-space, which is the default
-# finite element used by the :class:`~.Field` class. ::
+# in. Given that we have a scalar ODE, the mesh can be interpreted as a vertex-only mesh
+# with a single vertex and the finite element as a real number, i.e., the degree-0
+# :math:`R`-space. ::
 
-fields = [Field("u")]
+mesh = VertexOnlyMesh(UnitIntervalMesh(1), [[0.5]])
+fields = [Field("u", mesh=mesh, family="Real", degree=0)]
 
 # Next, create a simple :class:`~.TimeInterval` object to hold information related to
 # the time discretisation. This is a simplified version of :class:`~.TimePartition`,

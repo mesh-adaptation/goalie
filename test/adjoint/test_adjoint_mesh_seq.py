@@ -37,7 +37,9 @@ class BaseClasses:
         """
 
         def setUp(self):
-            self.field = Field("field")
+            mesh = UnitSquareMesh(1, 1)
+            self.meshes = [mesh]
+            self.field = Field("field", mesh=mesh, family="Real", degree=0)
 
     class TrivialGoalOrientedBaseClass(unittest.TestCase):
         """
@@ -123,13 +125,14 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
     """
 
     def setUp(self):
-        self.field = Field("field")
-        self.mesh = UnitTriangleMesh()
+        super().setUp()
         self.mesh_seq = AdjointMeshSeq(
             TimeInterval(1.0, 0.5, self.field),
-            self.mesh,
+            self.meshes,
             qoi_type="end_time",
         )
+        assert len(self.meshes) == 1
+        self.mesh = self.meshes[0]
 
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_not_function(self, MockSolveBlock):
@@ -259,10 +262,11 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
     """
 
     def setUp(self):
-        time_interval = TimeInterval(1.0, [1.0], Field("field"))
+        super().setUp()
+        time_interval = TimeInterval(1.0, [1.0], self.field)
         self.mesh_seq = AdjointMeshSeq(
             time_interval,
-            [UnitSquareMesh(1, 1)],
+            self.meshes,
             qoi_type="steady",
         )
         if not pyadjoint.annotate_tape():
@@ -328,7 +332,7 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
         self.assertEqual(str(cm.exception), msg)
 
     def test_too_many_timesteps(self):
-        time_interval = TimeInterval(1.0, [0.5], Field("field"))
+        time_interval = TimeInterval(1.0, [0.5], self.field)
         mesh_seq = AdjointMeshSeq(
             time_interval,
             [UnitSquareMesh(1, 1)],
@@ -346,7 +350,7 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
         self.assertEqual(str(cm.exception), msg)
 
     def test_incompatible_timesteps(self):
-        time_interval = TimeInterval(1.0, [0.5], Field("field"))
+        time_interval = TimeInterval(1.0, [0.5], self.field)
         mesh_seq = AdjointMeshSeq(
             time_interval,
             [UnitSquareMesh(1, 1)],
