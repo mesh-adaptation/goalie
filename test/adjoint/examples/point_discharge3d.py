@@ -31,7 +31,7 @@ from goalie.math import bessk0
 # Problem setup
 n = 0
 mesh = BoxMesh(100 * 2**n, 20 * 2**n, 20 * 2**n, 50, 10, 10)
-finite_element = FiniteElement("Lagrange", ufl.triangle, 1)
+finite_element = FiniteElement("Lagrange", ufl.tetrahedron, 1)
 fields = [Field("tracer_3d", finite_element=finite_element, unsteady=False)]
 end_time = 1.0
 dt = 1.0
