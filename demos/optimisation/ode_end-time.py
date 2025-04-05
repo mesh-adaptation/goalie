@@ -7,14 +7,14 @@
 # PDE-constrained optimisation problems. This demo illustrates how to use Goalie to
 # solve a simple ODE-constrained optimisation problem.
 #
-# Recall the scalar, linear ODE from `the first ODE demo <./ode.py.html>`__:
+# Recall the scalar, linear ODE from `the first ODE demo <../ode.py.html>`__:
 #
 # .. math::
 #    \frac{\mathrm{d}u}{\mathrm{d}t} = u,\quad u(0) = 1,
 #
 # which we solve for :math:`u(t)` over the time period :math:`t\in(0,1]`. In this demo,
 # we will optimise the :math:`theta` parameter in the :math:`theta` timestepping scheme
-# outlined in the `ODE demo <./ode.py.html>`__ such that the $L^2$ error between the
+# outlined in the `ODE demo <../ode.py.html>`__ such that the $L^2$ error between the
 # numerical solution and the analytical solution at the final time is minimised.
 #
 # Begin with some standard imports. ::
@@ -24,7 +24,7 @@ from firedrake import *
 
 from goalie_adjoint import *
 
-# Copy over much of the code from the `ODE demo <./ode.py.html>`__ demo, with some key
+# Copy over much of the code from the `ODE demo <../ode.py.html>`__ demo, with some key
 # differences:
 #
 # 1. We define the `theta` parameter as a :class:`~.Field` in R-space and set it to have
@@ -82,9 +82,10 @@ def get_solver_theta(mesh_seq):
 
 
 # In order to perform ODE-constrained optimisation, we need to define a quantity of
-# interest. For this problem, we have an analytical solution for the ODE ($u(t) = e^t$),
-# so we can artificially set the quantity of interest to be the $L^2$ error between the
-# numerical solution and the analytical solution at the final time. ::
+# interest. For this problem, we have an analytical solution for the ODE
+# (:math:`u(t) = e^t`, so we can artificially set the quantity of interest to be the
+# :math:`L^2` error between the numerical solution and the analytical solution at the
+# final time. ::
 
 
 def get_qoi(mesh_seq, index):
@@ -157,13 +158,13 @@ axes.set_ylabel(r"$u$")
 axes.grid(True)
 axes.legend()
 plt.tight_layout()
-plt.savefig("opt-ode_forward_euler.jpg", bbox_inches="tight")
+plt.savefig("ode_end-time_forward_euler.jpg", bbox_inches="tight")
 
-# .. figure:: opt-ode_forward_euler.jpg
+# .. figure:: ode_end-time_forward_euler.jpg
 #    :figwidth: 70%
 #    :align: center
 #
-# This is just the same plot that we saw in the `ODE demo <./ode.py.html>`__ demo for
+# This is just the same plot that we saw in the `ODE demo <../ode.py.html>`__ demo for
 # Forward Euler.
 #
 # Specify parameters for the optimisation: learning rate / step length of 0.5 and
@@ -250,20 +251,20 @@ axes.plot(optimiser.progress["control"], "--x")
 axes.set_xlabel("Iteration")
 axes.set_ylabel("Control")
 axes.grid(True)
-plt.savefig("opt-ode_control.jpg", bbox_inches="tight")
+plt.savefig("ode_end-time_control.jpg", bbox_inches="tight")
 
 fig, axes = plt.subplots()
 axes.plot(optimiser.progress["qoi"], "--x")
 axes.set_xlabel("Iteration")
 axes.set_ylabel("QoI")
 axes.grid(True)
-plt.savefig("opt-ode_qoi.jpg", bbox_inches="tight")
+plt.savefig("ode_end-time_qoi.jpg", bbox_inches="tight")
 
-# .. figure:: opt-ode_control.jpg
+# .. figure:: ode_end-time_control.jpg
 #   :figwidth: 70%
 #   :align: center
 #
-# .. figure:: opt-ode_qoi.jpg
+# .. figure:: ode_end-time_qoi.jpg
 #   :figwidth: 70%
 #   :align: center
 #
@@ -291,13 +292,16 @@ axes.set_ylabel(r"$u$")
 axes.grid(True)
 axes.legend()
 plt.tight_layout()
-plt.savefig("opt-ode_optimised.jpg", bbox_inches="tight")
+plt.savefig("ode_end-time_optimised.jpg", bbox_inches="tight")
 
-# .. figure:: opt-ode_optimised.jpg
+# .. figure:: ode_end-time_optimised.jpg
 #   :figwidth: 70%
 #   :align: center
 #
 # In this final plot, we see that the optimised trajectory is right on top of the
 # analytical solution, giving a significant improvement over the Forward Euler scheme.
 #
-# This demo can also be accessed as a `Python script <opt-ode.py>`__.
+# In the `next demo <./ode_time-integrated.py.html>`__, we consider the same demo but
+# using a time-integrated QoI, as opposed to a QoI evaluated at the end time.
+#
+# This demo can also be accessed as a `Python script <ode_end-time.py>`__.
