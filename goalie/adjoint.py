@@ -120,7 +120,7 @@ class AdjointMeshSeq(MeshSeq):
             raise AttributeError(
                 "To determine controls, call the solve_adjoint method."
             )
-        return dict(zip(self.fields, self._controls))
+        return self._controls
 
     @property
     def gradient(self):
