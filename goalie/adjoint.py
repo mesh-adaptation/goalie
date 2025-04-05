@@ -542,7 +542,7 @@ class AdjointMeshSeq(MeshSeq):
                     )
 
             # Loop over prognostic variables
-            for fieldname, fs in self.function_spaces.items():
+            for fieldname, field in self.field_metadata.items():
                 # Get solve blocks
                 solve_blocks = self.get_solve_blocks(fieldname, i)
                 num_solve_blocks = len(solve_blocks)
