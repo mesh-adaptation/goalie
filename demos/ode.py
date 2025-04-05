@@ -68,8 +68,8 @@ time_partition = TimeInterval(end_time, dt, fields)
 # a :class:`~.Function` in the :math:`R`-space and assigning it the value 1. ::
 
 
-def get_initial_condition(point_seq):
-    fs = point_seq.function_spaces["u"][0]
+def get_initial_condition(mesh_seq):
+    fs = mesh_seq.function_spaces["u"][0]
     return {"u": Function(fs).assign(1.0)}
 
 
@@ -102,15 +102,15 @@ def get_initial_condition(point_seq):
 # The Forward Euler scheme may be implemented and solved as follows. ::
 
 
-def get_solver_forward_euler(point_seq):
+def get_solver_forward_euler(mesh_seq):
     def solver(index):
-        tp = point_seq.time_partition
+        tp = mesh_seq.time_partition
 
         # Get the current and lagged solutions
-        u, u_ = point_seq.field_functions["u"]
+        u, u_ = mesh_seq.field_functions["u"]
 
         # Define the (trivial) form
-        R = point_seq.function_spaces["u"][index]
+        R = mesh_seq.function_spaces["u"][index]
         dt = Function(R).assign(tp.timesteps[index])
         v = TestFunction(R)
         F = (u - u_ - dt * u_) * v * dx
@@ -133,12 +133,9 @@ def get_solver_forward_euler(point_seq):
     return solver
 
 
-# For this ODE problem, the main driver object is a :class:`~.PointSeq`, which is
-# defined in terms of the :class:`~.TimePartition` describing the time discretisation,
-# plus the functions defined above. ::
-
-point_seq = PointSeq(
+mesh_seq = MeshSeq(
     time_partition,
+    mesh,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver_forward_euler,
 )
@@ -149,7 +146,7 @@ point_seq = PointSeq(
 # solution field. For the purposes of this demo, we have field ``"u"``, which is a
 # forward solution. The resulting solution trajectory is a list. ::
 
-solutions = point_seq.solve_forward()["u"]["forward"]
+solutions = mesh_seq.solve_forward()["u"]["forward"]
 
 # Note that the solution trajectory does not include the initial value, so we prepend
 # it. We also convert the solution :class:`~.Function`\s to :class:`~.float`\s, for
@@ -190,15 +187,15 @@ plt.savefig("ode-forward_euler.jpg")
 # .. math::
 #    \int_0^1 (u_{i+1} - u_{i} - \Delta t u_{i+1}) v \mathrm{d}t, \forall v\in R.
 #
-# To apply Backward Euler we create the :class:`~.PointSeq` in the same way, just with
+# To apply Backward Euler we create the :class:`~.MeshSeq` in the same way, just with
 # `get_solver_forward_euler` substituted for `get_solver_backward_euler`. ::
 
 
-def get_solver_backward_euler(point_seq):
+def get_solver_backward_euler(mesh_seq):
     def solver(index):
-        tp = point_seq.time_partition
-        u, u_ = point_seq.field_functions["u"]
-        R = point_seq.function_spaces["u"][index]
+        tp = mesh_seq.time_partition
+        u, u_ = mesh_seq.field_functions["u"]
+        R = mesh_seq.function_spaces["u"][index]
         dt = Function(R).assign(tp.timesteps[index])
         v = TestFunction(R)
 
@@ -219,12 +216,13 @@ def get_solver_backward_euler(point_seq):
     return solver
 
 
-point_seq = PointSeq(
+mesh_seq = MeshSeq(
     time_partition,
+    mesh,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver_backward_euler,
 )
-solutions = point_seq.solve_forward()["u"]["forward"]
+solutions = mesh_seq.solve_forward()["u"]["forward"]
 
 backward_euler_trajectory = [1]
 backward_euler_trajectory += [
@@ -257,11 +255,11 @@ plt.savefig("ode-backward_euler.jpg")
 # ::
 
 
-def get_solver_crank_nicolson(point_seq):
+def get_solver_crank_nicolson(mesh_seq):
     def solver(index):
-        tp = point_seq.time_partition
-        u, u_ = point_seq.field_functions["u"]
-        R = point_seq.function_spaces["u"][index]
+        tp = mesh_seq.time_partition
+        u, u_ = mesh_seq.field_functions["u"]
+        R = mesh_seq.function_spaces["u"][index]
         dt = Function(R).assign(tp.timesteps[index])
         v = TestFunction(R)
 
@@ -283,13 +281,14 @@ def get_solver_crank_nicolson(point_seq):
     return solver
 
 
-point_seq = PointSeq(
+mesh_seq = MeshSeq(
     time_partition,
+    mesh,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver_crank_nicolson,
 )
 
-solutions = point_seq.solve_forward()["u"]["forward"]
+solutions = mesh_seq.solve_forward()["u"]["forward"]
 crank_nicolson_trajectory = [1]
 crank_nicolson_trajectory += [
     float(sol) for subinterval in solutions for sol in subinterval
