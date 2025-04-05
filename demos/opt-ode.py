@@ -34,28 +34,34 @@ from goalie_adjoint import *
 # 2. The `get_initial_condition` function needs to a set an initial value for `theta`.
 #    We set this to zero, which implies that we start with Forward Euler.
 # 3. We also reconfigure the `get_solver_theta` function so that it reads the `theta`
-#    field from the `point_seq.field_data` dictionary and uses it in the Forward Euler
-#    scheme. ::
+#    field from the `mesh_seq.field_functions` dictionary and uses it in the Forward
+#    Euler scheme. ::
 
-fields = [Field("u"), Field("theta", unsteady=False, solved_for=False)]
+mesh = VertexOnlyMesh(UnitIntervalMesh(1), [[0.5]])
+fields = [
+    Field("u", mesh=mesh, family="Real", degree=0),
+    Field(
+        "theta", mesh=mesh, family="Real", degree=0, unsteady=False, solved_for=False
+    ),
+]
 dt = 0.2
 end_time = 1
 time_partition = TimeInterval(end_time, dt, fields)
 
 
-def get_initial_condition(point_seq):
+def get_initial_condition(mesh_seq):
     return {
-        "u": Function(point_seq.function_spaces["u"][0]).assign(1.0),
-        "theta": Function(point_seq.function_spaces["theta"][0]).assign(0.0),
+        "u": Function(mesh_seq.function_spaces["u"][0]).assign(1.0),
+        "theta": Function(mesh_seq.function_spaces["theta"][0]).assign(0.0),
     }
 
 
-def get_solver_theta(point_seq):
+def get_solver_theta(mesh_seq):
     def solver(index):
-        u, u_ = point_seq.field_data["u"]
-        theta = point_seq.field_data["theta"]
-        R = point_seq.function_spaces["u"][index]
-        tp = point_seq.time_partition
+        u, u_ = mesh_seq.field_functions["u"]
+        theta = mesh_seq.field_functions["theta"]
+        R = mesh_seq.function_spaces["u"][index]
+        tp = mesh_seq.time_partition
         dt = Function(R).assign(tp.timesteps[index])
         v = TestFunction(R)
 
@@ -81,18 +87,18 @@ def get_solver_theta(point_seq):
 # numerical solution and the analytical solution at the final time. ::
 
 
-def get_qoi(point_seq, index):
+def get_qoi(mesh_seq, index):
     def end_time_qoi():
         sol = exp(1.0)
-        u = point_seq.field_data["u"][0]
+        u = mesh_seq.field_functions["u"][0]
         return inner(u - sol, u - sol) * dx
 
     return end_time_qoi
 
 
-point_seq = AdjointMeshSeq(
+mesh_seq = AdjointMeshSeq(
     time_partition,
-    VertexOnlyMesh(UnitIntervalMesh(1), [[0.5]]),
+    mesh,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver_theta,
     get_qoi=get_qoi,
@@ -101,7 +107,7 @@ point_seq = AdjointMeshSeq(
 
 # Print initial field values. ::
 
-ics = get_initial_condition(point_seq)
+ics = get_initial_condition(mesh_seq)
 for fieldname, field in ics.items():
     if isinstance(field, tuple):
         print(f"{fieldname}_0 = {float(field[0]):.4e}")
@@ -118,13 +124,13 @@ for fieldname, field in ics.items():
 # Before running the optimisation, we solve the forward and adjoint problems to
 # visualise the trajectory and the initial gradient values. ::
 
-solutions = point_seq.solve_adjoint(compute_gradient=True)
+solutions = mesh_seq.solve_adjoint(compute_gradient=True)
 
 # Print QoI value and the initial gradient values. ::
 
-J = point_seq.J
+J = mesh_seq.J
 print(f"J = {J:.4e}")
-for fieldname, gradient in point_seq.gradient.items():
+for fieldname, gradient in mesh_seq.gradient.items():
     print(f"dJ/d{fieldname} = {float(gradient):.4e}")
 
 # We have:
@@ -137,7 +143,7 @@ for fieldname, gradient in point_seq.gradient.items():
 #
 # Plot the trajectory and compare it against the analytical solution. ::
 
-forward_euler_trajectory = [float(get_initial_condition(point_seq)["u"])]
+forward_euler_trajectory = [float(get_initial_condition(mesh_seq)["u"])]
 forward_euler_trajectory += [
     float(sol) for subinterval in solutions["u"]["forward"] for sol in subinterval
 ]
@@ -172,7 +178,7 @@ print(parameters)
 # control, but this would attempt to optimise the initial condition for 'u', which is
 # not want we want here. ::
 
-optimiser = QoIOptimiser(point_seq, "theta", parameters, method="gradient_descent")
+optimiser = QoIOptimiser(mesh_seq, "theta", parameters, method="gradient_descent")
 optimiser.minimise()
 
 # This should give output similar to the following:
@@ -267,11 +273,11 @@ plt.savefig("opt-ode_qoi.jpg", bbox_inches="tight")
 #
 # To visualise the optimised trajectory, we need to solve the problem again. ::
 
-solutions = point_seq.solve_adjoint()
-J = point_seq.J
+solutions = mesh_seq.solve_adjoint()
+J = mesh_seq.J
 print(f"Optimised QoI: {J:.4e}")
-print(f"Optimised control: {float(point_seq.controls["theta"].tape_value()):.4f}")
-opt_trajectory = [float(get_initial_condition(point_seq)["u"])]
+print(f"Optimised control: {float(mesh_seq.controls["theta"].tape_value()):.4f}")
+opt_trajectory = [float(get_initial_condition(mesh_seq)["u"])]
 opt_trajectory += [
     float(sol) for subinterval in solutions["u"]["forward"] for sol in subinterval
 ]

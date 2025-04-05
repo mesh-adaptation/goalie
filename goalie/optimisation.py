@@ -44,9 +44,9 @@ class QoIOptimiser_Base(abc.ABC):
         """
         self.mesh_seq = mesh_seq
         self.control = control
-        if control not in mesh_seq.fields:
+        if control not in mesh_seq.field_metadata:
             raise ValueError("Invalid choice of control.")
-        if mesh_seq.fields[control].finite_element.family() != "Real":
+        if mesh_seq.field_metadata[control].finite_element.family() != "Real":
             raise NotImplementedError(
                 "Only controls in R-space are currently implemented."
             )
