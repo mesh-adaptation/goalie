@@ -484,11 +484,7 @@ class TestGradient_Theta_Theta(BaseTestGradient):
     def test_single_timestep_steady_qoi(self, qoi_power, u0, theta0):
         self.check_gradient(
             ThetaMethodTestMeshSeq(
-                {
-                    "qoi_power": qoi_power,
-                    "u0": u0,
-                    "theta": theta0,
-                },
+                {"qoi_power": qoi_power, "u0": u0, "theta": theta0},
                 self.time_partition(1, 1.0),
                 self.mesh,
                 qoi_type="steady",
@@ -499,11 +495,7 @@ class TestGradient_Theta_Theta(BaseTestGradient):
     def test_two_subintervals_end_time_qoi(self, qoi_power, u0, theta0):
         self.check_gradient(
             ThetaMethodTestMeshSeq(
-                {
-                    "qoi_power": qoi_power,
-                    "u0": u0,
-                    "theta": theta0,
-                },
+                {"qoi_power": qoi_power, "u0": u0, "theta": theta0},
                 self.time_partition(2, [0.25, 0.125]),
                 self.mesh,
                 qoi_type="end_time",
@@ -514,11 +506,7 @@ class TestGradient_Theta_Theta(BaseTestGradient):
     def test_two_subintervals_time_integrated_qoi(self, qoi_power, u0, theta0):
         self.check_gradient(
             ThetaMethodTestMeshSeq(
-                {
-                    "qoi_power": qoi_power,
-                    "u0": u0,
-                    "theta": theta0,
-                },
+                {"qoi_power": qoi_power, "u0": u0, "theta": theta0},
                 self.time_partition(2, [0.25, 0.125]),
                 self.mesh,
                 qoi_type="time_integrated",
