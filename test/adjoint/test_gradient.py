@@ -7,7 +7,6 @@ import unittest
 import numpy as np
 import ufl
 from firedrake.function import Function
-from firedrake.functionspace import FunctionSpace
 from firedrake.solving import solve
 from firedrake.ufl_expr import TestFunction
 from firedrake.utility_meshes import UnitIntervalMesh
@@ -59,11 +58,6 @@ class GradientTestMeshSeq(AdjointMeshSeq):
         self.initial_value = options_dict.get("initial_value", 1.0)
         self.qoi_degree = options_dict.get("qoi_degree", 2)
         self.scaling = options_dict.get("scaling", 1.2)
-
-    @staticmethod
-    def get_function_spaces(mesh):
-        R = FunctionSpace(mesh, "R", 0)
-        return {"field": R, "scaling": R}
 
     def get_initial_condition(self):
         R = self.function_spaces["field"][0]
