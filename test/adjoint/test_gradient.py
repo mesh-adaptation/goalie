@@ -217,12 +217,12 @@ class BaseTestGradient(unittest.TestCase):
 
     def check_gradient(self, mesh_seq):
         mesh_seq.solve_adjoint(compute_gradient=True)
-        self.assertTrue(
-            np.allclose(
-                mesh_seq.gradient[self.fieldname].dat.data,
-                mesh_seq.expected_gradient(self.fieldname),
-            )
-        )
+        got = mesh_seq.gradient[self.fieldname].dat.data
+        expected = mesh_seq.expected_gradient(self.fieldname)
+        test_pass = np.allclose(got, expected)
+        if not test_pass:
+            print(f"Got {got} but expected {expected}.")
+        self.assertTrue(test_pass)
 
 
 class TestGradientFieldInitialCondition(BaseTestGradient):
