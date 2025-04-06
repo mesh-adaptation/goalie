@@ -233,10 +233,23 @@ class ThetaMethodTestMeshSeq(BaseTestMeshSeq):
                 S = (1 + dt * (1 - alpha)) / (1 - dt * alpha)
                 u = S * self.initial_value
                 integrand = q * self.integrand(u) / self.initial_value
+                # TODO: Account for timesteps
             else:
                 raise NotImplementedError  # TODO: Figure out the expected values
         else:
-            raise NotImplementedError  # TODO: Figure out the expected values
+            if self.qoi_type in ("steady", "end_time"):
+                dt = tp.timesteps[-1]
+                S = (1 + dt * (1 - alpha)) / (1 - dt * alpha)
+                u = S * self.initial_value
+                dudalpha = (
+                    (dt * (dt + 1) * alpha - 2 * dt - 1)
+                    / (1 - dt * alpha) ** 2
+                    * self.initial_value
+                )
+                integrand = q * self.integrand(u) / self.initial_value * dudalpha
+                # TODO: Account for timesteps
+            else:
+                raise NotImplementedError  # TODO: Figure out the expected values
         return integrand
 
 
@@ -419,3 +432,49 @@ class TestGradient_Theta_FieldInitialCondition(BaseTestGradient):
                 qoi_type="steady",
             )
         )
+
+    # FIXME: expected_gradient doesn't currently account for timesteps
+    # @parameterized.expand(fixture_pairs_theta)
+    # def test_two_timesteps_end_time_qoi(self, qoi_degree, init_field, init_theta):
+    #     self.check_gradient(
+    #         ThetaMethodTestMeshSeq(
+    #             {
+    #                 "qoi_degree": qoi_degree,
+    #                 "initial_value": init_field,
+    #                 "scaling": init_theta,
+    #             },
+    #             self.time_partition(1, 0.5),
+    #             self.mesh,
+    #             qoi_type="end_time",
+    #         )
+    #     )
+    #
+    # TODO: def test_two_subintervals_end_time_qoi
+    # TODO: def test_two_subintervals_time_integrated_qoi
+
+
+class TestGradient_Theta_Scaling(BaseTestGradient):
+    """
+    Unit tests that check gradients with respect to the scaling can be computed
+    correctly for the theta problem.
+    """
+
+    fieldname = "alpha"
+
+    @parameterized.expand(fixture_pairs_theta)
+    def test_single_timestep_steady_qoi(self, qoi_degree, init_field, init_theta):
+        self.check_gradient(
+            ScalingTestMeshSeq(
+                {
+                    "qoi_degree": qoi_degree,
+                    "initial_value": init_field,
+                    "scaling": init_theta,
+                },
+                self.time_partition(1, 1.0),
+                self.mesh,
+                qoi_type="steady",
+            )
+        )
+
+    # TODO: def test_two_subintervals_end_time_qoi
+    # TODO: def test_two_subintervals_time_integrated_qoi
