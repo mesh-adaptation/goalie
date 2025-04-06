@@ -16,17 +16,6 @@ from goalie.adjoint import AdjointMeshSeq, annotate_qoi
 from goalie.field import Field
 from goalie.time_partition import TimeInterval, TimePartition
 
-fixture_pairs = [
-    (1, 2.3),
-    (1, 0.004),
-    (2, 7.8),
-    (2, -3),
-    (3, 0.0),
-    (3, np.exp(1)),
-    (0.5, 1.0),
-    (0.5, 4.2),
-]
-
 
 class TestExceptions(unittest.TestCase):
     """
@@ -57,13 +46,15 @@ class GradientTestMeshSeq(AdjointMeshSeq):
         super().__init__(*args, **kwargs)
         self.initial_value = options_dict.get("initial_value", 1.0)
         self.qoi_degree = options_dict.get("qoi_degree", 2)
-        self.scaling = options_dict.get("scaling", 1.2)
+        self.scaling = options_dict.get("alpha", 1.2)
+        self.power = options_dict.get("power", 1)
 
     def get_initial_condition(self):
         R = self.function_spaces["field"][0]
-        u = Function(R).assign(self.initial_value)
-        scaling = Function(R).assign(self.scaling)
-        return {"field": u, "scaling": scaling}
+        return {
+            "field": Function(R).assign(self.initial_value),
+            "alpha": Function(R).assign(self.scaling),
+        }
 
     def get_solver(self):
         def solver(index):
@@ -77,9 +68,9 @@ class GradientTestMeshSeq(AdjointMeshSeq):
             else:
                 u = self.field_functions["field"]
                 u_ = Function(fs, name="field_old").assign(u)
-            scaling = self.field_functions["scaling"]
+            alpha = self.field_functions["alpha"]
             v = TestFunction(fs)
-            F = u * v * ufl.dx - scaling * u_ * v * ufl.dx
+            F = u * v * ufl.dx - alpha**self.power * u_ * v * ufl.dx
 
             # Scale the initial condition at each timestep
             t_start, t_end = self.subintervals[index]
@@ -131,16 +122,17 @@ class GradientTestMeshSeq(AdjointMeshSeq):
         """
         Method for determining the expected value of the gradient.
         """
-        assert field in ("field", "scaling")
+        assert field in ("field", "alpha")
         tp = self.time_partition
         N = tp.num_timesteps
         q = self.qoi_degree
         alpha = self.scaling
+        p = self.power
         if field == "field":
             if self.qoi_type in ("steady", "end_time"):
                 # In the steady and end-time cases, the gradient accumulates the scale
                 # factor as many times as there are timesteps
-                integrand = self.integrand(alpha**N)
+                integrand = self.integrand(alpha ** (p * N))
             else:
                 # In the time-integrated case, the gradient becomes a sum, where each
                 # term accumulates an additional scale factor in each timestep. Each
@@ -152,11 +144,16 @@ class GradientTestMeshSeq(AdjointMeshSeq):
                     dt = tp.timesteps[subinterval]
                     for _ in range(tp.num_timesteps_per_subinterval[subinterval]):
                         k += 1
-                        integrand += dt * self.integrand(alpha**k)
+                        integrand += dt * self.integrand(alpha ** (p * k))
             return integrand * q * self.initial_value ** (q - 1)
         else:
             if self.qoi_type in ("steady", "end_time"):
-                return N * q * self.integrand(alpha**N * self.initial_value) / alpha
+                return (
+                    (p * N)
+                    * q
+                    * self.integrand(alpha ** (p * N) * self.initial_value)
+                    / alpha
+                )
             else:
                 integrand = 0
                 k = 0
@@ -164,11 +161,28 @@ class GradientTestMeshSeq(AdjointMeshSeq):
                     dt = tp.timesteps[subinterval]
                     for _ in range(tp.num_timesteps_per_subinterval[subinterval]):
                         k += 1
-                        multiplier = dt * k * q / alpha
+                        multiplier = dt * p * k * q / alpha
                         integrand += multiplier * self.integrand(
-                            alpha**k * self.initial_value
+                            alpha ** (p * k) * self.initial_value
                         )
                 return integrand
+
+
+# First entry: power of field in QoI
+# Second entry: initial value for field
+fixture_pairs = [
+    (1, 2.3),
+    (1, 0.004),
+    (2, 7.8),
+    (2, -3),
+    (3, 0.0),
+    (3, np.exp(1)),
+    (0.5, 1.0),
+    (0.5, 4.2),
+]
+
+# Third entry: power of scaling in form
+fixture_triples = [tup + (i,) for tup in fixture_pairs for i in range(4)]
 
 
 class TestGradientFieldInitialCondition(unittest.TestCase):
@@ -181,7 +195,7 @@ class TestGradientFieldInitialCondition(unittest.TestCase):
         unsteady = num_subintervals > 1 or not np.allclose(dt, 1.0)
         fields = [
             Field("field", unsteady=unsteady),
-            Field("scaling", unsteady=False, solved_for=False),
+            Field("alpha", unsteady=False, solved_for=False),
         ]
         return TimePartition(1.0, num_subintervals, dt, fields)
 
@@ -260,14 +274,15 @@ class TestGradientScaling(unittest.TestCase):
         unsteady = num_subintervals > 1 or not np.allclose(dt, 1.0)
         fields = [
             Field("field", unsteady=unsteady),
-            Field("scaling", unsteady=False, solved_for=False),
+            Field("alpha", unsteady=False, solved_for=False),
         ]
         return TimePartition(1.0, num_subintervals, dt, fields)
 
-    @parameterized.expand(fixture_pairs)
-    def test_single_timestep_steady_qoi(self, qoi_degree, initial_value):
+    @parameterized.expand(fixture_triples)
+    def test_single_timestep_steady_qoi(self, qoi_degree, init_value, power):
+        kw = {"qoi_degree": qoi_degree, "initial_value": init_value, "power": power}
         mesh_seq = GradientTestMeshSeq(
-            {"qoi_degree": qoi_degree, "initial_value": initial_value},
+            kw,
             self.time_partition(1, 1.0),
             UnitIntervalMesh(1),
             qoi_type="steady",
@@ -275,15 +290,16 @@ class TestGradientScaling(unittest.TestCase):
         mesh_seq.solve_adjoint(compute_gradient=True)
         self.assertTrue(
             np.allclose(
-                mesh_seq.gradient["scaling"].dat.data,
-                mesh_seq.expected_gradient("scaling"),
+                mesh_seq.gradient["alpha"].dat.data,
+                mesh_seq.expected_gradient("alpha"),
             )
         )
 
-    @parameterized.expand(fixture_pairs)
-    def test_two_subintervals_end_time_qoi(self, qoi_degree, initial_value):
+    @parameterized.expand(fixture_triples)
+    def test_two_subintervals_end_time_qoi(self, qoi_degree, init_value, power):
+        kw = {"qoi_degree": qoi_degree, "initial_value": init_value, "power": power}
         mesh_seq = GradientTestMeshSeq(
-            {"qoi_degree": qoi_degree, "initial_value": initial_value},
+            kw,
             self.time_partition(2, [0.25, 0.125]),
             UnitIntervalMesh(1),
             qoi_type="end_time",
@@ -291,15 +307,16 @@ class TestGradientScaling(unittest.TestCase):
         mesh_seq.solve_adjoint(compute_gradient=True)
         self.assertTrue(
             np.allclose(
-                mesh_seq.gradient["scaling"].dat.data,
-                mesh_seq.expected_gradient("scaling"),
+                mesh_seq.gradient["alpha"].dat.data,
+                mesh_seq.expected_gradient("alpha"),
             )
         )
 
-    @parameterized.expand(fixture_pairs)
-    def test_two_subintervals_time_integrated_qoi(self, qoi_degree, initial_value):
+    @parameterized.expand(fixture_triples)
+    def test_two_subintervals_time_integrated_qoi(self, qoi_degree, init_value, power):
+        kw = {"qoi_degree": qoi_degree, "initial_value": init_value, "power": power}
         mesh_seq = GradientTestMeshSeq(
-            {"qoi_degree": qoi_degree, "initial_value": initial_value},
+            kw,
             self.time_partition(2, [0.25, 0.125]),
             UnitIntervalMesh(1),
             qoi_type="time_integrated",
@@ -307,7 +324,7 @@ class TestGradientScaling(unittest.TestCase):
         mesh_seq.solve_adjoint(compute_gradient=True)
         self.assertTrue(
             np.allclose(
-                mesh_seq.gradient["scaling"].dat.data,
-                mesh_seq.expected_gradient("scaling"),
+                mesh_seq.gradient["alpha"].dat.data,
+                mesh_seq.expected_gradient("alpha"),
             )
         )
