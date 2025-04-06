@@ -160,7 +160,7 @@ class ScalingTestMeshSeq(BaseTestMeshSeq):
         else:
             if self.qoi_type in ("steady", "end_time"):
                 multiplier = p * N * q / alpha
-                return multiplier * self.integrand(alpha ** (p * N) * self.u0)
+                integrand = multiplier * self.integrand(alpha ** (p * N) * self.u0)
             else:
                 integrand = 0
                 k = 0
@@ -172,12 +172,12 @@ class ScalingTestMeshSeq(BaseTestMeshSeq):
                         integrand += multiplier * self.integrand(
                             alpha ** (p * k) * self.u0
                         )
-                return integrand
+            return integrand
 
 
 class ThetaMethodTestMeshSeq(BaseTestMeshSeq):
     """
-    MeshSeq defining a theta-timestepper test problem.
+    MeshSeq defining a theta-timestepper test problem applied to :math:`y = e^t`.
     """
 
     def get_solver(self):
@@ -219,36 +219,47 @@ class ThetaMethodTestMeshSeq(BaseTestMeshSeq):
         """
         assert field in ("field", "alpha")
         tp = self.time_partition
-        # N = tp.num_timesteps
+        N = tp.num_timesteps
         q = self.qoi_power
         alpha = self.scaling
-        # p = self.scaling_power
         if field == "field":
             if self.qoi_type in ("steady", "end_time"):
                 # In the steady and end-time cases, the gradient accumulates the scale
                 # factor as many times as there are timesteps
                 dt = tp.timesteps[-1]
                 S = (1 + dt * (1 - alpha)) / (1 - dt * alpha)
-                u = S * self.u0
-                integrand = q * self.integrand(u) / self.u0
-                # TODO: Account for timesteps
+                integrand = self.integrand(S**N)
+                # FIXME: multiple timesteps gives incorrect answers
             else:
-                raise NotImplementedError  # TODO: Figure out the expected values
+                # In the time-integrated case, the gradient becomes a sum, where each
+                # term accumulates an additional scale factor in each timestep. Each
+                # contribution is multiplied by the timestep on the corresponding
+                # subinterval
+                integrand = 0
+                k = 0
+                for subinterval in range(tp.num_subintervals):
+                    dt = tp.timesteps[subinterval]
+                    S = (1 + dt * (1 - alpha)) / (1 - dt * alpha)
+                    for _ in range(tp.num_timesteps_per_subinterval[subinterval]):
+                        k += 1
+                        integrand += dt * self.integrand(S**k)
+                # FIXME: incorrect answers
+            return integrand * q * self.u0 ** (q - 1)
         else:
             if self.qoi_type in ("steady", "end_time"):
                 dt = tp.timesteps[-1]
                 S = (1 + dt * (1 - alpha)) / (1 - dt * alpha)
-                u = S * self.u0
+                u = S**N * self.u0
                 dudalpha = (
                     (dt * (dt + 1) * alpha - 2 * dt - 1)
                     / (1 - dt * alpha) ** 2
                     * self.u0
                 )
                 integrand = q * self.integrand(u) / self.u0 * dudalpha
-                # TODO: Account for timesteps
+                # FIXME: incorrect answers
             else:
                 raise NotImplementedError  # TODO: Figure out the expected values
-        return integrand
+            return integrand
 
 
 # First entry: scaling_power of field in QoI
@@ -417,33 +428,51 @@ class TestGradient_Theta_FieldInitialCondition(BaseTestGradient):
     fieldname = "field"
 
     @parameterized.expand(fixture_pairs_theta)
-    def test_single_timestep_steady_qoi(self, qoi_power, init_field, init_theta):
+    def test_single_timestep_steady_qoi(self, qoi_power, u0, theta0):
         self.check_gradient(
             ThetaMethodTestMeshSeq(
-                {"qoi_power": qoi_power, "u0": init_field, "theta": init_theta},
+                {"qoi_power": qoi_power, "u0": u0, "theta": theta0},
                 self.time_partition(1, 1.0),
                 self.mesh,
                 qoi_type="steady",
             )
         )
 
-    # FIXME: expected_gradient doesn't currently account for timesteps
-    # @parameterized.expand(fixture_pairs_theta)
-    # def test_two_timesteps_end_time_qoi(self, qoi_power, init_field, init_theta):
-    #     self.check_gradient(
-    #         ThetaMethodTestMeshSeq(
-    #             {"qoi_power": qoi_power, "u0": init_field, "theta": init_theta},
-    #             self.time_partition(1, 0.5),
-    #             self.mesh,
-    #             qoi_type="end_time",
-    #         )
-    #     )
-    #
-    # TODO: def test_two_subintervals_end_time_qoi
-    # TODO: def test_two_subintervals_time_integrated_qoi
+    @parameterized.expand(fixture_pairs_theta)
+    def test_two_timesteps_end_time_qoi(self, qoi_power, u0, theta0):
+        self.check_gradient(
+            ThetaMethodTestMeshSeq(
+                {"qoi_power": qoi_power, "u0": u0, "theta": theta0},
+                self.time_partition(1, 0.5),
+                self.mesh,
+                qoi_type="end_time",
+            )
+        )
+
+    @parameterized.expand(fixture_pairs_theta)
+    def test_two_subintervals_end_time_qoi(self, qoi_power, u0, theta0):
+        self.check_gradient(
+            ThetaMethodTestMeshSeq(
+                {"qoi_power": qoi_power, "u0": u0, "theta": theta0},
+                self.time_partition(2, [0.25, 0.125]),
+                self.mesh,
+                qoi_type="end_time",
+            )
+        )
+
+    @parameterized.expand(fixture_pairs_theta)
+    def test_two_subintervals_time_integrated_qoi(self, qoi_power, u0, theta0):
+        self.check_gradient(
+            ThetaMethodTestMeshSeq(
+                {"qoi_power": qoi_power, "u0": u0, "theta": theta0},
+                self.time_partition(2, [0.25, 0.125]),
+                self.mesh,
+                qoi_type="time_integrated",
+            )
+        )
 
 
-class TestGradient_Theta_Scaling(BaseTestGradient):
+class TestGradient_Theta_Theta(BaseTestGradient):
     """
     Unit tests that check gradients with respect to the scaling can be computed
     correctly for the theta problem.
@@ -452,13 +481,13 @@ class TestGradient_Theta_Scaling(BaseTestGradient):
     fieldname = "alpha"
 
     @parameterized.expand(fixture_pairs_theta)
-    def test_single_timestep_steady_qoi(self, qoi_power, init_field, init_theta):
+    def test_single_timestep_steady_qoi(self, qoi_power, u0, theta0):
         self.check_gradient(
-            ScalingTestMeshSeq(
+            ThetaMethodTestMeshSeq(
                 {
                     "qoi_power": qoi_power,
-                    "u0": init_field,
-                    "theta": init_theta,
+                    "u0": u0,
+                    "theta": theta0,
                 },
                 self.time_partition(1, 1.0),
                 self.mesh,
@@ -466,5 +495,32 @@ class TestGradient_Theta_Scaling(BaseTestGradient):
             )
         )
 
-    # TODO: def test_two_subintervals_end_time_qoi
-    # TODO: def test_two_subintervals_time_integrated_qoi
+    @parameterized.expand(fixture_pairs_theta)
+    def test_two_subintervals_end_time_qoi(self, qoi_power, u0, theta0):
+        self.check_gradient(
+            ThetaMethodTestMeshSeq(
+                {
+                    "qoi_power": qoi_power,
+                    "u0": u0,
+                    "theta": theta0,
+                },
+                self.time_partition(2, [0.25, 0.125]),
+                self.mesh,
+                qoi_type="end_time",
+            )
+        )
+
+    @parameterized.expand(fixture_pairs_theta)
+    def test_two_subintervals_time_integrated_qoi(self, qoi_power, u0, theta0):
+        self.check_gradient(
+            ThetaMethodTestMeshSeq(
+                {
+                    "qoi_power": qoi_power,
+                    "u0": u0,
+                    "theta": theta0,
+                },
+                self.time_partition(2, [0.25, 0.125]),
+                self.mesh,
+                qoi_type="time_integrated",
+            )
+        )
