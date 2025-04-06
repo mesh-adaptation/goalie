@@ -46,14 +46,14 @@ class BaseTestMeshSeq(AdjointMeshSeq):
         super().__init__(*args, **kwargs)
         self.u0 = options_dict.get("u0", 1.0)
         self.qoi_power = options_dict.get("qoi_power", 2)
-        self.scaling = options_dict.get("alpha", 1.2)
+        self.scaling = options_dict.get("theta", 1.2)
         self.scaling_power = options_dict.get("scaling_power", 1)
 
     def get_initial_condition(self):
         R = self.function_spaces["field"][0]
         return {
             "field": Function(R).assign(self.u0),
-            "alpha": Function(R).assign(self.scaling),
+            "theta": Function(R).assign(self.scaling),
         }
 
     def integrand(self):
@@ -103,9 +103,9 @@ class ScalingTestMeshSeq(BaseTestMeshSeq):
             else:
                 u = self.field_functions["field"]
                 u_ = Function(fs, name="field_old").assign(u)
-            alpha = self.field_functions["alpha"]
+            theta = self.field_functions["theta"]
             v = TestFunction(fs)
-            F = u * v * ufl.dx - alpha**self.scaling_power * u_ * v * ufl.dx
+            F = u * v * ufl.dx - theta**self.scaling_power * u_ * v * ufl.dx
 
             # Scale the initial condition at each timestep
             t_start, t_end = self.subintervals[index]
@@ -133,17 +133,17 @@ class ScalingTestMeshSeq(BaseTestMeshSeq):
         """
         Method for determining the expected value of the gradient.
         """
-        assert field in ("field", "alpha")
+        assert field in ("field", "theta")
         tp = self.time_partition
         N = tp.num_timesteps
         q = self.qoi_power
-        alpha = self.scaling
+        theta = self.scaling
         p = self.scaling_power
         if field == "field":
             if self.qoi_type in ("steady", "end_time"):
                 # In the steady and end-time cases, the gradient accumulates the scale
                 # factor as many times as there are timesteps
-                integrand = self.integrand(alpha ** (p * N))
+                integrand = self.integrand(theta ** (p * N))
             else:
                 # In the time-integrated case, the gradient becomes a sum, where each
                 # term accumulates an additional scale factor in each timestep. Each
@@ -155,12 +155,12 @@ class ScalingTestMeshSeq(BaseTestMeshSeq):
                     dt = tp.timesteps[subinterval]
                     for _ in range(tp.num_timesteps_per_subinterval[subinterval]):
                         k += 1
-                        integrand += dt * self.integrand(alpha ** (p * k))
+                        integrand += dt * self.integrand(theta ** (p * k))
             return integrand * q * self.u0 ** (q - 1)
         else:
             if self.qoi_type in ("steady", "end_time"):
-                multiplier = p * N * q / alpha
-                integrand = multiplier * self.integrand(alpha ** (p * N) * self.u0)
+                multiplier = p * N * q / theta
+                integrand = multiplier * self.integrand(theta ** (p * N) * self.u0)
             else:
                 integrand = 0
                 k = 0
@@ -168,9 +168,9 @@ class ScalingTestMeshSeq(BaseTestMeshSeq):
                     dt = tp.timesteps[subinterval]
                     for _ in range(tp.num_timesteps_per_subinterval[subinterval]):
                         k += 1
-                        multiplier = dt * p * k * q / alpha
+                        multiplier = dt * p * k * q / theta
                         integrand += multiplier * self.integrand(
-                            alpha ** (p * k) * self.u0
+                            theta ** (p * k) * self.u0
                         )
             return integrand
 
@@ -189,9 +189,9 @@ class ThetaMethodTestMeshSeq(BaseTestMeshSeq):
             else:
                 u = self.field_functions["field"]
                 u_ = Function(fs, name="field_old").assign(u)
-            alpha = self.field_functions["alpha"]
+            theta = self.field_functions["theta"]
             v = TestFunction(fs)
-            F = (u - u_) * v * ufl.dx - (alpha * u + (1 - alpha) * u_) * v * ufl.dx
+            F = (u - u_) * v * ufl.dx - (theta * u + (1 - theta) * u_) * v * ufl.dx
 
             # Scale the initial condition at each timestep
             t_start, t_end = self.subintervals[index]
@@ -217,17 +217,19 @@ class ThetaMethodTestMeshSeq(BaseTestMeshSeq):
         """
         Method for determining the expected value of the gradient.
         """
-        assert field in ("field", "alpha")
+        assert field in ("field", "theta")
         tp = self.time_partition
         N = tp.num_timesteps
         q = self.qoi_power
-        alpha = self.scaling
+        theta = self.scaling
         if field == "field":
             if self.qoi_type in ("steady", "end_time"):
                 # In the steady and end-time cases, the gradient accumulates the scale
                 # factor as many times as there are timesteps
                 dt = tp.timesteps[-1]
-                S = (1 + dt * (1 - alpha)) / (1 - dt * alpha)
+                print(dt)
+                S = (1 + dt * (1 - theta)) / (1 - dt * theta)
+                print(S)
                 integrand = self.integrand(S**N)
                 # FIXME: multiple timesteps gives incorrect answers
             else:
@@ -239,7 +241,7 @@ class ThetaMethodTestMeshSeq(BaseTestMeshSeq):
                 k = 0
                 for subinterval in range(tp.num_subintervals):
                     dt = tp.timesteps[subinterval]
-                    S = (1 + dt * (1 - alpha)) / (1 - dt * alpha)
+                    S = (1 + dt * (1 - theta)) / (1 - dt * theta)
                     for _ in range(tp.num_timesteps_per_subinterval[subinterval]):
                         k += 1
                         integrand += dt * self.integrand(S**k)
@@ -248,14 +250,14 @@ class ThetaMethodTestMeshSeq(BaseTestMeshSeq):
         else:
             if self.qoi_type in ("steady", "end_time"):
                 dt = tp.timesteps[-1]
-                S = (1 + dt * (1 - alpha)) / (1 - dt * alpha)
+                S = (1 + dt * (1 - theta)) / (1 - dt * theta)
                 u = S**N * self.u0
-                dudalpha = (
-                    (dt * (dt + 1) * alpha - 2 * dt - 1)
-                    / (1 - dt * alpha) ** 2
+                dudtheta = (
+                    (dt * (dt + 1) * theta - 2 * dt - 1)
+                    / (1 - dt * theta) ** 2
                     * self.u0
                 )
-                integrand = q * self.integrand(u) / self.u0 * dudalpha
+                integrand = q * self.integrand(u) / self.u0 * dudtheta
                 # FIXME: incorrect answers
             else:
                 raise NotImplementedError  # TODO: Figure out the expected values
@@ -286,12 +288,12 @@ fixture_triples_scaling = [
 # Second entry: initial value for field
 # Third entry: initial value for theta parameter
 fixture_pairs_theta = [
-    (1, 2.3, 0.0),
+    (1, 2.3, 0.01),
     (1, -37, 0.5),
-    (1, 0.004, 1.0),
-    (2, 7.8, 0.0),
+    (1, 0.004, 0.99),
+    (2, 7.8, 0.01),
     (2, 0.223, 0.5),
-    (2, -3, 1.0),
+    (2, -3, 0.99),
 ]
 
 
@@ -310,7 +312,7 @@ class BaseTestGradient(unittest.TestCase):
         unsteady = num_subintervals > 1 or not np.allclose(dt, 1.0)
         fields = [
             Field("field", unsteady=unsteady),
-            Field("alpha", unsteady=False, solved_for=False),
+            Field("theta", unsteady=False, solved_for=False),
         ]
         return TimePartition(1.0, num_subintervals, dt, fields)
 
@@ -383,7 +385,7 @@ class TestGradient_Scaling_Scaling(BaseTestGradient):
     correctly for the scaling problem.
     """
 
-    fieldname = "alpha"
+    fieldname = "theta"
 
     @parameterized.expand(fixture_triples_scaling)
     def test_single_timestep_steady_qoi(self, qoi_power, u0, scaling_power):
@@ -478,7 +480,7 @@ class TestGradient_Theta_Theta(BaseTestGradient):
     correctly for the theta problem.
     """
 
-    fieldname = "alpha"
+    fieldname = "theta"
 
     @parameterized.expand(fixture_pairs_theta)
     def test_single_timestep_steady_qoi(self, qoi_power, u0, theta0):
