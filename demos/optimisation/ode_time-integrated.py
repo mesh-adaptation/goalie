@@ -67,18 +67,26 @@ def get_solver_theta(mesh_seq):
 # Recall that the ODE problem has an analytical solution (:math:`u(t) = e^t`),
 # so we can artificially set the quantity of interest to be the $L^2$ error between the
 # numerical solution and the analytical solution. This time, we integrate the difference
-# in time, rather than just computing a spatial :math:`L^2` error at the end time. ::
+# in time, rather than just computing a spatial :math:`L^2` error at the end time. We
+# use a time integration approach consistent with the :math:`\theta`-method being used
+# in the solver. ::
 
 
 def get_qoi(mesh_seq, index):
-    R = FunctionSpace(mesh_seq[index], "R", 0)
-    dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
+    R = mesh_seq.function_spaces["u"][index]
+    dt = mesh_seq.time_partition.timesteps[index]
+    dtc = Function(R).assign(dt)
+    u, u_ = mesh_seq.field_functions["u"]
+    theta = mesh_seq.field_functions["theta"]
+
+    # Functions for holding analytical solution values
     sol = Function(R)
+    sol_ = Function(R)
 
     def time_integrated_qoi(t):
         sol.assign(exp(t))
-        u = mesh_seq.field_functions["u"][0]
-        return dt * inner(u - sol, u - sol) * dx
+        sol_.assign(exp(t - dt))
+        return dtc * (theta * (u - sol) + (1 - theta) * (u_ - sol_)) ** 2 * dx
 
     return time_integrated_qoi
 
