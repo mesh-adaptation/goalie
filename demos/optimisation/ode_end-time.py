@@ -65,6 +65,12 @@ def get_solver_theta(mesh_seq):
         dt = Function(R).assign(tp.timesteps[index])
         v = TestFunction(R)
 
+        # Check validity of theta value
+        if float(theta) < 0.0:
+            raise ValueError(f"Negative theta={float(theta):.4f} invalid.")
+        if float(theta) > 1.0:
+            raise ValueError(f"theta={float(theta):.4f} greater than 1 invalid.")
+
         F = (u - u_ - dt * (theta * u + (1 - theta) * u_)) * v * dx
 
         sp = {"ksp_type": "preonly", "pc_type": "jacobi"}
