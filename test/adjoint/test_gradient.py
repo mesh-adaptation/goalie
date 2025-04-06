@@ -37,9 +37,9 @@ class TestExceptions(unittest.TestCase):
         self.assertEqual(str(cm.exception), msg)
 
 
-class GradientTestMeshSeq(AdjointMeshSeq):
+class BaseTestMeshSeq(AdjointMeshSeq):
     """
-    Custom MeshSeq that accepts options to define the test problem.
+    Base class for MeshSeqs for testing gradient computations.
     """
 
     def __init__(self, options_dict, *args, **kwargs):
@@ -55,6 +55,41 @@ class GradientTestMeshSeq(AdjointMeshSeq):
             "field": Function(R).assign(self.initial_value),
             "alpha": Function(R).assign(self.scaling),
         }
+
+    def integrand(self):
+        raise NotImplementedError("Need to implement integrand")
+
+    @annotate_qoi
+    def get_qoi(self, index):
+        """
+        Various QoIs as determined by the `integrand` method.
+        """
+
+        def steady_qoi():
+            return self.integrand(self.field_functions["field"]) * ufl.dx
+
+        def end_time_qoi():
+            return self.integrand(self.field_functions["field"][0]) * ufl.dx
+
+        def time_integrated_qoi(t):
+            dt = self.time_partition.timesteps[index]
+            return dt * self.integrand(self.field_functions["field"][0]) * ufl.dx
+
+        if self.qoi_type == "steady":
+            return steady_qoi
+        elif self.qoi_type == "end_time":
+            return end_time_qoi
+        else:
+            return time_integrated_qoi
+
+    def expected_gradient(self):
+        raise NotImplementedError("Need to implement expected_gradient")
+
+
+class ScalingTestMeshSeq(BaseTestMeshSeq):
+    """
+    MeshSeq defining a simple scaling test problem.
+    """
 
     def get_solver(self):
         def solver(index):
@@ -94,30 +129,6 @@ class GradientTestMeshSeq(AdjointMeshSeq):
         """
         return ufl.pi * u**self.qoi_degree
 
-    @annotate_qoi
-    def get_qoi(self, index):
-        """
-        Various QoIs as determined by the `qoi_degree` option.
-        """
-        tp = self.time_partition
-
-        def steady_qoi():
-            return self.integrand(self.field_functions["field"]) * ufl.dx
-
-        def end_time_qoi():
-            return self.integrand(self.field_functions["field"][0]) * ufl.dx
-
-        def time_integrated_qoi(t):
-            dt = tp.timesteps[index]
-            return dt * self.integrand(self.field_functions["field"][0]) * ufl.dx
-
-        if self.qoi_type == "steady":
-            return steady_qoi
-        elif self.qoi_type == "end_time":
-            return end_time_qoi
-        else:
-            return time_integrated_qoi
-
     def expected_gradient(self, field):
         """
         Method for determining the expected value of the gradient.
@@ -148,11 +159,9 @@ class GradientTestMeshSeq(AdjointMeshSeq):
             return integrand * q * self.initial_value ** (q - 1)
         else:
             if self.qoi_type in ("steady", "end_time"):
-                return (
-                    (p * N)
-                    * q
-                    * self.integrand(alpha ** (p * N) * self.initial_value)
-                    / alpha
+                multiplier = p * N * q / alpha
+                return multiplier * self.integrand(
+                    alpha ** (p * N) * self.initial_value
                 )
             else:
                 integrand = 0
@@ -181,150 +190,131 @@ fixture_pairs = [
     (0.5, 4.2),
 ]
 
+# First entry: power of field in QoI
+# Second entry: initial value for field
 # Third entry: power of scaling in form
 fixture_triples = [tup + (i,) for tup in fixture_pairs for i in range(4)]
 
 
-class TestGradientFieldInitialCondition(unittest.TestCase):
+class BaseTestGradient(unittest.TestCase):
+    """
+    Base class for unit tests that check gradients can be computed correctly.
+    """
+
+    fieldname = None
+
+    def setUp(self):
+        assert self.fieldname is not None
+        self.mesh = UnitIntervalMesh(1)
+
+    def time_partition(self, num_subintervals, dt):
+        unsteady = num_subintervals > 1 or not np.allclose(dt, 1.0)
+        fields = [
+            Field("field", unsteady=unsteady),
+            Field("alpha", unsteady=False, solved_for=False),
+        ]
+        return TimePartition(1.0, num_subintervals, dt, fields)
+
+    def check_gradient(self, mesh_seq):
+        mesh_seq.solve_adjoint(compute_gradient=True)
+        self.assertTrue(
+            np.allclose(
+                mesh_seq.gradient[self.fieldname].dat.data,
+                mesh_seq.expected_gradient(self.fieldname),
+            )
+        )
+
+
+class TestGradientFieldInitialCondition(BaseTestGradient):
     """
     Unit tests that check gradients with respect to the initial condition of the field
     can be computed correctly.
     """
 
-    def time_partition(self, num_subintervals, dt):
-        unsteady = num_subintervals > 1 or not np.allclose(dt, 1.0)
-        fields = [
-            Field("field", unsteady=unsteady),
-            Field("alpha", unsteady=False, solved_for=False),
-        ]
-        return TimePartition(1.0, num_subintervals, dt, fields)
+    fieldname = "field"
 
     @parameterized.expand(fixture_pairs)
     def test_single_timestep_steady_qoi(self, qoi_degree, initial_value):
-        mesh_seq = GradientTestMeshSeq(
-            {"qoi_degree": qoi_degree, "initial_value": initial_value},
-            self.time_partition(1, 1.0),
-            UnitIntervalMesh(1),
-            qoi_type="steady",
-        )
-        mesh_seq.solve_adjoint(compute_gradient=True)
-        self.assertTrue(
-            np.allclose(
-                mesh_seq.gradient["field"].dat.data,
-                mesh_seq.expected_gradient("field"),
+        self.check_gradient(
+            ScalingTestMeshSeq(
+                {"qoi_degree": qoi_degree, "initial_value": initial_value},
+                self.time_partition(1, 1.0),
+                self.mesh,
+                qoi_type="steady",
             )
         )
 
     @parameterized.expand(fixture_pairs)
     def test_two_timesteps_end_time_qoi(self, qoi_degree, initial_value):
-        mesh_seq = GradientTestMeshSeq(
-            {"qoi_degree": qoi_degree, "initial_value": initial_value},
-            self.time_partition(1, 0.5),
-            UnitIntervalMesh(1),
-            qoi_type="end_time",
-        )
-        mesh_seq.solve_adjoint(compute_gradient=True)
-        self.assertTrue(
-            np.allclose(
-                mesh_seq.gradient["field"].dat.data,
-                mesh_seq.expected_gradient("field"),
+        self.check_gradient(
+            ScalingTestMeshSeq(
+                {"qoi_degree": qoi_degree, "initial_value": initial_value},
+                self.time_partition(1, 0.5),
+                self.mesh,
+                qoi_type="end_time",
             )
         )
 
     @parameterized.expand(fixture_pairs)
     def test_two_subintervals_end_time_qoi(self, qoi_degree, initial_value):
-        mesh_seq = GradientTestMeshSeq(
-            {"qoi_degree": qoi_degree, "initial_value": initial_value},
-            self.time_partition(2, [0.25, 0.125]),
-            UnitIntervalMesh(1),
-            qoi_type="end_time",
-        )
-        mesh_seq.solve_adjoint(compute_gradient=True)
-        self.assertTrue(
-            np.allclose(
-                mesh_seq.gradient["field"].dat.data,
-                mesh_seq.expected_gradient("field"),
+        self.check_gradient(
+            ScalingTestMeshSeq(
+                {"qoi_degree": qoi_degree, "initial_value": initial_value},
+                self.time_partition(2, [0.25, 0.125]),
+                self.mesh,
+                qoi_type="end_time",
             )
         )
 
     @parameterized.expand(fixture_pairs)
     def test_two_subintervals_time_integrated_qoi(self, qoi_degree, initial_value):
-        mesh_seq = GradientTestMeshSeq(
-            {"qoi_degree": qoi_degree, "initial_value": initial_value},
-            self.time_partition(2, [0.25, 0.125]),
-            UnitIntervalMesh(1),
-            qoi_type="time_integrated",
-        )
-        mesh_seq.solve_adjoint(compute_gradient=True)
-        self.assertTrue(
-            np.allclose(
-                mesh_seq.gradient["field"].dat.data,
-                mesh_seq.expected_gradient("field"),
+        self.check_gradient(
+            ScalingTestMeshSeq(
+                {"qoi_degree": qoi_degree, "initial_value": initial_value},
+                self.time_partition(2, [0.25, 0.125]),
+                self.mesh,
+                qoi_type="time_integrated",
             )
         )
 
 
-class TestGradientScaling(unittest.TestCase):
+class TestGradientScaling(BaseTestGradient):
     """
     Unit tests that check gradients with respect to the scaling can be computed
     correctly.
     """
 
-    def time_partition(self, num_subintervals, dt):
-        unsteady = num_subintervals > 1 or not np.allclose(dt, 1.0)
-        fields = [
-            Field("field", unsteady=unsteady),
-            Field("alpha", unsteady=False, solved_for=False),
-        ]
-        return TimePartition(1.0, num_subintervals, dt, fields)
+    fieldname = "alpha"
 
     @parameterized.expand(fixture_triples)
     def test_single_timestep_steady_qoi(self, qoi_degree, init_value, power):
-        kw = {"qoi_degree": qoi_degree, "initial_value": init_value, "power": power}
-        mesh_seq = GradientTestMeshSeq(
-            kw,
-            self.time_partition(1, 1.0),
-            UnitIntervalMesh(1),
-            qoi_type="steady",
-        )
-        mesh_seq.solve_adjoint(compute_gradient=True)
-        self.assertTrue(
-            np.allclose(
-                mesh_seq.gradient["alpha"].dat.data,
-                mesh_seq.expected_gradient("alpha"),
+        self.check_gradient(
+            ScalingTestMeshSeq(
+                {"qoi_degree": qoi_degree, "initial_value": init_value, "power": power},
+                self.time_partition(1, 1.0),
+                self.mesh,
+                qoi_type="steady",
             )
         )
 
     @parameterized.expand(fixture_triples)
     def test_two_subintervals_end_time_qoi(self, qoi_degree, init_value, power):
-        kw = {"qoi_degree": qoi_degree, "initial_value": init_value, "power": power}
-        mesh_seq = GradientTestMeshSeq(
-            kw,
-            self.time_partition(2, [0.25, 0.125]),
-            UnitIntervalMesh(1),
-            qoi_type="end_time",
-        )
-        mesh_seq.solve_adjoint(compute_gradient=True)
-        self.assertTrue(
-            np.allclose(
-                mesh_seq.gradient["alpha"].dat.data,
-                mesh_seq.expected_gradient("alpha"),
+        self.check_gradient(
+            ScalingTestMeshSeq(
+                {"qoi_degree": qoi_degree, "initial_value": init_value, "power": power},
+                self.time_partition(2, [0.25, 0.125]),
+                self.mesh,
+                qoi_type="end_time",
             )
         )
 
     @parameterized.expand(fixture_triples)
     def test_two_subintervals_time_integrated_qoi(self, qoi_degree, init_value, power):
-        kw = {"qoi_degree": qoi_degree, "initial_value": init_value, "power": power}
-        mesh_seq = GradientTestMeshSeq(
-            kw,
-            self.time_partition(2, [0.25, 0.125]),
-            UnitIntervalMesh(1),
-            qoi_type="time_integrated",
-        )
-        mesh_seq.solve_adjoint(compute_gradient=True)
-        self.assertTrue(
-            np.allclose(
-                mesh_seq.gradient["alpha"].dat.data,
-                mesh_seq.expected_gradient("alpha"),
+        self.check_gradient(
+            ScalingTestMeshSeq(
+                {"qoi_degree": qoi_degree, "initial_value": init_value, "power": power},
+                self.time_partition(2, [0.25, 0.125]),
+                self.mesh,
+                qoi_type="time_integrated",
             )
         )
