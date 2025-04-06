@@ -44,15 +44,15 @@ class BaseTestMeshSeq(AdjointMeshSeq):
 
     def __init__(self, options_dict, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.initial_value = options_dict.get("initial_value", 1.0)
-        self.qoi_degree = options_dict.get("qoi_degree", 2)
+        self.u0 = options_dict.get("u0", 1.0)
+        self.qoi_power = options_dict.get("qoi_power", 2)
         self.scaling = options_dict.get("alpha", 1.2)
-        self.power = options_dict.get("power", 1)
+        self.scaling_power = options_dict.get("scaling_power", 1)
 
     def get_initial_condition(self):
         R = self.function_spaces["field"][0]
         return {
-            "field": Function(R).assign(self.initial_value),
+            "field": Function(R).assign(self.u0),
             "alpha": Function(R).assign(self.scaling),
         }
 
@@ -105,7 +105,7 @@ class ScalingTestMeshSeq(BaseTestMeshSeq):
                 u_ = Function(fs, name="field_old").assign(u)
             alpha = self.field_functions["alpha"]
             v = TestFunction(fs)
-            F = u * v * ufl.dx - alpha**self.power * u_ * v * ufl.dx
+            F = u * v * ufl.dx - alpha**self.scaling_power * u_ * v * ufl.dx
 
             # Scale the initial condition at each timestep
             t_start, t_end = self.subintervals[index]
@@ -127,7 +127,7 @@ class ScalingTestMeshSeq(BaseTestMeshSeq):
         """
         Expression for the integrand of the QoI in terms of the solution field.
         """
-        return ufl.pi * u**self.qoi_degree
+        return ufl.pi * u**self.qoi_power
 
     def expected_gradient(self, field):
         """
@@ -136,9 +136,9 @@ class ScalingTestMeshSeq(BaseTestMeshSeq):
         assert field in ("field", "alpha")
         tp = self.time_partition
         N = tp.num_timesteps
-        q = self.qoi_degree
+        q = self.qoi_power
         alpha = self.scaling
-        p = self.power
+        p = self.scaling_power
         if field == "field":
             if self.qoi_type in ("steady", "end_time"):
                 # In the steady and end-time cases, the gradient accumulates the scale
@@ -156,13 +156,11 @@ class ScalingTestMeshSeq(BaseTestMeshSeq):
                     for _ in range(tp.num_timesteps_per_subinterval[subinterval]):
                         k += 1
                         integrand += dt * self.integrand(alpha ** (p * k))
-            return integrand * q * self.initial_value ** (q - 1)
+            return integrand * q * self.u0 ** (q - 1)
         else:
             if self.qoi_type in ("steady", "end_time"):
                 multiplier = p * N * q / alpha
-                return multiplier * self.integrand(
-                    alpha ** (p * N) * self.initial_value
-                )
+                return multiplier * self.integrand(alpha ** (p * N) * self.u0)
             else:
                 integrand = 0
                 k = 0
@@ -172,7 +170,7 @@ class ScalingTestMeshSeq(BaseTestMeshSeq):
                         k += 1
                         multiplier = dt * p * k * q / alpha
                         integrand += multiplier * self.integrand(
-                            alpha ** (p * k) * self.initial_value
+                            alpha ** (p * k) * self.u0
                         )
                 return integrand
 
@@ -213,7 +211,7 @@ class ThetaMethodTestMeshSeq(BaseTestMeshSeq):
 
     def integrand(self, u):
         # TODO: Use consistent theta method
-        return u**self.qoi_degree
+        return u**self.qoi_power
 
     def expected_gradient(self, field):
         """
@@ -222,17 +220,17 @@ class ThetaMethodTestMeshSeq(BaseTestMeshSeq):
         assert field in ("field", "alpha")
         tp = self.time_partition
         # N = tp.num_timesteps
-        q = self.qoi_degree
+        q = self.qoi_power
         alpha = self.scaling
-        # p = self.power
+        # p = self.scaling_power
         if field == "field":
             if self.qoi_type in ("steady", "end_time"):
                 # In the steady and end-time cases, the gradient accumulates the scale
                 # factor as many times as there are timesteps
                 dt = tp.timesteps[-1]
                 S = (1 + dt * (1 - alpha)) / (1 - dt * alpha)
-                u = S * self.initial_value
-                integrand = q * self.integrand(u) / self.initial_value
+                u = S * self.u0
+                integrand = q * self.integrand(u) / self.u0
                 # TODO: Account for timesteps
             else:
                 raise NotImplementedError  # TODO: Figure out the expected values
@@ -240,20 +238,20 @@ class ThetaMethodTestMeshSeq(BaseTestMeshSeq):
             if self.qoi_type in ("steady", "end_time"):
                 dt = tp.timesteps[-1]
                 S = (1 + dt * (1 - alpha)) / (1 - dt * alpha)
-                u = S * self.initial_value
+                u = S * self.u0
                 dudalpha = (
                     (dt * (dt + 1) * alpha - 2 * dt - 1)
                     / (1 - dt * alpha) ** 2
-                    * self.initial_value
+                    * self.u0
                 )
-                integrand = q * self.integrand(u) / self.initial_value * dudalpha
+                integrand = q * self.integrand(u) / self.u0 * dudalpha
                 # TODO: Account for timesteps
             else:
                 raise NotImplementedError  # TODO: Figure out the expected values
         return integrand
 
 
-# First entry: power of field in QoI
+# First entry: scaling_power of field in QoI
 # Second entry: initial value for field
 fixture_pairs_scaling = [
     (1, 2.3),
@@ -266,14 +264,14 @@ fixture_pairs_scaling = [
     (0.5, 4.2),
 ]
 
-# First entry: power of field in QoI
+# First entry: scaling_power of field in QoI
 # Second entry: initial value for field
-# Third entry: power of scaling in form
+# Third entry: scaling_power of scaling in form
 fixture_triples_scaling = [
     tup + (i,) for tup in fixture_pairs_scaling for i in range(4)
 ]
 
-# First entry: power of field in QoI
+# First entry: scaling_power of field in QoI
 # Second entry: initial value for field
 # Third entry: initial value for theta parameter
 fixture_pairs_theta = [
@@ -324,10 +322,10 @@ class TestGradient_Scaling_FieldInitialCondition(BaseTestGradient):
     fieldname = "field"
 
     @parameterized.expand(fixture_pairs_scaling)
-    def test_single_timestep_steady_qoi(self, qoi_degree, initial_value):
+    def test_single_timestep_steady_qoi(self, qoi_power, u0):
         self.check_gradient(
             ScalingTestMeshSeq(
-                {"qoi_degree": qoi_degree, "initial_value": initial_value},
+                {"qoi_power": qoi_power, "u0": u0},
                 self.time_partition(1, 1.0),
                 self.mesh,
                 qoi_type="steady",
@@ -335,10 +333,10 @@ class TestGradient_Scaling_FieldInitialCondition(BaseTestGradient):
         )
 
     @parameterized.expand(fixture_pairs_scaling)
-    def test_two_timesteps_end_time_qoi(self, qoi_degree, initial_value):
+    def test_two_timesteps_end_time_qoi(self, qoi_power, u0):
         self.check_gradient(
             ScalingTestMeshSeq(
-                {"qoi_degree": qoi_degree, "initial_value": initial_value},
+                {"qoi_power": qoi_power, "u0": u0},
                 self.time_partition(1, 0.5),
                 self.mesh,
                 qoi_type="end_time",
@@ -346,10 +344,10 @@ class TestGradient_Scaling_FieldInitialCondition(BaseTestGradient):
         )
 
     @parameterized.expand(fixture_pairs_scaling)
-    def test_two_subintervals_end_time_qoi(self, qoi_degree, initial_value):
+    def test_two_subintervals_end_time_qoi(self, qoi_power, u0):
         self.check_gradient(
             ScalingTestMeshSeq(
-                {"qoi_degree": qoi_degree, "initial_value": initial_value},
+                {"qoi_power": qoi_power, "u0": u0},
                 self.time_partition(2, [0.25, 0.125]),
                 self.mesh,
                 qoi_type="end_time",
@@ -357,10 +355,10 @@ class TestGradient_Scaling_FieldInitialCondition(BaseTestGradient):
         )
 
     @parameterized.expand(fixture_pairs_scaling)
-    def test_two_subintervals_time_integrated_qoi(self, qoi_degree, initial_value):
+    def test_two_subintervals_time_integrated_qoi(self, qoi_power, u0):
         self.check_gradient(
             ScalingTestMeshSeq(
-                {"qoi_degree": qoi_degree, "initial_value": initial_value},
+                {"qoi_power": qoi_power, "u0": u0},
                 self.time_partition(2, [0.25, 0.125]),
                 self.mesh,
                 qoi_type="time_integrated",
@@ -377,10 +375,10 @@ class TestGradient_Scaling_Scaling(BaseTestGradient):
     fieldname = "alpha"
 
     @parameterized.expand(fixture_triples_scaling)
-    def test_single_timestep_steady_qoi(self, qoi_degree, init_value, power):
+    def test_single_timestep_steady_qoi(self, qoi_power, u0, scaling_power):
         self.check_gradient(
             ScalingTestMeshSeq(
-                {"qoi_degree": qoi_degree, "initial_value": init_value, "power": power},
+                {"qoi_power": qoi_power, "u0": u0, "scaling_power": scaling_power},
                 self.time_partition(1, 1.0),
                 self.mesh,
                 qoi_type="steady",
@@ -388,10 +386,10 @@ class TestGradient_Scaling_Scaling(BaseTestGradient):
         )
 
     @parameterized.expand(fixture_triples_scaling)
-    def test_two_subintervals_end_time_qoi(self, qoi_degree, init_value, power):
+    def test_two_subintervals_end_time_qoi(self, qoi_power, u0, scaling_power):
         self.check_gradient(
             ScalingTestMeshSeq(
-                {"qoi_degree": qoi_degree, "initial_value": init_value, "power": power},
+                {"qoi_power": qoi_power, "u0": u0, "scaling_power": scaling_power},
                 self.time_partition(2, [0.25, 0.125]),
                 self.mesh,
                 qoi_type="end_time",
@@ -399,10 +397,10 @@ class TestGradient_Scaling_Scaling(BaseTestGradient):
         )
 
     @parameterized.expand(fixture_triples_scaling)
-    def test_two_subintervals_time_integrated_qoi(self, qoi_degree, init_value, power):
+    def test_two_subintervals_time_integrated_qoi(self, qoi_power, u0, scaling_power):
         self.check_gradient(
             ScalingTestMeshSeq(
-                {"qoi_degree": qoi_degree, "initial_value": init_value, "power": power},
+                {"qoi_power": qoi_power, "u0": u0, "scaling_power": scaling_power},
                 self.time_partition(2, [0.25, 0.125]),
                 self.mesh,
                 qoi_type="time_integrated",
@@ -419,14 +417,10 @@ class TestGradient_Theta_FieldInitialCondition(BaseTestGradient):
     fieldname = "field"
 
     @parameterized.expand(fixture_pairs_theta)
-    def test_single_timestep_steady_qoi(self, qoi_degree, init_field, init_theta):
+    def test_single_timestep_steady_qoi(self, qoi_power, init_field, init_theta):
         self.check_gradient(
             ThetaMethodTestMeshSeq(
-                {
-                    "qoi_degree": qoi_degree,
-                    "initial_value": init_field,
-                    "scaling": init_theta,
-                },
+                {"qoi_power": qoi_power, "u0": init_field, "theta": init_theta},
                 self.time_partition(1, 1.0),
                 self.mesh,
                 qoi_type="steady",
@@ -435,14 +429,10 @@ class TestGradient_Theta_FieldInitialCondition(BaseTestGradient):
 
     # FIXME: expected_gradient doesn't currently account for timesteps
     # @parameterized.expand(fixture_pairs_theta)
-    # def test_two_timesteps_end_time_qoi(self, qoi_degree, init_field, init_theta):
+    # def test_two_timesteps_end_time_qoi(self, qoi_power, init_field, init_theta):
     #     self.check_gradient(
     #         ThetaMethodTestMeshSeq(
-    #             {
-    #                 "qoi_degree": qoi_degree,
-    #                 "initial_value": init_field,
-    #                 "scaling": init_theta,
-    #             },
+    #             {"qoi_power": qoi_power, "u0": init_field, "theta": init_theta},
     #             self.time_partition(1, 0.5),
     #             self.mesh,
     #             qoi_type="end_time",
@@ -462,13 +452,13 @@ class TestGradient_Theta_Scaling(BaseTestGradient):
     fieldname = "alpha"
 
     @parameterized.expand(fixture_pairs_theta)
-    def test_single_timestep_steady_qoi(self, qoi_degree, init_field, init_theta):
+    def test_single_timestep_steady_qoi(self, qoi_power, init_field, init_theta):
         self.check_gradient(
             ScalingTestMeshSeq(
                 {
-                    "qoi_degree": qoi_degree,
-                    "initial_value": init_field,
-                    "scaling": init_theta,
+                    "qoi_power": qoi_power,
+                    "u0": init_field,
+                    "theta": init_theta,
                 },
                 self.time_partition(1, 1.0),
                 self.mesh,
