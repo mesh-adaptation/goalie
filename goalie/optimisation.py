@@ -144,7 +144,7 @@ class QoIOptimiser_Base(abc.ABC):
                 raise ConvergenceError("QoI divergence detected")
 
             # Check for gradient convergence
-            if dJ / self.progress["gradient"][0] < params.gtol:
+            if abs(dJ / self.progress["gradient"][0]) < params.gtol:
                 print("Gradient convergence detected")
                 return
         raise ConvergenceError("Reached maximum number of iterations")
