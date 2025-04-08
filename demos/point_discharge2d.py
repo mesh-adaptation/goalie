@@ -33,7 +33,7 @@ from goalie_adjoint import *
 # We solve the advection-diffusion problem in :math:`\mathbb P1` space. ::
 
 mesh = RectangleMesh(200, 40, 50, 10)
-fields = [Field("c", mesh=mesh, family="Lagrange", degree=1, unsteady=False)]
+fields = [Field("c", family="Lagrange", degree=1, unsteady=False)]
 
 # Point sources are difficult to represent in numerical models. Here we
 # follow :cite:`Wallwork:2022` in using a Gaussian approximation. Let

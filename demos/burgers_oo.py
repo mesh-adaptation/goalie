@@ -96,7 +96,7 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
 
 n = 32
 meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
-fields = [Field("u", family="Lagrange", mesh=meshes[0], degree=2, vector=True)]
+fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 end_time = 0.5
 dt = 1 / n
