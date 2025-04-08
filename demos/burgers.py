@@ -41,9 +41,9 @@ def get_function_spaces(mesh):
 
 
 # The solution :class:`Function`\s are automatically built on the function spaces given
-# by the :func:`get_function_spaces` function and are accessed via the :attr:`fields`
-# attribute of the :class:`MeshSeq`. This attribute provides a dictionary of tuples
-# containing the current and lagged solutions for each field.
+# by the :func:`get_function_spaces` function and are accessed via the
+# :attr:`field_functions` attribute of the :class:`MeshSeq`. This attribute provides a
+# dictionary of tuples containing the current and lagged solutions for each field.
 #
 # In order to solve the PDE, we need to choose a time integration routine and solver
 # parameters for the underlying linear and nonlinear systems. This is achieved below by
