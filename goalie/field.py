@@ -27,10 +27,11 @@ class Field:
         The finite element for the Field should be set either using the `finite_element`
         keyword argument or a combination of the `mesh`, `family`, `degree`, `vfamily`,
         `vdegree`, and/or `variant` keyword arguments. For details on these arguments,
-        see :class:`firedrake.functionspace.FunctionSpace`.
-
-        If neither are specified, the default finite element is a scalar Real space on
-        and interval.
+        see :class:`firedrake.functionspace.FunctionSpace`. 
+        
+        If the `finite_element` keyword argument is specified, these other arguments are
+        ignored. If neither are specified, the default finite element is a scalar Real
+        space on an interval.
 
         To account for mixed and tensor elements, please fully specify the element and
         pass it via the `finite_element` keyword argument.
@@ -100,7 +101,7 @@ class Field:
         """
         Given a mesh, return the finite element associated with the field.
 
-        :arg mesh: The mesh to use for the finite element.
+        :arg mesh: The mesh to determine the cell from.
         :type mesh: :class:`~.Mesh`
         :return: The finite element associated with the field.
         :rtype: An appropriate subclass of :class:`~.FiniteElementBase`
@@ -131,7 +132,7 @@ class Field:
         """
         Given a mesh, return the function space associated with the field.
 
-        :arg mesh: The mesh to use for the function space.
+        :arg mesh: The mesh to determine the cell from.
         :type mesh: :class:`~.Mesh`
         :return: The function space associated with the field.
         :rtype: :class:`~firedrake.functionspaceimpl.FunctionSpace`

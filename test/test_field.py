@@ -77,19 +77,16 @@ class TestGetElement(unittest.TestCase):
     """Test `get_element` method of Field class."""
 
     def test_make_scalar_element_error1(self):
-        # AttributeError: 'str' object has no attribute 'topology'
         field = Field("field", family="Real")
         with self.assertRaises(AttributeError):
             field.get_element("mesh")
 
     def test_make_scalar_element_error2(self):
-        # ValueError: Unknown finite element 'family'
         field = Field("field", family="family")
         with self.assertRaises(ValueError):
             field.get_element(mesh1d())
 
     def test_make_scalar_element_error3(self):
-        # ValueError: Order -1 invalid for 'Real' finite element
         field = Field("field", family="Real", degree=-1)
         with self.assertRaises(ValueError):
             field.get_element(mesh1d())
