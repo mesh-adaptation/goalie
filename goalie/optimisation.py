@@ -26,6 +26,7 @@ class OptimisationProgress(AttrDict):
         self["control"] = []
         self["gradient"] = []
         self["hessian"] = []
+        self["count"] = []
 
 
 class QoIOptimiser_Base(abc.ABC):
@@ -55,6 +56,7 @@ class QoIOptimiser_Base(abc.ABC):
         self.params = params
         self.progress = OptimisationProgress()
         self.progress["control"].append(float(mesh_seq.field_functions[self.control]))
+        self.progress["count"].append(1)
         print(f"it= 0, {float(mesh_seq.field_functions[self.control]):.4e}")
 
     def line_search(self, P, u, J, dJ):
@@ -133,6 +135,7 @@ class QoIOptimiser_Base(abc.ABC):
             self.progress["control"].append(u)
             self.progress["qoi"].append(J)
             self.progress["gradient"].append(dJ)
+            self.progress["count"].append(len(self.progress["control"]))
             if it == 0:
                 continue
 
