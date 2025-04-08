@@ -4,7 +4,7 @@ from finat.ufl import (
     FiniteElementBase,
     VectorElement,
 )
-from firedrake.functionspace import make_scalar_element
+from firedrake.functionspace import FunctionSpace, make_scalar_element
 
 
 class Field:
@@ -49,36 +49,26 @@ class Field:
         """
         assert isinstance(name, str), "Field name must be a string."
         self.name = name
-        if finite_element is None:
-            if kwargs:
-                finite_element = make_scalar_element(
-                    kwargs.pop("mesh", None),
-                    kwargs.pop("family", None),
-                    kwargs.pop("degree", None),
-                    kwargs.pop("vfamily", None),
-                    kwargs.pop("vdegree", None),
-                    kwargs.pop("variant", None),
+        if finite_element is not None:
+            if not isinstance(finite_element, FiniteElementBase):
+                raise TypeError(
+                    "Field finite element must be a FiniteElement, MixedElement,"
+                    " VectorElement, or TensorElement object."
                 )
-            else:
-                finite_element = FiniteElement("Real", ufl.interval, 0)
-            if vector is None:
-                vector = False
-            if vector:
-                finite_element = VectorElement(
-                    finite_element, dim=finite_element.cell.topological_dimension()
-                )
-        elif vector is not None:
-            raise ValueError(
-                "The finite_element and vector arguments cannot be used in conjunction."
+            if vector is not None:
+                raise ValueError(
+                    "The finite_element and vector arguments cannot be used in"
+                    " conjunction."
             )
-        if not isinstance(finite_element, FiniteElementBase):
-            raise TypeError(
-                "Field finite element must be a FiniteElement, MixedElement,"
-                " VectorElement, or TensorElement object."
-            )
+        self.finite_element = finite_element
+        self.vector = False if vector is None else vector
+        self.family = kwargs.pop("family", None)
+        self.degree = kwargs.pop("degree", None)
+        self.vfamily = kwargs.pop("vfamily", None)
+        self.vdegree = kwargs.pop("vdegree", None)
+        self.variant = kwargs.pop("variant", None)
         if kwargs:
             raise ValueError(f"Unexpected keyword argument '{list(kwargs.keys())[0]}'.")
-        self.finite_element = finite_element
         assert isinstance(solved_for, bool), "'solved_for' argument must be a bool"
         self.solved_for = solved_for
         assert isinstance(unsteady, bool), "'unsteady' argument must be a bool"
@@ -105,3 +95,46 @@ class Field:
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def get_element(self, mesh):
+        """
+        Given a mesh, return the finite element associated with the field.
+
+        :arg mesh: The mesh to use for the finite element.
+        :type mesh: :class:`~.Mesh`
+        :return: The finite element associated with the field.
+        :rtype: An appropriate subclass of :class:`~.FiniteElementBase`
+        """
+        if self.finite_element is not None:
+            assert self.finite_element.cell == mesh.coordinates.ufl_element().cell
+            return self.finite_element
+
+        if self.family is not None:
+            finite_element = make_scalar_element(
+                mesh,
+                self.family,
+                self.degree,
+                self.vfamily,
+                self.vdegree,
+                self.variant,
+            )
+
+            if self.vector:
+                finite_element = VectorElement(
+                    finite_element, dim=finite_element.cell.topological_dimension()
+                )
+            return finite_element
+
+        return FiniteElement("Real", ufl.interval, 0)
+
+    def get_function_space(self, mesh):
+        """
+        Given a mesh, return the function space associated with the field.
+
+        :arg mesh: The mesh to use for the function space.
+        :type mesh: :class:`~.Mesh`
+        :return: The function space associated with the field.
+        :rtype: :class:`~firedrake.functionspaceimpl.FunctionSpace`
+        """
+        finite_element = self.get_element(mesh)
+        return FunctionSpace(mesh, finite_element)
