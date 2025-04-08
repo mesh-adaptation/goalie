@@ -39,7 +39,7 @@ class BaseClasses:
         def setUp(self):
             mesh = UnitSquareMesh(1, 1)
             self.meshes = [mesh]
-            self.field = Field("field", mesh=mesh, family="Real", degree=0)
+            self.field = Field("field", family="Real", degree=0)
 
     class TrivialGoalOrientedBaseClass(unittest.TestCase):
         """
@@ -73,7 +73,7 @@ class BaseClasses:
         def setUp(self):
             mesh = UnitSquareMesh(1, 1)
             self.meshes = [mesh]
-            self.field = Field("field", mesh=mesh, family="Real", degree=0)
+            self.field = Field("field", family="Real", degree=0)
 
         def go_mesh_seq(self, coeff_diff=0.0):
             self.time_partition = TimePartition(1.0, 1, 0.5, [self.field])

@@ -32,21 +32,9 @@ class TestExceptions(unittest.TestCase):
     Firedrake.
     """
 
-    def test_make_scalar_element_error1(self):
-        with self.assertRaises(AttributeError):
-            Field("field", mesh="mesh", family="Real")
-
-    def test_make_scalar_element_error2(self):
-        with self.assertRaises(ValueError):
-            Field("field", mesh=mesh1d(), family="family")
-
-    def test_make_scalar_element_error3(self):
-        with self.assertRaises(ValueError):
-            Field("field", mesh=mesh1d(), family="Real", degree=-1)
-
     def test_unexpected_kwarg_error(self):
         with self.assertRaises(ValueError) as cm:
-            Field("field", mesh=mesh1d(), family="Real", degree=0, kwarg="blah")
+            Field("field", family="Real", degree=0, kwarg="blah")
         self.assertEqual(str(cm.exception), "Unexpected keyword argument 'kwarg'.")
 
     def test_element_and_rank_error(self):
@@ -85,23 +73,44 @@ class TestInit(unittest.TestCase):
         self.assertFalse(field.solved_for)
         self.assertFalse(field.unsteady)
 
+class TestGetElement(unittest.TestCase):
+    """Test `get_element` method of Field class."""
+
+    def test_make_scalar_element_error1(self):
+        # AttributeError: 'str' object has no attribute 'topology'
+        field = Field("field", family="Real")
+        with self.assertRaises(AttributeError):
+            field.get_element("mesh")
+
+    def test_make_scalar_element_error2(self):
+        # ValueError: Unknown finite element 'family'
+        field = Field("field", family="family")
+        with self.assertRaises(ValueError):
+            field.get_element(mesh1d())
+
+    def test_make_scalar_element_error3(self):
+        # ValueError: Order -1 invalid for 'Real' finite element
+        field = Field("field", family="Real", degree=-1)
+        with self.assertRaises(ValueError):
+            field.get_element(mesh1d())
+
     def test_field_alternative_real(self):
         field = Field(
             name="field",
-            mesh=mesh1d(),
             family="Real",
             degree=0,
         )
-        self.assertEqual(field.finite_element, real_element())
+        finite_element = field.get_element(mesh1d())
+        self.assertEqual(finite_element, real_element())
 
     def test_field_alternative_p1(self):
         field = Field(
             name="field",
-            mesh=mesh2d(),
             family="Lagrange",
             degree=1,
         )
-        self.assertEqual(field.finite_element, p1_element())
+        finite_element = field.get_element(mesh2d())
+        self.assertEqual(finite_element, p1_element())
 
 
 class TestInterrogation(unittest.TestCase):
