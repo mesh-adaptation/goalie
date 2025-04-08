@@ -102,7 +102,7 @@ class Field:
         Given a mesh, return the finite element associated with the field.
 
         :arg mesh: The mesh to determine the cell from.
-        :type mesh: :class:`~.Mesh`
+        :type mesh: :class:`~.firedrake.mesh.MeshGeometry`
         :return: The finite element associated with the field.
         :rtype: An appropriate subclass of :class:`~.FiniteElementBase`
         """
@@ -133,7 +133,7 @@ class Field:
         Given a mesh, return the function space associated with the field.
 
         :arg mesh: The mesh to determine the cell from.
-        :type mesh: :class:`~.Mesh`
+        :type mesh: :class:`~.firedrake.mesh.MeshGeometry`
         :return: The function space associated with the field.
         :rtype: :class:`~firedrake.functionspaceimpl.FunctionSpace`
         """
