@@ -6,7 +6,9 @@ import abc
 
 import numpy as np
 import pyadjoint
-from firedrake import ConvergenceError
+import ufl
+from firedrake.assemble import assemble
+from firedrake.exceptions import ConvergenceError
 
 from .log import log
 from .utility import AttrDict
@@ -170,15 +172,13 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
         P = dJ.copy(deepcopy=True)
         P *= -1
 
-        # FIXME:
-        # # Barzilai-Borwein formula
-        # if len(self.progress["control"]) > 0:
-        #     u_prev = self.progress["control"][-1]
-        #     dJ_prev = self.progress["gradient"][-1]
-        #     dJ_diff = assemble(ufl.inner(dJ_prev - dJ, dJ_prev - dJ) * ufl.dx)
-        #     lr = abs(assemble(ufl.inner(u_prev - u, dJ_prev - dJ) * ufl.dx) / dJ_diff)
-        #     print(u_prev, dJ_prev, float(u), float(dJ), lr)
-        #     self.params.lr = max(lr, self.params.lr_min)
+        # Barzilai-Borwein formula
+        if len(self.progress["control"]) > 1:
+            u_prev = self.progress["control"][-2]
+            dJ_prev = self.progress["gradient"][-1]
+            dJ_diff = assemble(ufl.inner(dJ_prev - dJ, dJ_prev - dJ) * ufl.dx)
+            lr = abs(assemble(ufl.inner(u_prev - u, dJ_prev - dJ) * ufl.dx) / dJ_diff)
+            self.params.lr = max(lr, self.params.lr_min)
 
         # Take a step downhill
         u.dat.data[:] += self.params.lr * P.dat.data
