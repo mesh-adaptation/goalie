@@ -52,6 +52,8 @@ class QoIOptimiser_Base(abc.ABC):
             )
         self.params = params
         self.progress = OptimisationProgress()
+        self.progress["control"].append(float(mesh_seq.field_functions[self.control]))
+        print(f"it= 0, {float(mesh_seq.field_functions[self.control]):.4e}")
 
     def line_search(self, P, u, J, dJ):
         """
@@ -121,7 +123,7 @@ class QoIOptimiser_Base(abc.ABC):
             J, dJ, u = (float(x) for x in self.step())
             print(
                 f"it={it+1:2d}, "
-                f"u={u:.4e}, "
+                f"{self.control}={u:.4e}, "
                 f"J={J:.4e}, "
                 f"dJ={dJ:.4e}, "
                 f"lr={self.params.lr:.4e}"
