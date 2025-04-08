@@ -34,7 +34,7 @@ class TestAdjointMeshSeqGeneric(unittest.TestCase):
     """
 
     def setUp(self):
-        self.time_interval = TimeInterval(1.0, [0.5], Field("field"))
+        self.time_interval = TimeInterval(1.0, [0.5], Field("field", family="Real"))
         self.meshes = [UnitTriangleMesh()]
 
     def test_qoi_type_error(self):

@@ -1,6 +1,4 @@
-import ufl
 from finat.ufl import (
-    FiniteElement,
     FiniteElementBase,
     VectorElement,
 )
@@ -27,11 +25,8 @@ class Field:
         The finite element for the Field should be set either using the `finite_element`
         keyword argument or a combination of the `mesh`, `family`, `degree`, `vfamily`,
         `vdegree`, and/or `variant` keyword arguments. For details on these arguments,
-        see :class:`firedrake.functionspace.FunctionSpace`. 
-        
-        If the `finite_element` keyword argument is specified, these other arguments are
-        ignored. If neither are specified, the default finite element is a scalar Real
-        space.
+        see :class:`firedrake.functionspace.FunctionSpace`. If the `finite_element`
+        keyword argument is specified, these other arguments are ignored.
 
         To account for mixed and tensor elements, please fully specify the element and
         pass it via the `finite_element` keyword argument.
@@ -61,6 +56,8 @@ class Field:
                     "The finite_element and vector arguments cannot be used in"
                     " conjunction."
             )
+        elif kwargs.get("family") is None:
+            raise ValueError("Either the finite_element or family must be specified.")
         self.finite_element = finite_element
         self.vector = False if vector is None else vector
         self.family = kwargs.pop("family", None)
@@ -110,23 +107,20 @@ class Field:
             assert self.finite_element.cell == mesh.coordinates.ufl_element().cell
             return self.finite_element
 
-        if self.family is not None:
-            finite_element = make_scalar_element(
-                mesh,
-                self.family,
-                self.degree,
-                self.vfamily,
-                self.vdegree,
-                self.variant,
+        finite_element = make_scalar_element(
+            mesh,
+            self.family,
+            self.degree,
+            self.vfamily,
+            self.vdegree,
+            self.variant,
+        )
+
+        if self.vector:
+            finite_element = VectorElement(
+                finite_element, dim=finite_element.cell.topological_dimension()
             )
-
-            if self.vector:
-                finite_element = VectorElement(
-                    finite_element, dim=finite_element.cell.topological_dimension()
-                )
-            return finite_element
-
-        return FiniteElement("Real", ufl.interval, 0)
+        return finite_element
 
     def get_function_space(self, mesh):
         """

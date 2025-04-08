@@ -15,7 +15,7 @@ class BaseTestCase(unittest.TestCase):
 
     def setUp(self):
         self.end_time = 1.0
-        self.field = Field("field")
+        self.field = Field("field", family="Real")
         self.field_metadata_list = [self.field]
         self.field_metadata_dict = {"field": self.field}
 
@@ -123,7 +123,7 @@ class TestExceptions(BaseTestCase):
 
     def test_inconsistent_fieldname_valueerror(self):
         with self.assertRaises(ValueError) as cm:
-            TimeInstant({"field1": Field("field2")})
+            TimeInstant({"field1": Field("field2", family="Real")})
         msg = "Inconstent field names passed as field_metadata."
         self.assertEqual(str(cm.exception), msg)
 
@@ -182,7 +182,7 @@ class TestSetup(BaseTestCase):
 
     def test_time_instant_eq_negative(self):
         time_instant1 = TimeInstant(self.field, time=1.0)
-        time_instant2 = TimeInstant(Field("f"), time=1.0)
+        time_instant2 = TimeInstant(Field("f", family="Real"), time=1.0)
         self.assertFalse(time_instant1 == time_instant2)
 
     def test_time_instant_ne_positive(self):

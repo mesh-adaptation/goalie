@@ -52,6 +52,11 @@ class TestExceptions(unittest.TestCase):
         )
         self.assertEqual(str(cm.exception), msg)
 
+    def test_insufficient_arguments(self):
+        with self.assertRaises(ValueError) as cm:
+            Field("field")
+        msg = ("Either the finite_element or family must be specified.")
+        self.assertEqual(str(cm.exception), msg)
 
 class TestInit(unittest.TestCase):
     """Test initialisation of Field class."""

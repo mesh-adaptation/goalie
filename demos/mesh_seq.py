@@ -22,7 +22,7 @@ set_log_level(DEBUG)
 # Consider the final subinterval from the previous demo. ::
 
 end_time = 1.0
-fields = [Field("solution")]
+fields = [Field("solution", family="Real")]
 dt = [0.125, 0.0625]
 subintervals = [(0.0, 0.75), (0.75, 1.0)]
 time_partition = TimePartition(
