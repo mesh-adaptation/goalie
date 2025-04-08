@@ -32,8 +32,8 @@ class Field:
         If neither are specified, the default finite element is a scalar Real space on
         and interval.
 
-        To account for tensor elements, please fully specify the element using the
-        `finite_element` keyword argument.
+        To account for mixed and tensor elements, please fully specify the element and
+        pass it via the `finite_element` keyword argument.
 
         :arg name: The name of the field.
         :type name: :class:`str`
