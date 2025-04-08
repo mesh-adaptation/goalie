@@ -31,7 +31,7 @@ class Field:
         
         If the `finite_element` keyword argument is specified, these other arguments are
         ignored. If neither are specified, the default finite element is a scalar Real
-        space on an interval.
+        space.
 
         To account for mixed and tensor elements, please fully specify the element and
         pass it via the `finite_element` keyword argument.
