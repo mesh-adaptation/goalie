@@ -542,7 +542,7 @@ class AdjointMeshSeq(MeshSeq):
                     )
 
             # Loop over prognostic variables
-            for fieldname, fs in self.function_spaces.items():
+            for fieldname, field in self.field_metadata.items():
                 # Get solve blocks
                 solve_blocks = self.get_solve_blocks(fieldname, i)
                 num_solve_blocks = len(solve_blocks)
@@ -551,11 +551,12 @@ class AdjointMeshSeq(MeshSeq):
                         "Looks like no solves were written to tape!"
                         " Does the solution depend on the initial condition?"
                     )
-                if fs[0].ufl_element() != solve_blocks[0].function_space.ufl_element():
+                finite_element = field.finite_element
+                sb_element0 = solve_blocks[0].function_space.ufl_element()
+                if finite_element != sb_element0:
                     raise ValueError(
                         f"Solve block list for field '{fieldname}' contains mismatching"
-                        f" finite elements: ({fs[0].ufl_element()} vs. "
-                        f" {solve_blocks[0].function_space.ufl_element()})"
+                        f" finite elements: ({finite_element} vs. {sb_element0})"
                     )
 
                 # Detect whether we have a steady problem

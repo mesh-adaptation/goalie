@@ -65,14 +65,18 @@ class BaseClasses:
                 parameters=parameters,
             )
 
-    class GoalOrientedBaseClass(RSpaceTestCase):
+    class GoalOrientedBaseClass(unittest.TestCase):
         """
         Base class for tests with a complete :class:`GoalOrientedMeshSeq`.
         """
 
+        def setUp(self):
+            mesh = UnitSquareMesh(1, 1)
+            self.meshes = [mesh]
+            self.field = Field("field", mesh=mesh, family="Real", degree=0)
+
         def go_mesh_seq(self, coeff_diff=0.0):
             self.time_partition = TimePartition(1.0, 1, 0.5, [self.field])
-            self.meshes = [UnitSquareMesh(1, 1)]
 
             def get_initial_condition(mesh_seq):
                 return {
