@@ -3,6 +3,7 @@ from finat.ufl import (
     VectorElement,
 )
 from firedrake.functionspace import FunctionSpace, make_scalar_element
+from firedrake.utility_meshes import UnitIntervalMesh
 
 
 class Field:
@@ -76,8 +77,14 @@ class Field:
         return f"Field({self.name})"
 
     def __repr__(self):
+        if self.finite_element is not None:
+            element_str = self.finite_element
+        else:
+            _element = self.get_element(UnitIntervalMesh(1))
+            element_str = str(_element).replace("interval", "unknown cell type")
+
         return (
-            f"Field('{self.name}', {self.finite_element}, solved_for={self.solved_for},"
+            f"Field('{self.name}', {element_str}, solved_for={self.solved_for},"
             f" unsteady={self.unsteady})"
         )
 

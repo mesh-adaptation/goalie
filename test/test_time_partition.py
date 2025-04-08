@@ -252,16 +252,16 @@ class TestStringFormatting(BaseTestCase):
     def test_time_partition1_repr(self):
         expected = (
             "TimePartition(end_time=1.0, num_subintervals=1,"
-            " timesteps=[0.5], field_metadata=[Field('field', <R0 on a interval>,"
-            " solved_for=True, unsteady=True)])"
+            " timesteps=[0.5], field_metadata=[Field('field', <R? on a unknown cell"
+            " type>, solved_for=True, unsteady=True)])"
         )
         self.assertEqual(repr(self.get_time_partition(1)), expected)
 
     def test_time_partition2_repr(self):
         expected = (
             "TimePartition(end_time=1.0, num_subintervals=2,"
-            " timesteps=[0.25, 0.5], field_metadata=[Field('field', <R0 on a interval>,"
-            " solved_for=True, unsteady=True)])"
+            " timesteps=[0.25, 0.5], field_metadata=[Field('field', <R? on a unknown"
+            " cell type>, solved_for=True, unsteady=True)])"
         )
         self.assertEqual(repr(self.get_time_partition(2)), expected)
 
@@ -269,14 +269,14 @@ class TestStringFormatting(BaseTestCase):
         expected = (
             "TimePartition(end_time=1.0, num_subintervals=4,"
             " timesteps=[0.125, 0.25, 0.125, 0.25], field_metadata=[Field('field',"
-            " <R0 on a interval>, solved_for=True, unsteady=True)])"
+            " <R? on a unknown cell type>, solved_for=True, unsteady=True)])"
         )
         self.assertEqual(repr(self.get_time_partition(4)), expected)
 
     def test_time_interval_repr(self):
         expected = (
             "TimeInterval(end_time=1.0, timestep=0.5, field_metadata=[Field('field',"
-            " <R0 on a interval>, solved_for=True, unsteady=True)])"
+            " <R? on a unknown cell type>, solved_for=True, unsteady=True)])"
         )
         time_interval = TimeInterval(self.end_time, [0.5], self.field_metadata_list)
         self.assertEqual(repr(time_interval), expected)
@@ -284,7 +284,7 @@ class TestStringFormatting(BaseTestCase):
     def test_time_instant_repr(self):
         expected = (
             "TimeInstant(time=1.0, field_metadata=[Field('field',"
-            " <R0 on a interval>, solved_for=True, unsteady=True)])"
+            " <R? on a unknown cell type>, solved_for=True, unsteady=True)])"
         )
         time_instant = TimeInstant(self.field_metadata_list, time=self.end_time)
         self.assertEqual(repr(time_instant), expected)
