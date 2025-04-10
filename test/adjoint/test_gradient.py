@@ -25,7 +25,7 @@ class TestExceptions(unittest.TestCase):
     def test_controls_attribute_error(self):
         field = Field("field", family="Real", degree=0, unsteady=False)
         mesh_seq = AdjointMeshSeq(
-            TimeInterval(1.0, 1.0, field,
+            TimeInterval(1.0, 1.0, field),
             UnitIntervalMesh(1),
             qoi_type="steady",
         )
