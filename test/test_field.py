@@ -82,20 +82,18 @@ class TestInit(unittest.TestCase):
     def test_field_alternative_real(self):
         field = Field(
             name="field",
-            mesh=mesh1d(),
             family="Real",
             degree=0,
         )
-        self.assertEqual(field.finite_element, real_element())
+        self.assertEqual(field.get_element(mesh1d()), real_element())
 
     def test_field_alternative_p1(self):
         field = Field(
             name="field",
-            mesh=mesh2d(),
             family="Lagrange",
             degree=1,
         )
-        self.assertEqual(field.finite_element, p1_element())
+        self.assertEqual(field.get_element(mesh2d()), p1_element())
 
 
 class TestGetElement(unittest.TestCase):
