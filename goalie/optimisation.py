@@ -55,9 +55,10 @@ class QoIOptimiser_Base(abc.ABC):
             )
         self.params = params
         self.progress = OptimisationProgress()
-        self.progress["control"].append(float(mesh_seq.field_functions[self.control]))
+        init_control = float(mesh_seq.field_functions[self.control])
+        self.progress["control"].append(init_control)
         self.progress["count"].append(1)
-        print(f"it= 0, {float(mesh_seq.field_functions[self.control]):.4e}")
+        print(f"it= 0, {self.control}={init_control:.4e}")
 
     def line_search(self, P, u, J, dJ):
         """
@@ -140,7 +141,7 @@ class QoIOptimiser_Base(abc.ABC):
                 continue
 
             # Check for QoI divergence
-            if np.abs(J / np.min(self.progress["qoi"])) > params.dtol:
+            if abs(J / np.min(self.progress["qoi"])) > params.dtol:
                 raise ConvergenceError("QoI divergence detected")
 
             # Check for gradient convergence
