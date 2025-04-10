@@ -109,8 +109,9 @@ def get_solver(mesh_seq):
 
 # The analytical solution for this problem was presented in :cite:`Riadh:2014`. It
 # includes a Bessel function, which tends towards infinity as its argument goes to zero.
-# As such, we introduce a thresholding by the radius parameter, r. This parameter should
-# be strictly positive for it to make sense as a radius. ::
+# The value that gets passed as the argument is the mesh Peclet number multiplied by the
+# square of the radial distance from the point source. As such, we introduce a
+# thresholding for the radius parameter, r. ::
 
 
 def analytical_solution(mesh_seq, index):
@@ -124,9 +125,7 @@ def analytical_solution(mesh_seq, index):
     x0, y0 = 2, 5  # Location of the point source
     Pe = 0.5 * u_x / D  # Mesh Peclet number
 
-    # Define thresholding, ensuring that the radius is strictly positive
-    if float(r) < 0.0:
-        raise ValueError("QoI radius parameter must be positive.")
+    # Define thresholding for the Bessel function argument
     r_thresh = max_value(sqrt((x - x0) ** 2 + (y - y0) ** 2), r**2)
 
     return 0.5 / (pi * D) * exp(Pe * (x - x0)) * bessk0(Pe * r_thresh)
@@ -135,11 +134,10 @@ def analytical_solution(mesh_seq, index):
 # The QoI for the problem is defined as an error between the approximate solution and
 # the analytical solution above. In particular, we use the :math:`L^2` error. It turns
 # out that taking the :math:`L^2` error over the whole domain doesn't give particularly
-# useful results because the downstream approximation isn't particularly good. Recall
-# the quantity of interest from the error estimation and goal-oriented demos previously,
-# which integrates the tracer concentration over a circular "receiver" region. We reuse
-# the "kernel" that defines the receiver region here to restrict the QoI to only
-# consider the error within this region. ::
+# useful results because the analytical solution tends to infinity at the point source
+# (as it should) but no approximate solution will have this property. As such, we use
+# the same thresholding again such that we only consider the :math:`L^2` error outside
+# of the disc of radius :math:`r` around the point source. ::
 
 
 def get_qoi(mesh_seq, index):
@@ -147,10 +145,11 @@ def get_qoi(mesh_seq, index):
         c = mesh_seq.field_functions["c"]
         c_ana = analytical_solution(mesh_seq, index)
 
-        # Define kernel term for restricting to the receiver region
-        xr, yr, rr = 20, 7.5, 0.5
+        # Define kernel for neglecting the disc around the point source
+        r = mesh_seq.field_functions["r"]
+        x0, y0 = 2, 5  # Location of the point source
         x, y = SpatialCoordinate(mesh_seq[index])
-        kernel = conditional((x - xr) ** 2 + (y - yr) ** 2 < rr**2, 1, 0)
+        kernel = conditional((x - x0) ** 2 + (y - y0) ** 2 > r**2, 1, 0)
 
         # L2 error scaled by kernel
         return kernel * (c - c_ana) ** 2 * dx
@@ -237,12 +236,12 @@ print(f"Initial gradient: {float(mesh_seq.gradient["r"]):.4e}")
 #
 # Now run the optimisation routine and plot the results. ::
 
-parameters = OptimisationParameters({"lr": 0.1, "maxiter": 100})
+parameters = OptimisationParameters({"lr": 0.001, "maxiter": 100})
 optimiser = QoIOptimiser(mesh_seq, "r", parameters, method="gradient_descent")
 optimiser.minimise()
 
 fig, axes = plt.subplots()
-axes.loglog(optimiser.progress["count"], optimiser.progress["control"], "--x")
+axes.plot(optimiser.progress["count"], optimiser.progress["control"], "--x")
 axes.set_xlabel("Iteration")
 axes.set_ylabel("Control")
 axes.grid(True)
