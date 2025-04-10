@@ -40,12 +40,12 @@ mesh = UnitSquareMesh(n, n)
 # this case, we use a :math:`\mathbb{P}2` space so specify `family="Lagrange"` and
 # `degree=2`.Since Burgers is a vector equation, we need to specify `vector=True`. ::
 
-fields = [Field("u", family="Lagrange", mesh=mesh, degree=2, vector=True)]
+fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
-# The solution :class:`Function`\s are automatically built on the function spaces
-# defined by the finite element and are accessed via the :attr:`field_data` attribute of
-# the :class:`MeshSeq`. This attribute provides a dictionary of tuples containing the
-# current and lagged solutions for each field.
+# The solution :class:`Function`\s are automatically built on the function spaces given
+# by the :func:`get_function_spaces` function and are accessed via the
+# :attr:`field_functions` attribute of the :class:`MeshSeq`. This attribute provides a
+# dictionary of tuples containing the current and lagged solutions for each field.
 #
 # In order to solve the PDE, we need to choose a time integration routine and solver
 # parameters for the underlying linear and nonlinear systems. This is achieved below by

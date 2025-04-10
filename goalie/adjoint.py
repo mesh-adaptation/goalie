@@ -562,13 +562,12 @@ class AdjointMeshSeq(MeshSeq):
                         "Looks like no solves were written to tape!"
                         " Does the solution depend on the initial condition?"
                     )
-                # TODO: Check against Field metadata
-                fs_element0 = self.function_spaces[fieldname][0].ufl_element()
+                finite_element = field.get_element(self.meshes[i])
                 sb_element0 = solve_blocks[0].function_space.ufl_element()
-                if fs_element0 != sb_element0:
+                if finite_element != sb_element0:
                     raise ValueError(
                         f"Solve block list for field '{fieldname}' contains mismatching"
-                        f" finite elements: ({fs_element0} vs. {sb_element0})"
+                        f" finite elements: ({finite_element} vs. {sb_element0})"
                     )
 
                 # Detect whether we have a steady problem

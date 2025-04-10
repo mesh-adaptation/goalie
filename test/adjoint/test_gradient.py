@@ -23,8 +23,9 @@ class TestExceptions(unittest.TestCase):
     """
 
     def test_attribute_error(self):
+        field = Field("field", family="Real", degree=0, unsteady=False)
         mesh_seq = AdjointMeshSeq(
-            TimeInterval(1.0, 1.0, Field("field", unsteady=False)),
+            TimeInterval(1.0, 1.0, field),
             UnitIntervalMesh(1),
             qoi_type="steady",
         )
@@ -128,6 +129,30 @@ class ScalingTestMeshSeq(BaseTestMeshSeq):
         Expression for the integrand of the QoI in terms of the solution field.
         """
         return ufl.pi * u**self.qoi_power
+
+    @annotate_qoi
+    def get_qoi(self, index):
+        """
+        Various QoIs as determined by the `qoi_degree` option.
+        """
+        tp = self.time_partition
+
+        def steady_qoi():
+            return self.integrand(self.field_functions["field"]) * ufl.dx
+
+        def end_time_qoi():
+            return self.integrand(self.field_functions["field"][0]) * ufl.dx
+
+        def time_integrated_qoi(t):
+            dt = tp.timesteps[index]
+            return dt * self.integrand(self.field_functions["field"][0]) * ufl.dx
+
+        if self.qoi_type == "steady":
+            return steady_qoi
+        elif self.qoi_type == "end_time":
+            return end_time_qoi
+        else:
+            return time_integrated_qoi
 
     def expected_gradient(self, field):
         """
@@ -311,8 +336,8 @@ class BaseTestGradient(unittest.TestCase):
     def time_partition(self, num_subintervals, dt):
         unsteady = num_subintervals > 1 or not np.allclose(dt, 1.0)
         fields = [
-            Field("field", unsteady=unsteady),
-            Field("theta", unsteady=False, solved_for=False),
+            Field("field", family="Real", degree=0, unsteady=unsteady),
+            Field("theta", family="Real", degree=0, unsteady=False, solved_for=False),
         ]
         return TimePartition(1.0, num_subintervals, dt, fields)
 

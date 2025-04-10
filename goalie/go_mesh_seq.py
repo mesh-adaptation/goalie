@@ -13,9 +13,11 @@ from firedrake.petsc import PETSc
 
 from .adjoint import AdjointMeshSeq
 from .error_estimation import get_dwr_indicator
+from .field import Field
 from .function_data import IndicatorData
 from .log import pyrint
 from .options import GoalOrientedAdaptParameters
+from .time_partition import TimePartition
 
 __all__ = ["GoalOrientedMeshSeq"]
 
@@ -149,9 +151,32 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         else:
             meshes = self.meshes
 
+        # Apply p-refinement
+        tp = self.time_partition
+        if enrichment_method == "p":
+            field_metadata = {}
+            for fieldname, field in self.field_metadata.items():
+                element = field.get_element(meshes[0])
+                element = element.reconstruct(degree=element.degree() + num_enrichments)
+                field_metadata[fieldname] = Field(
+                    fieldname,
+                    finite_element=element,
+                    solved_for=field.solved_for,
+                    unsteady=field.unsteady,
+                )
+            tp = TimePartition(
+                tp.end_time,
+                tp.num_subintervals,
+                tp.timesteps,
+                field_metadata,
+                num_timesteps_per_export=tp.num_timesteps_per_export,
+                start_time=tp.start_time,
+                subintervals=tp.subintervals,
+            )
+
         # Construct object to hold enriched spaces
         enriched_mesh_seq = type(self)(
-            self.time_partition,
+            tp,
             meshes,
             get_initial_condition=self._get_initial_condition,
             get_solver=self._get_solver,
@@ -159,18 +184,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             qoi_type=self.qoi_type,
         )
         enriched_mesh_seq._update_function_spaces()
-
-        # Apply p-refinement
-        if enrichment_method == "p":
-            for label, fs in enriched_mesh_seq.function_spaces.items():
-                for n, _space in enumerate(fs):
-                    element = _space.ufl_element()
-                    element = element.reconstruct(
-                        degree=element.degree() + num_enrichments
-                    )
-                    enriched_mesh_seq._fs[label][n] = FunctionSpace(
-                        enriched_mesh_seq.meshes[n], element
-                    )
 
         return enriched_mesh_seq
 

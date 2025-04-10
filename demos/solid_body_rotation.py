@@ -48,7 +48,7 @@ coords = mesh.coordinates.copy(deepcopy=True)
 coords.interpolate(coords - as_vector([0.5, 0.5]))
 mesh = Mesh(coords)
 
-fields = [Field("c", mesh=mesh, family="Lagrange", degree=1)]
+fields = [Field("c", family="Lagrange", degree=1)]
 
 
 # Next, let's define the initial condition, to get a

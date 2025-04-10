@@ -5,7 +5,6 @@ Sequences of meshes corresponding to a :class:`~.TimePartition`.
 from collections.abc import Iterable
 
 import firedrake
-import firedrake.functionspace as ffs
 import numpy as np
 from animate.interpolation import transfer
 from animate.quality import QualityMeasure
@@ -255,8 +254,7 @@ class MeshSeq:
         """
         function_spaces = {}
         for fieldname, field in self.field_metadata.items():
-            assert field.finite_element.cell == mesh.coordinates.ufl_element().cell
-            function_spaces[fieldname] = ffs.FunctionSpace(mesh, field.finite_element)
+            function_spaces[fieldname] = field.get_function_space(mesh)
         return function_spaces
 
     def get_initial_condition(self):

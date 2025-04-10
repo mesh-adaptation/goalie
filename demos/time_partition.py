@@ -51,10 +51,10 @@ from goalie import *
 end_time = 1.0
 num_subintervals = 1
 dt = 0.125
-fields = [Field("solution")]
+fields = [Field("solution", family="Real")]
 
 # The :class:`~.Field` class accepts keyword arguments to customise more than just the
-# name, but we use the defaults here for simplicity.
+# name and finite element family, which we demonstrate in later demos.
 #
 # With these definitions, we should get
 # one subinterval of :math:`(0,1]` containing

@@ -23,7 +23,7 @@ from goalie import *
 
 n = 32
 meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
-fields = [Field("u", family="Lagrange", mesh=meshes[0], degree=2, vector=True)]
+fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
 def get_solver(mesh_seq):

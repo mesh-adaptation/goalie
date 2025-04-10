@@ -20,7 +20,7 @@ set_log_level(DEBUG)
 
 n = 32
 mesh = UnitSquareMesh(n, n, diagonal="left")
-fields = [Field("u", family="Lagrange", mesh=mesh, degree=2, vector=True)]
+fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
 def get_solver(mesh_seq):

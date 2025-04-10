@@ -39,7 +39,7 @@ class BaseClasses:
         def setUp(self):
             mesh = UnitSquareMesh(1, 1)
             self.meshes = [mesh]
-            self.field = Field("field", mesh=mesh, family="Real", degree=0)
+            self.field = Field("field", family="Real", degree=0)
             self.function_space = FunctionSpace(mesh, self.field.finite_element)
 
     class TrivialGoalOrientedBaseClass(unittest.TestCase):
@@ -66,14 +66,18 @@ class BaseClasses:
                 parameters=parameters,
             )
 
-    class GoalOrientedBaseClass(RSpaceTestCase):
+    class GoalOrientedBaseClass(unittest.TestCase):
         """
         Base class for tests with a complete :class:`GoalOrientedMeshSeq`.
         """
 
+        def setUp(self):
+            mesh = UnitSquareMesh(1, 1)
+            self.meshes = [mesh]
+            self.field = Field("field", family="Real", degree=0)
+
         def go_mesh_seq(self, coeff_diff=0.0):
             self.time_partition = TimePartition(1.0, 1, 0.5, [self.field])
-            self.meshes = [UnitSquareMesh(1, 1)]
 
             def get_initial_condition(mesh_seq):
                 return {
@@ -256,7 +260,8 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
 
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_steady(self, MockSolveBlock):
-        self.time_interval = TimeInterval(1.0, 0.5, Field("field", unsteady=False))
+        field = Field("field", family="Real", unsteady=False)
+        self.time_interval = TimeInterval(1.0, 0.5, field)
         mesh_seq = AdjointMeshSeq(
             self.time_interval,
             self.mesh,
@@ -437,8 +442,9 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
         end_time = 1.0
         num_subintervals = 2
         dt = end_time / num_subintervals
+        field = Field("field", family="Real")
         mesh_seq = GoalOrientedMeshSeq(
-            TimePartition(end_time, num_subintervals, dt, Field("field")),
+            TimePartition(end_time, num_subintervals, dt, field),
             [UnitTriangleMesh()] * num_subintervals,
             get_qoi=self.constant_qoi,
             qoi_type="end_time",

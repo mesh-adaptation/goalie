@@ -54,7 +54,7 @@ from goalie import *
 # :math:`R`-space. ::
 
 mesh = VertexOnlyMesh(UnitIntervalMesh(1), [[0.5]])
-fields = [Field("u", mesh=mesh, family="Real", degree=0)]
+fields = [Field("u", family="Real", degree=0)]
 
 # Next, create a simple :class:`~.TimeInterval` object to hold information related to
 # the time discretisation. This is a simplified version of :class:`~.TimePartition`,
