@@ -212,6 +212,14 @@ print(f"Initial radius: {float(mesh_seq.field_functions["r"]):.8f}")
 print(f"Initial QoI: {J:.4e}")
 print(f"Initial gradient: {float(mesh_seq.gradient["r"]):.4e}")
 
+# This should give output similar to the following:
+#
+# .. code-block:: none
+#
+#     Initial radius: 0.10000000
+#     Initial QoI: 3.8960e+01
+#     Initial gradient: 4.5085e+00
+#
 # Note that the gradient with respect to the intitial condition doesn't make sense in
 # this example because we have a steady-state, linear PDE, wherein the solution doesn't
 # depend on the initial condition.
@@ -240,8 +248,24 @@ parameters = OptimisationParameters({"lr": 0.001, "maxiter": 100})
 optimiser = QoIOptimiser(mesh_seq, "r", parameters, method="gradient_descent")
 optimiser.minimise()
 
+# This should give output similar to the following:
+#
+# .. code-block:: none
+#
+#     it= 0, r=1.0000e-01
+#     it= 1, r=9.5492e-02, J=3.8960e+01, dJ=4.5085e+00, lr=1.0000e-03
+#     it= 2, r=7.2096e-02, J=2.9998e+01, dJ=3.7801e+00, lr=6.1893e-03
+#     it= 3, r=6.2308e-02, J=4.6765e+00, dJ=1.1149e+00, lr=8.7785e-03
+#     it= 4, r=5.5342e-02, J=1.1478e+00, dJ=4.6359e-01, lr=1.5027e-02
+#     it= 5, r=5.2727e-02, J=1.5863e-01, dJ=1.2655e-01, lr=2.0669e-02
+#     it= 6, r=5.2156e-02, J=5.6844e-02, dJ=2.2659e-02, lr=2.5177e-02
+#     it= 7, r=5.2115e-02, J=5.3308e-02, dJ=1.5268e-03, lr=2.6996e-02
+#     it= 8, r=5.2114e-02, J=5.3316e-02, dJ=2.0780e-05, lr=2.7368e-02
+#     Gradient convergence detected
+#     Calibrated radius: 0.05211427
+
 fig, axes = plt.subplots()
-axes.plot(optimiser.progress["count"], optimiser.progress["control"], "--x")
+axes.loglog(optimiser.progress["count"], optimiser.progress["control"], "--x")
 axes.set_xlabel("Iteration")
 axes.set_ylabel("Control")
 axes.grid(True)
