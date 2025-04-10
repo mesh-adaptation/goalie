@@ -11,15 +11,22 @@ Code here is based on that found at
 import os
 
 import ufl
+from finat.ufl import FiniteElement, MixedElement, VectorElement
 from firedrake.bcs import DirichletBC
 from firedrake.function import Function
-from firedrake.functionspace import FunctionSpace, VectorFunctionSpace
+from firedrake.functionspace import FunctionSpace
 from firedrake.mesh import Mesh
 from firedrake.solving import solve
 from firedrake.ufl_expr import TestFunctions
 
+from goalie.field import Field
+
 mesh = Mesh(os.path.join(os.path.dirname(__file__), "mesh-with-hole.msh"))
-fields = ["up"]
+p2v_element = VectorElement(FiniteElement("Lagrange", ufl.triangle, 2), dim=2)
+p1_element = FiniteElement("Lagrange", ufl.triangle, 1)
+fields = [
+    Field("up", finite_element=MixedElement([p2v_element, p1_element]), unsteady=False)
+]
 dt = 1.0
 end_time = dt
 dt_per_export = 1
@@ -27,17 +34,12 @@ num_subintervals = 1
 steady = True
 
 
-def get_function_spaces(mesh):
-    r"""Taylor-Hood :math:`\mathbb P2-\mathbb P1` space."""
-    return {"up": VectorFunctionSpace(mesh, "CG", 2) * FunctionSpace(mesh, "CG", 1)}
-
-
 def get_solver(self):
     """Stokes problem solved using a direct method."""
 
     def solver(i):
         W = self.function_spaces["up"][i]
-        up = self.fields["up"]
+        up = self.field_functions["up"]
 
         # Define variational problem
         R = FunctionSpace(self[i], "R", 0)
@@ -96,7 +98,7 @@ def get_qoi(self, i):
     """Quantity of interest which integrates pressure over the boundary of the hole."""
 
     def steady_qoi():
-        u, p = ufl.split(self.fields["up"])
+        u, p = ufl.split(self.field_functions["up"])
         return p * ufl.ds(4)
 
     return steady_qoi

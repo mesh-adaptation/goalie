@@ -12,6 +12,7 @@ from firedrake.functionspace import FunctionSpace
 from firedrake.mg.mesh import MeshHierarchy
 from firedrake.utility_meshes import UnitTriangleMesh
 
+from goalie.field import Field
 from goalie.function_data import AdjointSolutionData, ForwardSolutionData, IndicatorData
 from goalie.time_partition import TimePartition
 from goalie.utility import AttrDict
@@ -32,14 +33,14 @@ class BaseTestCases:
             end_time = 1.0
             self.num_subintervals = 2
             timesteps = [0.5, 0.25]
-            self.field = "field"
+            self.field = Field("field", family="Real")
             self.num_exports = [1, 2]
             self.mesh = UnitTriangleMesh()
             self.time_partition = TimePartition(
                 end_time, self.num_subintervals, timesteps, self.field
             )
             self.function_spaces = {
-                self.field: [
+                self.field.name: [
                     FunctionSpace(self.mesh, "DG", 0)
                     for _ in range(self.num_subintervals)
                 ]
@@ -50,14 +51,14 @@ class BaseTestCases:
             end_time = 1.0
             self.num_subintervals = 1
             timesteps = [1.0]
-            self.field = "field"
+            self.field = Field("field", family="Real")
             self.num_exports = [1]
             self.mesh = UnitTriangleMesh()
             self.time_partition = TimePartition(
                 end_time, self.num_subintervals, timesteps, self.field
             )
             self.function_spaces = {
-                self.field: [
+                self.field.name: [
                     FunctionSpace(self.mesh, "DG", 0)
                     for _ in range(self.num_subintervals)
                 ]
@@ -71,16 +72,18 @@ class BaseTestCases:
         def test_extract_by_field(self):
             data = self.solution_data.extract(layout="field")
             self.assertTrue(isinstance(data, AttrDict))
-            self.assertTrue(self.field in data)
+            self.assertTrue(self.field.name in data)
             for label in self.labels:
-                self.assertTrue(isinstance(data[self.field], AttrDict))
-                self.assertTrue(label in data[self.field])
-                self.assertTrue(isinstance(data[self.field][label], list))
-                self.assertEqual(len(data[self.field][label]), self.num_subintervals)
+                self.assertTrue(isinstance(data[self.field.name], AttrDict))
+                self.assertTrue(label in data[self.field.name])
+                self.assertTrue(isinstance(data[self.field.name][label], list))
+                self.assertEqual(
+                    len(data[self.field.name][label]), self.num_subintervals
+                )
                 for i, num_exports in enumerate(self.num_exports):
-                    self.assertTrue(isinstance(data[self.field][label][i], list))
-                    self.assertEqual(len(data[self.field][label][i]), num_exports)
-                    for f in data[self.field][label][i]:
+                    self.assertTrue(isinstance(data[self.field.name][label][i], list))
+                    self.assertEqual(len(data[self.field.name][label][i]), num_exports)
+                    for f in data[self.field.name][label][i]:
                         self.assertTrue(isinstance(f, Function))
 
         def test_extract_by_label(self):
@@ -89,13 +92,15 @@ class BaseTestCases:
             for label in self.labels:
                 self.assertTrue(label in data)
                 self.assertTrue(isinstance(data[label], AttrDict))
-                self.assertTrue(self.field in data[label])
-                self.assertTrue(isinstance(data[label][self.field], list))
-                self.assertEqual(len(data[label][self.field]), self.num_subintervals)
+                self.assertTrue(self.field.name in data[label])
+                self.assertTrue(isinstance(data[label][self.field.name], list))
+                self.assertEqual(
+                    len(data[label][self.field.name]), self.num_subintervals
+                )
                 for i, num_exports in enumerate(self.num_exports):
-                    self.assertTrue(isinstance(data[label][self.field][i], list))
-                    self.assertEqual(len(data[label][self.field][i]), num_exports)
-                    for f in data[label][self.field][i]:
+                    self.assertTrue(isinstance(data[label][self.field.name][i], list))
+                    self.assertEqual(len(data[label][self.field.name][i]), num_exports)
+                    for f in data[label][self.field.name][i]:
                         self.assertTrue(isinstance(f, Function))
 
         def test_extract_by_subinterval(self):
@@ -104,15 +109,15 @@ class BaseTestCases:
             self.assertEqual(len(data), self.num_subintervals)
             for i, sub_data in enumerate(data):
                 self.assertTrue(isinstance(sub_data, AttrDict))
-                self.assertTrue(self.field in sub_data)
-                self.assertTrue(isinstance(sub_data[self.field], AttrDict))
+                self.assertTrue(self.field.name in sub_data)
+                self.assertTrue(isinstance(sub_data[self.field.name], AttrDict))
                 for label in self.labels:
-                    self.assertTrue(label in sub_data[self.field])
-                    self.assertTrue(isinstance(sub_data[self.field][label], list))
+                    self.assertTrue(label in sub_data[self.field.name])
+                    self.assertTrue(isinstance(sub_data[self.field.name][label], list))
                     self.assertEqual(
-                        len(sub_data[self.field][label]), self.num_exports[i]
+                        len(sub_data[self.field.name][label]), self.num_exports[i]
                     )
-                    for f in sub_data[self.field][label]:
+                    for f in sub_data[self.field.name][label]:
                         self.assertTrue(isinstance(f, Function))
 
 
@@ -192,12 +197,12 @@ class TestIndicatorData(BaseTestCases.TestFunctionData):
 
     def _test_extract_by_field_or_label(self, data):
         self.assertTrue(isinstance(data, AttrDict))
-        self.assertTrue(self.field in data)
-        self.assertEqual(len(data[self.field]), self.num_subintervals)
+        self.assertTrue(self.field.name in data)
+        self.assertEqual(len(data[self.field.name]), self.num_subintervals)
         for i, num_exports in enumerate(self.num_exports):
-            self.assertTrue(isinstance(data[self.field][i], list))
-            self.assertEqual(len(data[self.field][i]), num_exports)
-            for f in data[self.field][i]:
+            self.assertTrue(isinstance(data[self.field.name][i], list))
+            self.assertEqual(len(data[self.field.name][i]), num_exports)
+            for f in data[self.field.name][i]:
                 self.assertTrue(isinstance(f, Function))
 
     def test_extract_by_field(self):
@@ -214,9 +219,9 @@ class TestIndicatorData(BaseTestCases.TestFunctionData):
         self.assertEqual(len(data), self.num_subintervals)
         for sub_data in data:
             self.assertTrue(isinstance(sub_data, AttrDict))
-            self.assertTrue(self.field in sub_data)
-            self.assertTrue(isinstance(sub_data[self.field], list))
-            for f in sub_data[self.field]:
+            self.assertTrue(self.field.name in sub_data)
+            self.assertTrue(isinstance(sub_data[self.field.name], list))
+            for f in sub_data[self.field.name]:
                 self.assertTrue(isinstance(f, Function))
 
 
@@ -290,11 +295,11 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
 
         # Assign 1 to all functions
         tp = self.solution_data.time_partition
-        for field in tp.field_names:
+        for fieldname in tp.field_names:
             for label in self.solution_data.labels:
                 for i in range(tp.num_subintervals):
                     for j in range(tp.num_exports_per_subinterval[i] - 1):
-                        self.solution_data._data[field][label][i][j].assign(1)
+                        self.solution_data._data[fieldname][label][i][j].assign(1)
 
     def test_transfer_method_error(self):
         target_solution_data = ForwardSolutionData(
@@ -314,10 +319,10 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
             1.5 * self.time_partition.end_time,
             self.time_partition.num_subintervals + 1,
             self.time_partition.timesteps + [0.25],
-            self.time_partition.field_names,
+            self.time_partition.field_metadata,
         )
         target_function_spaces = {
-            self.field: [
+            self.field.name: [
                 FunctionSpace(self.mesh, "DG", 0)
                 for _ in range(target_time_partition.num_subintervals)
             ]
@@ -338,11 +343,11 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
             self.time_partition.end_time,
             self.time_partition.num_subintervals,
             self.time_partition.timesteps,
-            self.time_partition.field_names,
+            self.time_partition.field_metadata,
             num_timesteps_per_export=[1, 2],
         )
         target_function_spaces = {
-            self.field: [
+            self.field.name: [
                 FunctionSpace(self.mesh, "DG", 0)
                 for _ in range(target_time_partition.num_subintervals)
             ]
@@ -363,7 +368,7 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
             self.time_partition.end_time,
             self.time_partition.num_subintervals,
             self.time_partition.timesteps,
-            ["different_field"],
+            [Field("different_field", family="Real")],
         )
         target_function_spaces = {
             "different_field": [
@@ -399,15 +404,19 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
         )
         target_solution_data._create_data()
         self.solution_data.transfer(target_solution_data, method="interpolate")
-        for field in self.solution_data.time_partition.field_names:
+        for fieldname in self.solution_data.time_partition.field_names:
             for label in self.solution_data.labels:
                 for i in range(self.solution_data.time_partition.num_subintervals):
                     for j in range(
                         self.solution_data.time_partition.num_exports_per_subinterval[i]
                         - 1
                     ):
-                        source_function = self.solution_data._data[field][label][i][j]
-                        target_function = target_solution_data._data[field][label][i][j]
+                        source_function = self.solution_data._data[fieldname][label][i][
+                            j
+                        ]
+                        target_function = target_solution_data._data[fieldname][label][
+                            i
+                        ][j]
                         self.assertTrue(
                             source_function.dat.data.all()
                             == target_function.dat.data.all()
@@ -419,15 +428,19 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
         )
         target_solution_data._create_data()
         self.solution_data.transfer(target_solution_data, method="project")
-        for field in self.solution_data.time_partition.field_names:
+        for fieldname in self.solution_data.time_partition.field_names:
             for label in self.solution_data.labels:
                 for i in range(self.solution_data.time_partition.num_subintervals):
                     for j in range(
                         self.solution_data.time_partition.num_exports_per_subinterval[i]
                         - 1
                     ):
-                        source_function = self.solution_data._data[field][label][i][j]
-                        target_function = target_solution_data._data[field][label][i][j]
+                        source_function = self.solution_data._data[fieldname][label][i][
+                            j
+                        ]
+                        target_function = target_solution_data._data[fieldname][label][
+                            i
+                        ][j]
                         self.assertTrue(
                             source_function.dat.data.all()
                             == target_function.dat.data.all()
@@ -436,7 +449,7 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
     def test_transfer_prolong(self):
         enriched_mesh = MeshHierarchy(self.mesh, 1)[-1]
         target_function_spaces = {
-            self.field: [
+            self.field.name: [
                 FunctionSpace(enriched_mesh, "DG", 0)
                 for _ in range(self.num_subintervals)
             ]
@@ -446,15 +459,19 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
         )
         target_solution_data._create_data()
         self.solution_data.transfer(target_solution_data, method="prolong")
-        for field in self.solution_data.time_partition.field_names:
+        for fieldname in self.solution_data.time_partition.field_names:
             for label in self.solution_data.labels:
                 for i in range(self.solution_data.time_partition.num_subintervals):
                     for j in range(
                         self.solution_data.time_partition.num_exports_per_subinterval[i]
                         - 1
                     ):
-                        source_function = self.solution_data._data[field][label][i][j]
-                        target_function = target_solution_data._data[field][label][i][j]
+                        source_function = self.solution_data._data[fieldname][label][i][
+                            j
+                        ]
+                        target_function = target_solution_data._data[fieldname][label][
+                            i
+                        ][j]
                         self.assertTrue(
                             source_function.dat.data.all()
                             == target_function.dat.data.all()

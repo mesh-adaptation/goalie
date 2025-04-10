@@ -6,16 +6,17 @@
 # in time as well as space.
 #
 # Begin by importing from Firedrake and Goalie.
+
 from firedrake import *
 
 from goalie_adjoint import *
 
-# Redefine the ``get_initial_condition`` and ``get_function_spaces``, functions as in
-# the first Burgers demo. ::
+# Redefine the mesh, fields and ``get_initial_condition`` function as in `the previous
+# demo <./burgers2.py.html>`__. ::
 
-
-def get_function_spaces(mesh):
-    return {"u": VectorFunctionSpace(mesh, "CG", 2)}
+n = 32
+mesh = UnitSquareMesh(n, n)
+fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
 def get_initial_condition(mesh_seq):
@@ -34,7 +35,7 @@ def get_initial_condition(mesh_seq):
 
 def get_solver(mesh_seq):
     def solver(index):
-        u, u_ = mesh_seq.fields["u"]
+        u, u_ = mesh_seq.field_functions["u"]
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
@@ -81,23 +82,20 @@ def get_qoi(mesh_seq, i):
     dt = Function(R).assign(mesh_seq.time_partition.timesteps[i])
 
     def time_integrated_qoi(t):
-        u = mesh_seq.fields["u"][0]
+        u = mesh_seq.field_functions["u"][0]
         return dt * inner(u, u) * ds(2)
 
     return time_integrated_qoi
 
 
-# We use the same mesh setup as in `the previous demo <./burgers2.py.html>`__ and the
-# same time partitioning, except that we export every timestep rather than every other
-# timestep. ::
+# We use the same time partitioning as in `the previous demo <./burgers2.py.html>`__,
+# except that we export every timestep rather than every other timestep. ::
 
-n = 32
-meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
 end_time = 0.5
 dt = 1 / n
-num_subintervals = len(meshes)
+num_subintervals = 2
 time_partition = TimePartition(
-    end_time, num_subintervals, dt, ["u"], num_timesteps_per_export=1
+    end_time, num_subintervals, dt, fields, num_timesteps_per_export=1
 )
 
 # The only difference when defining the :class:`AdjointMeshSeq` is that we specify
@@ -105,8 +103,7 @@ time_partition = TimePartition(
 
 mesh_seq = AdjointMeshSeq(
     time_partition,
-    meshes,
-    get_function_spaces=get_function_spaces,
+    mesh,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,

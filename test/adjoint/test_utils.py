@@ -7,6 +7,7 @@ from firedrake.functionspace import FunctionSpace
 from firedrake.utility_meshes import UnitSquareMesh
 
 from goalie.adjoint import AdjointMeshSeq, annotate_qoi
+from goalie.field import Field
 from goalie.go_mesh_seq import GoalOrientedAdaptParameters
 from goalie.time_partition import TimeInterval
 
@@ -17,7 +18,7 @@ class TestAdjointUtils(unittest.TestCase):
     """
 
     def setUp(self):
-        self.time_interval = TimeInterval(1.0, [0.5], ["field"])
+        self.time_interval = TimeInterval(1.0, [0.5], Field("field", family="Real"))
         self.mesh = UnitSquareMesh(1, 1)
 
     def mesh_seq(self, qoi_type="end_time"):
@@ -100,7 +101,7 @@ class TestAdjointUtils(unittest.TestCase):
         assert str(cm.exception) == msg
 
     def test_annotate_qoi_steady(self):
-        time_interval = TimeInterval(1.0, [1.0], ["field"])
+        time_interval = TimeInterval(1.0, [1.0], Field("field", family="Real"))
         with self.assertRaises(ValueError) as cm:
             AdjointMeshSeq(time_interval, [self.mesh], qoi_type="end_time")
         msg = "Time partition is steady but the QoI type is set to 'end_time'."
