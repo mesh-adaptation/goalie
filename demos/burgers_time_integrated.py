@@ -16,7 +16,7 @@ from goalie_adjoint import *
 
 n = 32
 mesh = UnitSquareMesh(n, n)
-fields = [Field("u", family="Lagrange", mesh=mesh, degree=2, vector=True)]
+fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
 def get_initial_condition(mesh_seq):

@@ -25,7 +25,7 @@ class ErrorEstimationTestCase(unittest.TestCase):
 
     def setUp(self):
         self.mesh = UnitSquareMesh(1, 1)
-        self.field = Field("field", mesh=self.mesh, family="Real", degree=0)
+        self.field = Field("field", family="Real", degree=0)
         self.fs = FunctionSpace(self.mesh, "CG", 1)
         self.trial = TrialFunction(self.fs)
         self.test = TestFunction(self.fs)
@@ -79,7 +79,7 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
 
     def test_time_partition_wrong_field_error(self):
         time_partition1 = TimeInstant(self.field)
-        field2 = Field("field2", mesh=self.mesh, family="Real", degree=0)
+        field2 = Field("field2", family="Real", degree=0)
         time_partition2 = TimeInstant(field2)
         mesh_seq = self.mesh_seq(time_partition=time_partition1)
         mesh_seq._indicators = IndicatorData(time_partition2, mesh_seq.meshes)
@@ -138,7 +138,7 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         )  # 0.5 * (0.5 + 0.5) + 0.25 * 2 * (0.5 + 0.5)
 
     def test_time_instant_multiple_fields(self):
-        field2 = Field("field2", mesh=self.mesh, family="Real", degree=0)
+        field2 = Field("field2", family="Real", degree=0)
         mesh_seq = self.mesh_seq(
             time_partition=TimeInstant([self.field, field2], time=1.0)
         )

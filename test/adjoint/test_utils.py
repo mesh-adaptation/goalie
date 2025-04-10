@@ -18,7 +18,7 @@ class TestAdjointUtils(unittest.TestCase):
     """
 
     def setUp(self):
-        self.time_interval = TimeInterval(1.0, [0.5], Field("field"))
+        self.time_interval = TimeInterval(1.0, [0.5], Field("field", family="Real"))
         self.mesh = UnitSquareMesh(1, 1)
 
     def mesh_seq(self, qoi_type="end_time"):
@@ -101,7 +101,7 @@ class TestAdjointUtils(unittest.TestCase):
         assert str(cm.exception) == msg
 
     def test_annotate_qoi_steady(self):
-        time_interval = TimeInterval(1.0, [1.0], Field("field"))
+        time_interval = TimeInterval(1.0, [1.0], Field("field", family="Real"))
         with self.assertRaises(ValueError) as cm:
             AdjointMeshSeq(time_interval, [self.mesh], qoi_type="end_time")
         msg = "Time partition is steady but the QoI type is set to 'end_time'."

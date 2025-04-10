@@ -30,9 +30,9 @@ class BaseClasses:
         """
 
         def setUp(self):
-            self.field = Field("field")
-            self.time_partition = TimePartition(1.0, 2, [0.5, 0.5], Field("field"))
-            self.time_interval = TimeInterval(1.0, [0.5], Field("field"))
+            self.field = Field("field", family="Real")
+            self.time_partition = TimePartition(1.0, 2, [0.5, 0.5], self.field)
+            self.time_interval = TimeInterval(1.0, [0.5], self.field)
 
         def trivial_mesh(self, dim):
             try:

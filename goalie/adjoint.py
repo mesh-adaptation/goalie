@@ -551,7 +551,7 @@ class AdjointMeshSeq(MeshSeq):
                         "Looks like no solves were written to tape!"
                         " Does the solution depend on the initial condition?"
                     )
-                finite_element = field.finite_element
+                finite_element = field.get_element(self.meshes[i])
                 sb_element0 = solve_blocks[0].function_space.ufl_element()
                 if finite_element != sb_element0:
                     raise ValueError(

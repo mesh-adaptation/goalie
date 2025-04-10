@@ -20,7 +20,7 @@ from matplotlib import ticker
 from goalie_adjoint import *
 
 mesh = RectangleMesh(50, 10, 50, 10)
-fields = [Field("c", mesh=mesh, family="Lagrange", degree=1, unsteady=False)]
+fields = [Field("c", family="Lagrange", degree=1, unsteady=False)]
 
 
 def source(mesh):
