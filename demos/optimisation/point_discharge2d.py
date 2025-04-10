@@ -197,6 +197,10 @@ fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
 axes.set_title("Analytical solution")
 fig.savefig("point_discharge2d-analytical.jpg")
 
+# Copy the interpolated analytical solution to use for checking differences later. ::
+
+analytical_solution_func = solutions["c"]["forward"][0][0].copy(deepcopy=True)
+
 # Plot the adjoint solution, too, which has a different scale. ::
 
 plot_kwargs = {"figsize": (10, 3), "cmap": "coolwarm", "levels": 33}
@@ -308,6 +312,33 @@ axes.set_title("Calibrated forward solution")
 fig.savefig("point_discharge2d-forward_calibrated.jpg")
 
 # .. figure:: point_discharge2d-forward_calibrated.jpg
+#    :figwidth: 80%
+#    :align: center
+#
+# Piggy-pack off the existing data structure to conveniently plot the difference. ::
+
+import matplotlib.colors as mcolors
+from matplotlib import ticker
+
+plot_kwargs = {
+    "figsize": (10, 3),
+    "cmap": "coolwarm",
+    "levels": 33,
+    "norm": mcolors.LogNorm(),
+    "locator": ticker.LogLocator(),
+}
+calibrated_solution_func = solutions["c"]["forward"][0][0].copy(deepcopy=True)
+solutions["c"]["forward"][0][0].interpolate(
+    abs(analytical_solution_func - calibrated_solution_func)
+)
+fig, axes, tcs = plot_snapshots(
+    solutions, time_partition, "c", "forward", **plot_kwargs
+)
+fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
+axes.set_title("Difference in modulus")
+fig.savefig("point_discharge2d-difference.jpg")
+
+# .. figure:: point_discharge2d-difference.jpg
 #    :figwidth: 80%
 #    :align: center
 #
