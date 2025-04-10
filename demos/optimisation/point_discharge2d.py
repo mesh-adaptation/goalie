@@ -183,7 +183,7 @@ fig, axes, tcs = plot_snapshots(
     solutions, time_partition, "c", "forward", **plot_kwargs
 )
 fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
-axes.set_title("Forward solution")
+axes.set_title("Uncalibrated forward solution")
 fig.savefig("point_discharge2d-forward_uncalibrated.jpg")
 
 # Piggy-pack off the existing data structure to conveniently plot the analytical
@@ -199,7 +199,7 @@ fig.savefig("point_discharge2d-analytical.jpg")
 
 # Plot the adjoint solution, too, which has a different scale. ::
 
-plot_kwargs = {"figsize": (10, 3), "cmap": "coolwarm"}
+plot_kwargs = {"figsize": (10, 3), "cmap": "coolwarm", "levels": 33}
 fig, axes, tcs = plot_snapshots(
     solutions, time_partition, "c", "adjoint", **plot_kwargs
 )
@@ -304,7 +304,7 @@ fig, axes, tcs = plot_snapshots(
     solutions, time_partition, "c", "forward", **plot_kwargs
 )
 fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
-axes.set_title("Forward solution")
+axes.set_title("Calibrated forward solution")
 fig.savefig("point_discharge2d-forward_calibrated.jpg")
 
 # .. figure:: point_discharge2d-forward_calibrated.jpg
