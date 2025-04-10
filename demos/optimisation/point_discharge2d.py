@@ -43,11 +43,11 @@ from goalie_adjoint import *
 n = 2
 mesh = RectangleMesh(100 * n, 20 * n, 50, 10)
 fields = [
-    Field("c", mesh=mesh, family="Lagrange", degree=1, unsteady=False),
-    Field("u_x", mesh=mesh, family="Real", degree=0, unsteady=False, solved_for=False),
-    Field("u_y", mesh=mesh, family="Real", degree=0, unsteady=False, solved_for=False),
-    Field("D", mesh=mesh, family="Real", degree=0, unsteady=False, solved_for=False),
-    Field("r", mesh=mesh, family="Real", degree=0, unsteady=False, solved_for=False),
+    Field("c", family="Lagrange", degree=1, unsteady=False),
+    Field("u_x", family="Real", degree=0, unsteady=False, solved_for=False),
+    Field("u_y", family="Real", degree=0, unsteady=False, solved_for=False),
+    Field("D", family="Real", degree=0, unsteady=False, solved_for=False),
+    Field("r", family="Real", degree=0, unsteady=False, solved_for=False),
 ]
 
 
