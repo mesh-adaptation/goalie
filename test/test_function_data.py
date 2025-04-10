@@ -33,7 +33,7 @@ class BaseTestCases:
             end_time = 1.0
             self.num_subintervals = 2
             timesteps = [0.5, 0.25]
-            self.field = Field("field")
+            self.field = Field("field", family="Real")
             self.num_exports = [1, 2]
             self.mesh = UnitTriangleMesh()
             self.time_partition = TimePartition(
@@ -51,7 +51,7 @@ class BaseTestCases:
             end_time = 1.0
             self.num_subintervals = 1
             timesteps = [1.0]
-            self.field = Field("field")
+            self.field = Field("field", family="Real")
             self.num_exports = [1]
             self.mesh = UnitTriangleMesh()
             self.time_partition = TimePartition(
@@ -368,7 +368,7 @@ class TestTransferFunctionData(BaseTestCases.TestFunctionData):
             self.time_partition.end_time,
             self.time_partition.num_subintervals,
             self.time_partition.timesteps,
-            [Field("different_field")],
+            [Field("different_field", family="Real")],
         )
         target_function_spaces = {
             "different_field": [

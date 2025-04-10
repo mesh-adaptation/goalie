@@ -48,18 +48,16 @@ k = Constant((0, 1))
 # ``unsteady`` keyword argument of the initialiser for the :class:`~.Field` class to
 # ``False`` rather than the default ``True`` value to specify that the ``"up"``
 # field is *steady* (i.e. without a time derivative). The ``T`` field is *unsteady*
-# (i.e. involves a time derivative) so we can use ``unsteady=True``. ::
+# (i.e. involves a time derivative) so we can use ``unsteady=True``. Again, given the
+# mixed finite element space used for velocity, it is more convenient to define the
+# finite elements and pass these directly to the :class:`~.Field` constructor. ::
 
-# TODO: Finite elements
-fields = [Field("up", unsteady=False), Field("T", unsteady=True)]
-
-
-def get_function_spaces(mesh):
-    V = VectorFunctionSpace(mesh, "CG", 2, name="velocity")
-    W = FunctionSpace(mesh, "CG", 1, name="pressure")
-    Z = MixedFunctionSpace([V, W], name="velocity-pressure")
-    Q = FunctionSpace(mesh, "CG", 1, name="temperature")
-    return {"up": Z, "T": Q}
+p2v_element = VectorElement(FiniteElement("Lagrange", triangle, 2), dim=2)
+p1_element = FiniteElement("Lagrange", triangle, 1)
+fields = [
+    Field("up", finite_element=MixedElement([p2v_element, p1_element]), unsteady=False),
+    Field("T", finite_element=p1_element, unsteady=True),
+]
 
 
 # We must set initial conditions to solve the problem. Note that we define the initial
@@ -177,7 +175,6 @@ time_partition = TimePartition(
 mesh_seq = MeshSeq(
     time_partition,
     meshes,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     transfer_method="interpolate",

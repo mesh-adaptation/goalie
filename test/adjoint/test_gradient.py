@@ -25,8 +25,9 @@ class TestExceptions(unittest.TestCase):
     """
 
     def test_attribute_error(self):
+        field = Field("field", family="Real", degree=0, unsteady=False)
         mesh_seq = AdjointMeshSeq(
-            TimeInterval(1.0, 1.0, Field("field", unsteady=False)),
+            TimeInterval(1.0, 1.0, field),
             UnitIntervalMesh(1),
             qoi_type="steady",
         )
@@ -149,9 +150,8 @@ class TestGradientComputation(unittest.TestCase):
     """
 
     def time_partition(self, num_subintervals, dt, unsteady=True):
-        return TimePartition(
-            1.0, num_subintervals, dt, Field("field", unsteady=unsteady)
-        )
+        field = Field("field", family="Real", degree=0, unsteady=unsteady)
+        return TimePartition(1.0, num_subintervals, dt, field)
 
     @parameterized.expand(
         [

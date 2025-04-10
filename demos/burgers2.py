@@ -14,15 +14,13 @@ from goalie_adjoint import *
 
 set_log_level(DEBUG)
 
-# Redefine the ``fields`` variable from the previous demo, as well as all the
-# getter functions. ::
+# Redefine the meshes and  field metadata as in previous demos, as well as all the
+# getter functions. In this case, we make the default `diagonal="left"` keyword argument
+# to :class:`~.UnitSquareMesh` explicit. (See later.) ::
 
-# TODO: Finite element
-fields = [Field("u")]
-
-
-def get_function_spaces(mesh):
-    return {"u": VectorFunctionSpace(mesh, "CG", 2)}
+n = 32
+mesh = UnitSquareMesh(n, n, diagonal="left")
+fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
 def get_solver(mesh_seq):
@@ -71,18 +69,11 @@ def get_qoi(mesh_seq, i):
     return end_time_qoi
 
 
-# The solver, initial condition and QoI may be imported from the
-# previous demo. The same basic setup is used. The only difference
-# is that the :class:`MeshSeq` contains two meshes. ::
-
-n = 32
-meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
-end_time = 0.5
-dt = 1 / n
-
 # This time, the ``TimePartition`` is defined on **two** subintervals. ::
 
-num_subintervals = len(meshes)
+end_time = 0.5
+dt = 1 / n
+num_subintervals = 2
 time_partition = TimePartition(
     end_time,
     num_subintervals,
@@ -92,8 +83,7 @@ time_partition = TimePartition(
 )
 mesh_seq = AdjointMeshSeq(
     time_partition,
-    meshes,
-    get_function_spaces=get_function_spaces,
+    mesh,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,

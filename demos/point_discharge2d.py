@@ -32,13 +32,8 @@ from goalie_adjoint import *
 
 # We solve the advection-diffusion problem in :math:`\mathbb P1` space. ::
 
-# TODO: Finite element
-fields = [Field("c", unsteady=False)]
-
-
-def get_function_spaces(mesh):
-    return {"c": FunctionSpace(mesh, "CG", 1)}
-
+mesh = RectangleMesh(200, 40, 50, 10)
+fields = [Field("c", family="Lagrange", degree=1, unsteady=False)]
 
 # Point sources are difficult to represent in numerical models. Here we
 # follow :cite:`Wallwork:2022` in using a Gaussian approximation. Let
@@ -140,7 +135,6 @@ def get_qoi(mesh_seq, index):
 # Finally, we can set up the problem. Instead of using a :class:`TimePartition`,
 # we use the subclass :class:`TimeInstant`, whose only input is the field list. ::
 
-mesh = RectangleMesh(200, 40, 50, 10)
 time_partition = TimeInstant(fields)
 
 # When creating the :class:`MeshSeq`, we need to set the ``"qoi_type"`` to
@@ -149,7 +143,6 @@ time_partition = TimeInstant(fields)
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     mesh,
-    get_function_spaces=get_function_spaces,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="steady",

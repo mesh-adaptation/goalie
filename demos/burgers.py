@@ -24,21 +24,23 @@ from firedrake import *
 
 from goalie import *
 
-# In this problem, we have a single prognostic variable, :math:`\mathbf u`. Its name
-# and other metadata are recorded in a :class:`~.Field` object. ::
+# We begin by defining the two meshes of the unit sequare that we'd like to solve over.
+# For simplicity, we just use the same mesh twice: a :math:`32\times32` grid of the unit
+# square, with each grid-box divided into right-angled triangles. ::
 
-# TODO: Finite element
-fields = [Field("u")]
+n = 32
+mesh = UnitSquareMesh(n, n)
 
-# For each such field, we need to be able to specify how to
-# build a :class:`FunctionSpace`, given some mesh. Since there
-# could be more than one field, function spaces are given as a
-# dictionary, indexed by the prognostic solution field names. ::
+# In the Burgers problem, we have a single prognostic variable, :math:`\mathbf u`. Its
+# name and other metadata are recorded in a :class:`~.Field` object. One important piece
+# of metadata is the finite element used to define function spaces for the field (given
+# some mesh). This can be defined either using the :class:`finat.ufl.FiniteElement`
+# class, or using the same arguments as can be passed to
+# :class:`firedrake.functionspace.FunctionSpace` (e.g., `mesh`, `family`, `degree`). In
+# this case, we use a :math:`\mathbb{P}2` space so specify `family="Lagrange"` and
+# `degree=2`.Since Burgers is a vector equation, we need to specify `vector=True`. ::
 
-
-def get_function_spaces(mesh):
-    return {"u": VectorFunctionSpace(mesh, "CG", 2)}
-
+fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 # The solution :class:`Function`\s are automatically built on the function spaces given
 # by the :func:`get_function_spaces` function and are accessed via the
@@ -105,22 +107,13 @@ def get_initial_condition(mesh_seq):
     return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
-# Now that we have the above functions defined, we move onto the
-# concrete parts of the solver. To begin with, we require a
-# sequence of meshes, simulation end time and a timestep. ::
+# Now that we have the above functions defined, we need to define the time
+# discretisation used for the solver. To do this, we create a :class:`TimePartition` for
+# the problem with two subintervals. ::
 
-n = 32
-meshes = [
-    UnitSquareMesh(n, n),
-    UnitSquareMesh(n, n),
-]
 end_time = 0.5
 dt = 1 / n
-
-# These can be used to create a :class:`TimePartition` for the
-# problem with two subintervals. ::
-
-num_subintervals = len(meshes)
+num_subintervals = 2
 time_partition = TimePartition(
     end_time,
     num_subintervals,
@@ -129,13 +122,14 @@ time_partition = TimePartition(
     num_timesteps_per_export=2,
 )
 
-# Finally, we are able to construct a :class:`MeshSeq` and
-# solve Burgers equation over the meshes in sequence. ::
+# Finally, we are able to construct a :class:`~.MeshSeq` and solve Burgers equation over
+# the meshes in sequence. Note that the second argument can be either a list of meshes
+# or just a single mesh. If a single mesh is passed then this will be used for all
+# subintervals. ::
 
 mesh_seq = MeshSeq(
     time_partition,
-    meshes,
-    get_function_spaces=get_function_spaces,
+    mesh,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
 )

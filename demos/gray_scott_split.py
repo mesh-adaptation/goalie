@@ -12,19 +12,12 @@ from firedrake import *
 
 from goalie_adjoint import *
 
-# This time, we have two fields instead of one, as well as two function spaces. ::
+# This time, we have two fields instead of one and so use two separate
+# :math:`\mathbb{P}1` spaces rather than a mixed space with two such components. ::
 
-# TODO: Finite elements
-fields = [Field("a"), Field("b")]
 mesh = PeriodicSquareMesh(65, 65, 2.5, quadrilateral=True, direction="both")
-
-
-def get_function_spaces(mesh):
-    return {
-        "a": FunctionSpace(mesh, "CG", 1),
-        "b": FunctionSpace(mesh, "CG", 1),
-    }
-
+p1_element = FiniteElement("Lagrange", quadrilateral, 1)
+fields = [Field("a", finite_element=p1_element), Field("b", finite_element=p1_element)]
 
 # Therefore, the initial condition must be constructed using separate
 # :class:`Function`\s. ::
@@ -134,7 +127,6 @@ time_partition = TimePartition(
 mesh_seq = AdjointMeshSeq(
     time_partition,
     mesh,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,

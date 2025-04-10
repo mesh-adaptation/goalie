@@ -30,9 +30,9 @@ class BaseClasses:
         """
 
         def setUp(self):
-            self.field = Field("field")
-            self.time_partition = TimePartition(1.0, 2, [0.5, 0.5], Field("field"))
-            self.time_interval = TimeInterval(1.0, [0.5], Field("field"))
+            self.field = Field("field", family="Real")
+            self.time_partition = TimePartition(1.0, 2, [0.5, 0.5], self.field)
+            self.time_interval = TimeInterval(1.0, [0.5], self.field)
 
         def trivial_mesh(self, dim):
             try:
@@ -57,44 +57,46 @@ class TestExceptions(BaseClasses.MeshSeqTestCase):
         msg = "Meshes must all have the same topological dimension."
         self.assertEqual(str(cm.exception), msg)
 
-    @parameterized.expand(["get_function_spaces", "get_solver"])
-    def test_notimplemented_error(self, function_name):
+    def test_get_solver_notimplemented_error(self):
         mesh_seq = MeshSeq(self.time_interval, self.trivial_mesh(2))
         with self.assertRaises(NotImplementedError) as cm:
-            if function_name == "get_function_spaces":
-                getattr(mesh_seq, function_name)(mesh_seq[0])
-            else:
-                getattr(mesh_seq, function_name)()
-        self.assertEqual(str(cm.exception), f"'{function_name}' needs implementing.")
+            mesh_seq.get_solver()
+        self.assertEqual(str(cm.exception), "'get_solver' needs implementing.")
 
-    @parameterized.expand(["get_function_spaces", "get_initial_condition"])
-    def test_return_dict_error(self, method):
-        kwargs = {method: lambda _: 0}
+    def test_return_dict_error(self):
         with self.assertRaises(AssertionError) as cm:
-            MeshSeq(self.time_interval, self.trivial_mesh(2), **kwargs)
-        self.assertEqual(str(cm.exception), f"{method} should return a dict")
-
-    @parameterized.expand(["get_function_spaces", "get_initial_condition"])
-    def test_missing_field_error(self, method):
-        kwargs = {method: lambda _: {}}
-        with self.assertRaises(AssertionError) as cm:
-            MeshSeq(self.time_interval, self.trivial_mesh(2), **kwargs)
-        msg = "missing fields {'field'} in " + f"{method}"
+            MeshSeq(
+                self.time_interval,
+                self.trivial_mesh(2),
+                get_initial_condition=lambda _: 0,
+            )
+        msg = "get_initial_condition should return a dict"
         self.assertEqual(str(cm.exception), msg)
 
-    @parameterized.expand(["get_function_spaces", "get_initial_condition"])
-    def test_unexpected_field_error(self, method):
-        kwargs = {method: lambda _: {"field": None, "extra_field": None}}
+    def test_missing_field_error(self):
         with self.assertRaises(AssertionError) as cm:
-            MeshSeq(self.time_interval, self.trivial_mesh(2), **kwargs)
-        msg = "unexpected fields {'extra_field'} in " + f"{method}"
+            MeshSeq(
+                self.time_interval,
+                self.trivial_mesh(2),
+                get_initial_condition=lambda _: {},
+            )
+        msg = "missing fields {'field'} in get_initial_condition"
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_unexpected_field_error(self):
+        with self.assertRaises(AssertionError) as cm:
+            MeshSeq(
+                self.time_interval,
+                self.trivial_mesh(2),
+                get_initial_condition=lambda _: {"field": None, "extra_field": None},
+            )
+        msg = "unexpected fields {'extra_field'} in get_initial_condition"
         self.assertEqual(str(cm.exception), msg)
 
     def test_solver_generator_error(self):
         mesh = self.trivial_mesh(2)
         f_space = FunctionSpace(mesh, "CG", 1)
         kwargs = {
-            "get_function_spaces": lambda _: {"field": f_space},
             "get_initial_condition": lambda _: {"field": Function(f_space)},
             "get_solver": lambda _: lambda *_: {},
         }

@@ -26,9 +26,10 @@ set_log_level(DEBUG)
 
 
 class BurgersMeshSeq(GoalOrientedMeshSeq):
-    @staticmethod
-    def get_function_spaces(mesh):
-        return {"u": VectorFunctionSpace(mesh, "CG", 2)}
+    def get_initial_condition(self):
+        fs = self.function_spaces["u"][0]
+        x, y = SpatialCoordinate(self[0])
+        return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
     def get_solver(self):
         def solver(index):
@@ -66,11 +67,6 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
 
         return solver
 
-    def get_initial_condition(self):
-        fs = self.function_spaces["u"][0]
-        x, y = SpatialCoordinate(self[0])
-        return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
-
     @annotate_qoi
     def get_qoi(self, i):
         R = FunctionSpace(self[i], "R", 0)
@@ -94,17 +90,19 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
 # methods have been modified to account for both ``"end_time"`` and
 # ``"time_integrated"`` QoIs.
 #
-# We apply exactly the same setup as before, except that the
-# :class:`BurgersMeshSeq` class is used. ::
+# We apply exactly the same setup as before, except that the :class:`BurgersMeshSeq`
+# class is used and we again need to specifically define the mesh for each subinterval.
+# ::
 
 n = 32
-meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
+meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
+fields = [Field("u", family="Lagrange", degree=2, vector=True)]
+
 end_time = 0.5
 dt = 1 / n
 num_subintervals = len(meshes)
-# TODO: Finite element
 time_partition = TimePartition(
-    end_time, num_subintervals, dt, [Field("u")], num_timesteps_per_export=2
+    end_time, num_subintervals, dt, fields, num_timesteps_per_export=2
 )
 mesh_seq = BurgersMeshSeq(time_partition, meshes, qoi_type="time_integrated")
 solutions, indicators = mesh_seq.indicate_errors(

@@ -11,9 +11,10 @@ Code here is based on that found at
 import os
 
 import ufl
+from finat.ufl import FiniteElement, MixedElement, VectorElement
 from firedrake.bcs import DirichletBC
 from firedrake.function import Function
-from firedrake.functionspace import FunctionSpace, VectorFunctionSpace
+from firedrake.functionspace import FunctionSpace
 from firedrake.mesh import Mesh
 from firedrake.solving import solve
 from firedrake.ufl_expr import TestFunctions
@@ -21,17 +22,16 @@ from firedrake.ufl_expr import TestFunctions
 from goalie.field import Field
 
 mesh = Mesh(os.path.join(os.path.dirname(__file__), "mesh-with-hole.msh"))
-fields = [Field("up", unsteady=False)]
+p2v_element = VectorElement(FiniteElement("Lagrange", ufl.triangle, 2), dim=2)
+p1_element = FiniteElement("Lagrange", ufl.triangle, 1)
+fields = [
+    Field("up", finite_element=MixedElement([p2v_element, p1_element]), unsteady=False)
+]
 dt = 1.0
 end_time = dt
 dt_per_export = 1
 num_subintervals = 1
 steady = True
-
-
-def get_function_spaces(mesh):
-    r"""Taylor-Hood :math:`\mathbb P2-\mathbb P1` space."""
-    return {"up": VectorFunctionSpace(mesh, "CG", 2) * FunctionSpace(mesh, "CG", 1)}
 
 
 def get_solver(self):
