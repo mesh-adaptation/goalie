@@ -40,7 +40,7 @@ class BaseClasses:
             mesh = UnitSquareMesh(1, 1)
             self.meshes = [mesh]
             self.field = Field("field", family="Real", degree=0)
-            self.function_space = FunctionSpace(mesh, self.field.finite_element)
+            self.function_space = FunctionSpace(mesh, self.field.get_element(mesh))
 
     class TrivialGoalOrientedBaseClass(unittest.TestCase):
         """
@@ -141,7 +141,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
 
     def test_field_not_solved_for(self):
         mesh_seq = AdjointMeshSeq(
-            TimeInterval(1.0, 0.5, Field("field", solved_for=False)),
+            TimeInterval(1.0, 0.5, Field("field", family="Real", solved_for=False)),
             self.mesh,
             qoi_type="end_time",
         )
@@ -167,7 +167,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
     def test_output_wrong_function_space(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(
-            Function(FunctionSpace(self.mesh, self.field.finite_element))
+            Function(FunctionSpace(self.mesh, self.field.get_element(self.mesh)))
         )
         solve_block.get_outputs = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
