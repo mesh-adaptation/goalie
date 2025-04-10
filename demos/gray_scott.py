@@ -15,17 +15,15 @@ from goalie_adjoint import *
 
 # The problem is defined on a doubly periodic mesh of squares. ::
 
-field_names = ["ab"]
 mesh = PeriodicSquareMesh(65, 65, 2.5, quadrilateral=True, direction="both")
 
 # We solve for the tracer species using a mixed formulation, with a :math:`\mathbb P1`
-# approximation for both components. ::
+# approximation for both components. In this case, it's more convenient to define the
+# finite element and pass this directly to the constructor for :class:`~.Field`, rather
+# than using its other keyword arguments. ::
 
-
-def get_function_spaces(mesh):
-    V = FunctionSpace(mesh, "CG", 1)
-    return {"ab": V * V}
-
+p1_element = FiniteElement("Lagrange", quadrilateral, 1)
+fields = [Field("ab", finite_element=MixedElement([p1_element, p1_element]))]
 
 # The initial conditions are localised within the region :math:`[1, 1.5]^2`. ::
 
@@ -53,7 +51,7 @@ def get_initial_condition(mesh_seq):
 
 def get_solver(mesh_seq):
     def solver(index):
-        ab, ab_ = mesh_seq.fields["ab"]
+        ab, ab_ = mesh_seq.field_functions["ab"]
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
@@ -101,7 +99,7 @@ def get_solver(mesh_seq):
 
 def get_qoi(mesh_seq, index):
     def qoi():
-        ab = mesh_seq.fields["ab"][0]
+        ab = mesh_seq.field_functions["ab"][0]
         a, b = split(ab)
         return a * b**2 * dx
 
@@ -120,7 +118,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    field_names,
+    fields,
     num_timesteps_per_export=dt_per_export,
     subintervals=[
         (0.0, 0.001),
@@ -136,7 +134,6 @@ time_partition = TimePartition(
 mesh_seq = AdjointMeshSeq(
     time_partition,
     mesh,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,
