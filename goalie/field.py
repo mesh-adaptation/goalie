@@ -24,7 +24,7 @@ class Field:
         Constructs all the necessary attributes for the field object.
 
         The finite element for the Field should be set either using the `finite_element`
-        keyword argument or a combination of the `mesh`, `family`, `degree`, `vfamily`,
+        keyword argument or a combination of the `family`, `degree`, `vfamily`,
         `vdegree`, and/or `variant` keyword arguments. For details on these arguments,
         see :class:`firedrake.functionspace.FunctionSpace`. If the `finite_element`
         keyword argument is specified, these other arguments are ignored.
