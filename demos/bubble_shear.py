@@ -11,11 +11,15 @@
 # time-dependent background velocity field which is not passed to
 # :class:`GoalOrientedMeshSeq`. ::
 
-from animate.adapt import adapt
-from animate.metric import RiemannianMetric
 from firedrake import *
 
 from goalie_adjoint import *
+
+fields = [
+    Field("c", family="CG", degree=1),
+    Field("u", family="CG", degree=1, vector=True, solved_for=False),
+]
+
 
 T = 6.0
 
@@ -31,83 +35,70 @@ def velocity_expression(mesh, t):
     return u_expr
 
 
-fields = ["c"]
-
-
-def get_function_spaces(mesh):
-    return {"c": FunctionSpace(mesh, "CG", 1)}
-
-
-def ball_initial_condition(x, y):
-    ball_r0, ball_x0, ball_y0 = 0.15, 0.5, 0.65
-    r = sqrt(pow(x - ball_x0, 2) + pow(y - ball_y0, 2))
-    return conditional(r < ball_r0, 1.0, 0.0)
-
-
 def get_initial_condition(mesh_seq):
-    fs = mesh_seq.function_spaces["c"][0]
     x, y = SpatialCoordinate(mesh_seq[0])
-    ball = ball_initial_condition(x, y)
-    c0 = Function(fs).interpolate(ball)
-    return {"c": c0}
+    ball_r, ball_x0, ball_y0 = 0.15, 0.5, 0.65
+    r = sqrt(pow(x - ball_x0, 2) + pow(y - ball_y0, 2))
+    c_init = Function(mesh_seq.function_spaces["c"][0])
+    c_init.interpolate(conditional(r < ball_r, 1.0, 0.0))
+
+    # For now we initialise the velocity field to zero
+    u_init = Function(mesh_seq.function_spaces["u"][0])
+    return {"c": c_init, "u": u_init}
 
 
 def get_solver(mesh_seq):
     def solver(index):
         Q = mesh_seq.function_spaces["c"][index]
-        V = VectorFunctionSpace(mesh_seq[index], "CG", 1)
         R = FunctionSpace(mesh_seq[index], "R", 0)
 
-        c, c_ = mesh_seq.fields["c"]
+        c, c_ = mesh_seq.field_functions["c"]
+        u, u_ = mesh_seq.field_functions["u"]
 
-        tp = mesh_seq.time_partition
-        t_start, t_end = tp.subintervals[index]
+        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
+        t_start, t_end = mesh_seq.time_partition.subintervals[index]
         t = Function(R).assign(t_start)
-        dt = Function(R).assign(tp.timesteps[index])
         theta = Function(R).assign(0.5)  # Crank-Nicolson implicitness
 
-        # Compute the velocity field at t_start
-        u = Function(V)
-        u_ = Function(V)
         u_expression = velocity_expression(mesh_seq[index], t)
         u_.interpolate(u_expression)
 
-        # SUPG stabilisation parameter
+        # SUPG stabilisation
         D = Function(R).assign(0.1)  # diffusivity coefficient
         h = CellSize(mesh_seq[index])  # mesh cell size
         U = sqrt(dot(u, u))  # velocity magnitude
         tau = 0.5 * h / U
         tau = min_value(tau, U * h / (6 * D))
 
+        # Apply SUPG stabilisation to the test function
         phi = TestFunction(Q)
         phi += tau * dot(u, grad(phi))
 
-        a = c * phi * dx + dt * theta * dot(u, grad(c)) * phi * dx
-        L = c_ * phi * dx - dt * (1 - theta) * dot(u_, grad(c_)) * phi * dx
-        F = a - L
-        mesh_seq.read_forms({"c": F})
+        # Variational form of the advection equation
+        trial = TrialFunction(Q)
+        a = inner(trial, phi) * dx + dt * theta * inner(dot(u, grad(trial)), phi) * dx
+        L = inner(c_, phi) * dx - dt * (1 - theta) * inner(dot(u_, grad(c_)), phi) * dx
 
-        bcs = DirichletBC(mesh_seq.function_spaces["c"][index], 0.0, "on_boundary")
-        nlvp = NonlinearVariationalProblem(F, c, bcs=bcs)
-        nlvs = NonlinearVariationalSolver(nlvp, ad_block_tag="c")
+        lvp = LinearVariationalProblem(a, L, c, bcs=DirichletBC(Q, 0.0, "on_boundary"))
+        lvs = LinearVariationalSolver(lvp, ad_block_tag="c")
 
-        # Time integrate from t_start to t_end
+        # Integrate from t_start to t_end
+        t.assign(t + dt)
         while float(t) < t_end + 0.5 * float(dt):
             # Update the background velocity field at the current timestep
             u.interpolate(u_expression)
 
-            # Solve the advection equation
-            nlvs.solve()
+            lvs.solve()
+
             yield
 
-            # Update the 'lagged' concentration and velocity field
+            # Update the solution at the previous timestep
             c_.assign(c)
             u_.assign(u)
             t.assign(t + dt)
 
-        return {"c": c}
-
     return solver
+
 
 
 # In the `first demo <bubble_shear.py>`__ where we considered this problem, the
@@ -129,18 +120,16 @@ def get_solver(mesh_seq):
 # .. math::
 #   J(c) := \int_{\Omega} (c(x, y, T/2) - c_0(x, y))^2 \, dx \, dy. ::
 
-
 def get_qoi(mesh_seq, index):
     def qoi():
         c0 = mesh_seq.get_initial_condition()["c"]
         c0_proj = project(c0, mesh_seq.function_spaces["c"][index])
-        c = mesh_seq.fields["c"][0]
+        c = mesh_seq.field_functions["c"][0]
 
         J = (c - c0_proj) * (c - c0_proj) * dx
         return J
 
     return qoi
-
 
 # We must also define the adaptor function to drive the mesh adaptation process. Here
 # we compute the anisotropic DWR metric which requires us to compute the hessian of the
@@ -207,62 +196,38 @@ def adaptor(mesh_seq, solutions, indicators):
 # subintervals and only run two iterations of the fixed point iteration, which is not
 # enough to reach convergence. ::
 
-n = 20
-dt = 0.01
-maxiter = 2  # maximum number of fixed point iterations
+num_subintervals = 2
+meshes = [UnitSquareMesh(64, 64) for _ in range(num_subintervals)]
 
-num_subintervals = 6
-meshes = [UnitSquareMesh(n, n) for _ in range(num_subintervals)]
-end_time = T / 2
+dt = 0.01
+end_time = T / 2.0
+
 time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
     fields,
-    num_timesteps_per_export=5,
+    num_timesteps_per_export=30,
 )
 
-msq = GoalOrientedMeshSeq(
+mesh_seq = AdjointMeshSeq(
     time_partition,
     meshes,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="end_time",
 )
-parameters = GoalOrientedAdaptParameters({"maxiter": maxiter})
-solutions, indicators = msq.fixed_point_iteration(adaptor, parameters=parameters)
 
-# Let us plot the intermediate and final solutions, as well as the final adapted meshes.
-# ::
+solutions = mesh_seq.solve_adjoint()
+# solutions = mesh_seq.solve_forward()
 
-import matplotlib.pyplot as plt
-from firedrake.pyplot import tripcolor, triplot
+fig, axes, tcs = plot_snapshots(solutions, time_partition, "u", "forward", levels=25)
+fig.savefig("bubble_shear.jpg")
 
-fig, axes = plt.subplots(2, 3, figsize=(7.5, 5), sharex=True, sharey=True)
+fig, axes, tcs = plot_snapshots(solutions, time_partition, "u", "adjoint", levels=25)
+fig.savefig("bubble_shear_adjoint.jpg")
 
-for i, ax in enumerate(axes.flatten()):
-    ax.set_aspect("equal")
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    # ax.tick_params(axis='both', which='major', labelsize=6)
-
-    # Plot the solution at the final subinterval timestep
-    time = time_partition.subintervals[i][-1]
-    tripcolor(solutions["c"]["forward"][i][-1], axes=ax, cmap="coolwarm")
-    triplot(msq[i], axes=ax, interior_kw={"linewidth": 0.08})
-    ax.annotate(f"t={time:.2f}", (0.05, 0.05), color="white")
-
-fig.tight_layout(pad=0.3)
-fig.savefig("bubble_shear-goal_oriented.jpg", dpi=300, bbox_inches="tight")
-
-fig, axes, tcs = plot_indicator_snapshots(
-    indicators,
-    time_partition,
-    "c",
-)
-fig.savefig("bubble_shear-goal_oriented-indicators.jpg", dpi=300, bbox_inches="tight")
 
 # .. figure:: bubble_shear-goal_oriented.jpg
 #    :figwidth: 80%
