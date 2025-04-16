@@ -40,6 +40,7 @@ class BaseClasses:
             mesh = UnitSquareMesh(1, 1)
             self.meshes = [mesh]
             self.field = Field("field", family="Real", degree=0)
+            self.function_space = FunctionSpace(mesh, self.field.get_element(mesh))
 
     class TrivialGoalOrientedBaseClass(unittest.TestCase):
         """
@@ -138,6 +139,21 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         assert len(self.meshes) == 1
         self.mesh = self.meshes[0]
 
+    def test_field_not_solved_for(self):
+        field_not_solved_for = Field("field", family="Real", degree=0, solved_for=False)
+        mesh_seq = AdjointMeshSeq(
+            TimeInterval(1.0, 0.5, field_not_solved_for),
+            self.mesh,
+            qoi_type="end_time",
+        )
+        with self.assertRaises(ValueError) as cm:
+            mesh_seq.get_solve_blocks("field", 0)
+        msg = (
+            "Cannot retrieve solve blocks for field 'field' because it isn't solved"
+            " for."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_not_function(self, MockSolveBlock):
         solve_block = MockSolveBlock()
@@ -152,7 +168,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
     def test_output_wrong_function_space(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(
-            Function(FunctionSpace(self.mesh, "Lagrange", 1))
+            Function(FunctionSpace(self.mesh, self.field.get_element(self.mesh)))
         )
         solve_block.get_outputs = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
@@ -163,8 +179,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_wrong_name(self, MockSolveBlock):
         solve_block = MockSolveBlock()
-        function_space = FunctionSpace(self.mesh, "R", 0)
-        block_variable = BlockVariable(Function(function_space, name="field2"))
+        block_variable = BlockVariable(Function(self.function_space, name="field2"))
         solve_block.get_outputs = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
             self.mesh_seq._output("field", 0, solve_block)
@@ -174,16 +189,14 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_valid(self, MockSolveBlock):
         solve_block = MockSolveBlock()
-        function_space = FunctionSpace(self.mesh, "R", 0)
-        block_variable = BlockVariable(Function(function_space, name="field"))
+        block_variable = BlockVariable(Function(self.function_space, name="field"))
         solve_block.get_outputs = lambda: [block_variable]
         self.assertIsNotNone(self.mesh_seq._output("field", 0, solve_block))
 
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_multiple_valid_error(self, MockSolveBlock):
         solve_block = MockSolveBlock()
-        function_space = FunctionSpace(self.mesh, "R", 0)
-        block_variable = BlockVariable(Function(function_space, name="field"))
+        block_variable = BlockVariable(Function(self.function_space, name="field"))
         solve_block.get_outputs = lambda: [block_variable, block_variable]
         with self.assertRaises(AttributeError) as cm:
             self.mesh_seq._output("field", 0, solve_block)
@@ -229,16 +242,14 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_valid(self, MockSolveBlock):
         solve_block = MockSolveBlock()
-        function_space = FunctionSpace(self.mesh, "R", 0)
-        block_variable = BlockVariable(Function(function_space, name="field_old"))
+        block_variable = BlockVariable(Function(self.function_space, name="field_old"))
         solve_block.get_dependencies = lambda: [block_variable]
         self.assertIsNotNone(self.mesh_seq._dependency("field", 0, solve_block))
 
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_multiple_valid_error(self, MockSolveBlock):
         solve_block = MockSolveBlock()
-        function_space = FunctionSpace(self.mesh, "R", 0)
-        block_variable = BlockVariable(Function(function_space, name="field_old"))
+        block_variable = BlockVariable(Function(self.function_space, name="field_old"))
         solve_block.get_dependencies = lambda: [block_variable, block_variable]
         with self.assertRaises(AttributeError) as cm:
             self.mesh_seq._dependency("field", 0, solve_block)
