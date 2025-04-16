@@ -200,6 +200,11 @@ class AdjointMeshSeq(MeshSeq):
         :returns: list of solve blocks
         :rtype: :class:`list` of :class:`pyadjoint.block.Block`\s
         """
+        if not self.field_metadata[fieldname].solved_for:
+            raise ValueError(
+                f"Cannot retrieve solve blocks for field '{fieldname}' because it isn't"
+                " solved for."
+            )
         blocks = pyadjoint.get_working_tape().get_blocks()
         if len(blocks) == 0:
             self.warning("Tape has no blocks!")
@@ -523,7 +528,9 @@ class AdjointMeshSeq(MeshSeq):
                     )
 
             # Update adjoint solver kwargs
-            for fieldname in self.field_names:
+            for fieldname, field in self.field_metadata.items():
+                if not field.solved_for:
+                    continue
                 for block in self.get_solve_blocks(fieldname, i):
                     block.adj_kwargs.update(adj_solver_kwargs)
 
@@ -543,6 +550,9 @@ class AdjointMeshSeq(MeshSeq):
 
             # Loop over prognostic variables
             for fieldname, field in self.field_metadata.items():
+                if not field.solved_for:
+                    continue
+
                 # Get solve blocks
                 solve_blocks = self.get_solve_blocks(fieldname, i)
                 num_solve_blocks = len(solve_blocks)
