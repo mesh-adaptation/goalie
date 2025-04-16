@@ -23,6 +23,9 @@ classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
 ]
+dependencies = [
+  "vtk",
+]
 
 [project.optional-dependencies]
 dev = [
