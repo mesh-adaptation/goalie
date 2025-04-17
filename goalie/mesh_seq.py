@@ -241,6 +241,11 @@ class MeshSeq:
             axes = axes[0]
         return fig, axes
 
+    def _get_field_metadata(self, fieldname):
+        if fieldname not in self.field_names:
+            raise ValueError(f"Field '{fieldname}' is not associated with the MeshSeq.")
+        return self.field_metadata[fieldname]
+
     def get_function_spaces(self, mesh):
         """
         Construct the function spaces corresponding to each field, for a given mesh.
@@ -451,7 +456,8 @@ class MeshSeq:
         for fieldname in self.field_names:
             ic = initial_conditions[fieldname]
             fs = ic.function_space()
-            if self.field_metadata[fieldname].unsteady:
+            field = self._get_field_metadata(fieldname)
+            if field.unsteady:
                 self.field_functions[fieldname] = (
                     firedrake.Function(fs, name=fieldname),
                     firedrake.Function(fs, name=f"{fieldname}_old").assign(ic),
@@ -505,7 +511,8 @@ class MeshSeq:
                         next(solver_gen)
                     # Update the solution data
                     for fieldname, sol in self.field_functions.items():
-                        if self.field_metadata[fieldname].unsteady:
+                        field = self._get_field_metadata(fieldname)
+                        if field.unsteady:
                             assert isinstance(sol, tuple)
                             solutions[fieldname].forward[i][j].assign(sol[0])
                             solutions[fieldname].forward_old[i][j].assign(sol[1])
@@ -523,7 +530,7 @@ class MeshSeq:
                     {
                         fieldname: self._transfer(
                             self.field_functions[fieldname][0]
-                            if self.field_metadata[fieldname].unsteady
+                            if self._get_field_metadata(fieldname).unsteady
                             else self.field_functions[fieldname],
                             fs[i + 1],
                         )

@@ -200,7 +200,9 @@ class AdjointMeshSeq(MeshSeq):
         :returns: list of solve blocks
         :rtype: :class:`list` of :class:`pyadjoint.block.Block`\s
         """
-        if not self.field_metadata[fieldname].solved_for:
+        field = self._get_field_metadata(fieldname)
+        if not field.unsteady:
+            return
             raise ValueError(
                 f"Cannot retrieve solve blocks for field '{fieldname}' because it isn't"
                 " solved for."
@@ -324,7 +326,8 @@ class AdjointMeshSeq(MeshSeq):
         :rtype: :class:`firedrake.function.Function`
         """
         # TODO #93: Inconsistent return value - can be None
-        if not self.field_metadata[fieldname].unsteady:
+        field = self._get_field_metadata(fieldname)
+        if not field.unsteady:
             return
         fs = self.function_spaces[fieldname][subinterval]
 
@@ -508,8 +511,10 @@ class AdjointMeshSeq(MeshSeq):
 
             # Final solution is used as the initial condition for the next subinterval
             checkpoint = {
-                fieldname: sol[0] if self.field_metadata[fieldname].unsteady else sol
-                for fieldname, sol in self.field_functions.items()
+                fieldname: solution_function[0]
+                if self._get_field_metadata(fieldname).unsteady
+                else solution_function
+                for fieldname, solution_function in self.field_functions.items()
             }
 
             # Get seed vector for reverse propagation
@@ -529,10 +534,9 @@ class AdjointMeshSeq(MeshSeq):
 
             # Update adjoint solver kwargs
             for fieldname, field in self.field_metadata.items():
-                if not field.solved_for:
-                    continue
-                for block in self.get_solve_blocks(fieldname, i):
-                    block.adj_kwargs.update(adj_solver_kwargs)
+                if field.solved_for:
+                    for block in self.get_solve_blocks(fieldname, i):
+                        block.adj_kwargs.update(adj_solver_kwargs)
 
             # Solve adjoint problem
             tape = pyadjoint.get_working_tape()
@@ -637,16 +641,17 @@ class AdjointMeshSeq(MeshSeq):
             # Get adjoint action on each subinterval
             with pyadjoint.stop_annotating():
                 for fieldname, control in self._controls.items():
-                    seeds[fieldname] = firedrake.Cofunction(
-                        self.function_spaces[fieldname][i].dual()
-                    )
-                    if control.block_variable.adj_value is not None:
-                        seeds[fieldname].assign(control.block_variable.adj_value)
-                    if not self.steady and np.isclose(norm(seeds[fieldname]), 0.0):
-                        self.warning(
-                            f"Adjoint action for field '{fieldname}' on {self.th(i)}"
-                            " subinterval is zero."
-                        )
+                    field = self._get_field_metadata(fieldname)
+                    if field.solved_for:
+                        function_space = self.function_spaces[fieldname][i]
+                        seeds[fieldname] = firedrake.Cofunction(function_space.dual())
+                        if control.block_variable.adj_value is not None:
+                            seeds[fieldname].assign(control.block_variable.adj_value)
+                        if field.unsteady and np.isclose(norm(seeds[fieldname]), 0.0):
+                            self.warning(
+                                f"Adjoint action for field '{fieldname}' on"
+                                f" {self.th(i)} subinterval is zero."
+                            )
 
             yield self.solutions
 
