@@ -20,8 +20,11 @@ __all__ = [
 
 
 class FunctionData(ABC):
-    """
+    r"""
     Abstract base class for classes holding field data.
+
+    Note that any :class:`~.Field`\s with `solved_for=False` will not be included in the
+    field data.
     """
 
     @abstractmethod
@@ -345,7 +348,7 @@ class FunctionData(ABC):
 
 
 class ForwardSolutionData(FunctionData):
-    """
+    r"""
     Class representing solution data for general forward problems.
 
     For a given exported timestep, the field types are:
@@ -353,6 +356,9 @@ class ForwardSolutionData(FunctionData):
     * ``'forward'``: the forward solution after taking the timestep;
     * ``'forward_old'``: the forward solution before taking the timestep (provided
       the problem is not steady-state).
+
+    Note that any :class:`~.Field`\s with `solved_for=False` will not be included in the
+    field data.
     """
 
     def __init__(self, *args, **kwargs):
@@ -364,7 +370,7 @@ class ForwardSolutionData(FunctionData):
 
 
 class AdjointSolutionData(FunctionData):
-    """
+    r"""
     Class representing solution data for general adjoint problems.
 
     For a given exported timestep, the field types are:
@@ -375,6 +381,9 @@ class AdjointSolutionData(FunctionData):
     * ``'adjoint'``: the adjoint solution after taking the timestep;
     * ``'adjoint_next'``: the adjoint solution before taking the timestep
       backwards (provided the problem is not steady-state).
+
+    Note that any :class:`~.Field`\s with `solved_for=False` will not be included in the
+    field data.
     """
 
     def __init__(self, *args, **kwargs):
@@ -386,11 +395,15 @@ class AdjointSolutionData(FunctionData):
 
 
 class IndicatorData(FunctionData):
-    """
+    r"""
     Class representing error indicator data.
 
     Note that this class has a single dictionary with the field name as the key, rather
     than a doubly-nested dictionary.
+
+    Note that any :class:`~.Field`\s with `solved_for=False` will not be included in the
+    field data. (It doesn't usually make sense to compute error indicators for those
+    anyway.)
     """
 
     def __init__(self, time_partition, meshes):
