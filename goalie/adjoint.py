@@ -636,16 +636,17 @@ class AdjointMeshSeq(MeshSeq):
             # Get adjoint action on each subinterval
             with pyadjoint.stop_annotating():
                 for fieldname, control in self._controls.items():
-                    seeds[fieldname] = firedrake.Cofunction(
-                        self.function_spaces[fieldname][i].dual()
-                    )
-                    if control.block_variable.adj_value is not None:
-                        seeds[fieldname].assign(control.block_variable.adj_value)
-                    if not self.steady and np.isclose(norm(seeds[fieldname]), 0.0):
-                        self.warning(
-                            f"Adjoint action for field '{fieldname}' on {self.th(i)}"
-                            " subinterval is zero."
-                        )
+                    field = self.field_metadata[fieldname]
+                    if field.solved_for:
+                        function_space = self.function_spaces[fieldname][i]
+                        seeds[fieldname] = firedrake.Cofunction(function_space.dual())
+                        if control.block_variable.adj_value is not None:
+                            seeds[fieldname].assign(control.block_variable.adj_value)
+                        if field.unsteady and np.isclose(norm(seeds[fieldname]), 0.0):
+                            self.warning(
+                                f"Adjoint action for field '{fieldname}' on"
+                                f" {self.th(i)} subinterval is zero."
+                            )
 
             yield self.solutions
 
