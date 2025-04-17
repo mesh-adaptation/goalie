@@ -43,15 +43,18 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :type forms_dictionary: :class:`dict`
         """
         for fieldname, form in forms_dictionary.items():
-            if fieldname not in self.field_functions:
-                raise ValueError(
-                    f"Unexpected field '{fieldname}' in forms dictionary."
-                    f" Expected one of {list(self.field_metadata.keys())}."
-                )
-            if not isinstance(form, ufl.Form):
-                raise TypeError(
-                    f"Expected a UFL form for field '{fieldname}', not '{type(form)}'."
-                )
+            field = self.field_metadata[fieldname]
+            if field.solved_for:
+                if fieldname not in self.field_functions:
+                    raise ValueError(
+                        f"Unexpected field '{fieldname}' in forms dictionary."
+                        f" Expected one of {list(self.field_metadata.keys())}."
+                    )
+                if not isinstance(form, ufl.Form):
+                    raise TypeError(
+                        f"Expected a UFL form for field '{fieldname}', not"
+                        f" '{type(form)}'."
+                    )
         self._forms = forms_dictionary
 
     @property
@@ -353,19 +356,23 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             )
         estimator = 0
         for fieldname, by_field in self.indicators.items():
-            if fieldname not in self.function_spaces:
-                raise ValueError(
-                    f"Key '{fieldname}' does not exist in the TimePartition provided."
-                )
-            assert not isinstance(by_field, Function) and isinstance(by_field, Iterable)
-            for by_mesh, dt in zip(by_field, self.time_partition.timesteps):
-                assert not isinstance(by_mesh, Function) and isinstance(
-                    by_mesh, Iterable
-                )
-                for indicator in by_mesh:
-                    if absolute_value:
-                        indicator.interpolate(abs(indicator))
-                    estimator += dt * indicator.vector().gather().sum()
+            field = self.field_metadata[fieldname]
+            if field.solved_for:
+                if fieldname not in self.function_spaces:
+                    raise ValueError(
+                        f"Key '{fieldname}' does not exist in the TimePartition"
+                        " provided."
+                    )
+                assert not isinstance(by_field, Function)
+                assert isinstance(by_field, Iterable)
+                for by_mesh, dt in zip(by_field, self.time_partition.timesteps):
+                    assert not isinstance(by_mesh, Function) and isinstance(
+                        by_mesh, Iterable
+                    )
+                    for indicator in by_mesh:
+                        if absolute_value:
+                            indicator.interpolate(abs(indicator))
+                        estimator += dt * indicator.vector().gather().sum()
         return estimator
 
     def check_estimator_convergence(self):
