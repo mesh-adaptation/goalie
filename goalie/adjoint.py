@@ -528,9 +528,10 @@ class AdjointMeshSeq(MeshSeq):
                     pyadjoint.pause_annotation()
             else:
                 for fieldname, fs in self.function_spaces.items():
-                    checkpoint[fieldname].block_variable.adj_value = self._transfer(
-                        seeds[fieldname], fs[i]
-                    )
+                    if self.field_metadata[fieldname].solved_for:
+                        checkpoint[fieldname].block_variable.adj_value = self._transfer(
+                            seeds[fieldname], fs[i]
+                        )
 
             # Update adjoint solver kwargs
             for fieldname, field in self.field_metadata.items():

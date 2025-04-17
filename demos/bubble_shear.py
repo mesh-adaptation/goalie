@@ -75,12 +75,18 @@ def get_solver(mesh_seq):
         phi += tau * dot(u, grad(phi))
 
         # Variational form of the advection equation
-        trial = TrialFunction(Q)
+        # trial = TrialFunction(Q)
+        trial = c
         a = inner(trial, phi) * dx + dt * theta * inner(dot(u, grad(trial)), phi) * dx
         L = inner(c_, phi) * dx - dt * (1 - theta) * inner(dot(u_, grad(c_)), phi) * dx
 
-        lvp = LinearVariationalProblem(a, L, c, bcs=DirichletBC(Q, 0.0, "on_boundary"))
-        lvs = LinearVariationalSolver(lvp, ad_block_tag="c")
+        # lvp = LinearVariationalProblem(a, L, c, bcs=DirichletBC(Q, 0.0, "on_boundary"))
+        # lvs = LinearVariationalSolver(lvp, ad_block_tag="c")
+        F = a - L
+        nlvp = NonlinearVariationalProblem(F, c, bcs=DirichletBC(Q, 0.0, "on_boundary"))
+        nlvs = NonlinearVariationalSolver(nlvp, ad_block_tag="c")
+
+        mesh_seq.read_forms({"c": F})
 
         # Integrate from t_start to t_end
         t.assign(t + dt)
@@ -88,7 +94,8 @@ def get_solver(mesh_seq):
             # Update the background velocity field at the current timestep
             u.interpolate(u_expression)
 
-            lvs.solve()
+            # lvs.solve()
+            nlvs.solve()
 
             yield
 
@@ -210,7 +217,8 @@ time_partition = TimePartition(
     num_timesteps_per_export=30,
 )
 
-mesh_seq = AdjointMeshSeq(
+# mesh_seq = AdjointMeshSeq(
+mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     meshes,
     get_initial_condition=get_initial_condition,
@@ -219,14 +227,18 @@ mesh_seq = AdjointMeshSeq(
     qoi_type="end_time",
 )
 
-solutions = mesh_seq.solve_adjoint()
+# solutions = mesh_seq.solve_adjoint()
 # solutions = mesh_seq.solve_forward()
+solutions, indicators = mesh_seq.indicate_errors()
 
-fig, axes, tcs = plot_snapshots(solutions, time_partition, "u", "forward", levels=25)
+fig, axes, tcs = plot_snapshots(solutions, time_partition, "c", "forward", levels=25)
 fig.savefig("bubble_shear.jpg")
 
-fig, axes, tcs = plot_snapshots(solutions, time_partition, "u", "adjoint", levels=25)
+fig, axes, tcs = plot_snapshots(solutions, time_partition, "c", "adjoint", levels=25)
 fig.savefig("bubble_shear_adjoint.jpg")
+
+fig, axes, tcs = plot_indicator_snapshots(indicators, time_partition, "c",)
+fig.savefig("bubble_shear_indicator.jpg")
 
 
 # .. figure:: bubble_shear-goal_oriented.jpg

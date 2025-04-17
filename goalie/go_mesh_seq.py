@@ -42,19 +42,27 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             values are the UFL forms
         :type forms_dictionary: :class:`dict`
         """
+        expected_fields = [
+            fieldname
+            for fieldname, field in self.field_metadata.items()
+            if field.solved_for
+        ]
         for fieldname, form in forms_dictionary.items():
+            if fieldname not in self.field_functions:
+                raise ValueError(
+                    f"Unexpected field '{fieldname}' in forms dictionary."
+                    f" Expected one of {expected_fields}."
+                )
             field = self._get_field_metadata(fieldname)
-            if field.solved_for:
-                if fieldname not in self.field_functions:
-                    raise ValueError(
-                        f"Unexpected field '{fieldname}' in forms dictionary."
-                        f" Expected one of {list(self.field_metadata.keys())}."
-                    )
-                if not isinstance(form, ufl.Form):
-                    raise TypeError(
-                        f"Expected a UFL form for field '{fieldname}', not"
-                        f" '{type(form)}'."
-                    )
+            if not field.solved_for:
+                raise ValueError(
+                    f"Unexpected field '{fieldname}' in forms dictionary."
+                    f" Field '{fieldname}' is not solved for."
+                )
+            if not isinstance(form, ufl.Form):
+                raise TypeError(
+                    f"Expected a UFL form for field '{fieldname}', not '{type(form)}'."
+                )
         self._forms = forms_dictionary
 
     @property
@@ -300,9 +308,13 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 # timestep solutions. This assumes that the order of fields being solved
                 # for in get_solver is the same as their order in self.field_functions
                 for f_next in list(self.function_spaces.keys())[1:]:
+                    if not self.field_metadata[f].solved_for:
+                        continue
                     transfer(self.solutions[f_next][FWD_OLD][i][j], u[f_next])
                 # Loop over each strongly coupled field
                 for f in self.field_functions:
+                    if not self.field_metadata[f].solved_for:
+                        continue
                     # Transfer solutions associated with the current field f
                     transfer(self.solutions[f][FWD][i][j], u[f])
                     field = self._get_field_metadata(f)
