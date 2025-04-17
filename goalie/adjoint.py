@@ -529,10 +529,9 @@ class AdjointMeshSeq(MeshSeq):
 
             # Update adjoint solver kwargs
             for fieldname, field in self.field_metadata.items():
-                if not field.solved_for:
-                    continue
-                for block in self.get_solve_blocks(fieldname, i):
-                    block.adj_kwargs.update(adj_solver_kwargs)
+                if field.solved_for:
+                    for block in self.get_solve_blocks(fieldname, i):
+                        block.adj_kwargs.update(adj_solver_kwargs)
 
             # Solve adjoint problem
             tape = pyadjoint.get_working_tape()
