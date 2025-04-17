@@ -511,10 +511,10 @@ class AdjointMeshSeq(MeshSeq):
 
             # Final solution is used as the initial condition for the next subinterval
             checkpoint = {
-                fieldname: sol[0]
+                fieldname: solution_function[0]
                 if self._get_field_metadata(fieldname).unsteady
-                else sol
-                for fieldname, sol in self.field_functions.items()
+                else solution_function
+                for fieldname, solution_function in self.field_functions.items()
             }
 
             # Get seed vector for reverse propagation
