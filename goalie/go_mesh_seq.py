@@ -43,7 +43,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :type forms_dictionary: :class:`dict`
         """
         for fieldname, form in forms_dictionary.items():
-            field = self.field_metadata[fieldname]
+            field = self._get_field_metadata(fieldname)
             if field.solved_for:
                 if fieldname not in self.field_functions:
                     raise ValueError(
@@ -282,7 +282,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 f: enriched_mesh_seq.function_spaces[f][i] for f in self.field_functions
             }
             for f, fs_e in enriched_spaces.items():
-                if self.field_metadata[f].unsteady:
+                field = self._get_field_metadata(f)
+                if field.unsteady:
                     u[f], u_[f] = enriched_mesh_seq.field_functions[f]
                 else:
                     u[f] = enriched_mesh_seq.field_functions[f]
@@ -304,7 +305,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 for f in self.field_functions:
                     # Transfer solutions associated with the current field f
                     transfer(self.solutions[f][FWD][i][j], u[f])
-                    if self.field_metadata[f].unsteady:
+                    field = self._get_field_metadata(f)
+                    if field.unsteady:
                         transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
                     transfer(self.solutions[f][ADJ][i][j], u_star[f])
                     transfer(self.solutions[f][ADJ_NEXT][i][j], u_star_next[f])
@@ -356,13 +358,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             )
         estimator = 0
         for fieldname, by_field in self.indicators.items():
-            field = self.field_metadata[fieldname]
+            field = self._get_field_metadata(fieldname)
             if field.solved_for:
-                if fieldname not in self.function_spaces:
-                    raise ValueError(
-                        f"Key '{fieldname}' does not exist in the TimePartition"
-                        " provided."
-                    )
                 assert not isinstance(by_field, Function)
                 assert isinstance(by_field, Iterable)
                 for by_mesh, dt in zip(by_field, self.time_partition.timesteps):

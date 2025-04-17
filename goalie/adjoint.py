@@ -200,7 +200,9 @@ class AdjointMeshSeq(MeshSeq):
         :returns: list of solve blocks
         :rtype: :class:`list` of :class:`pyadjoint.block.Block`\s
         """
-        if not self.field_metadata[fieldname].solved_for:
+        field = self._get_field_metadata(fieldname)
+        if not field.unsteady:
+            return
             raise ValueError(
                 f"Cannot retrieve solve blocks for field '{fieldname}' because it isn't"
                 " solved for."
@@ -324,7 +326,8 @@ class AdjointMeshSeq(MeshSeq):
         :rtype: :class:`firedrake.function.Function`
         """
         # TODO #93: Inconsistent return value - can be None
-        if not self.field_metadata[fieldname].unsteady:
+        field = self._get_field_metadata(fieldname)
+        if not field.unsteady:
             return
         fs = self.function_spaces[fieldname][subinterval]
 
@@ -508,7 +511,9 @@ class AdjointMeshSeq(MeshSeq):
 
             # Final solution is used as the initial condition for the next subinterval
             checkpoint = {
-                fieldname: sol[0] if self.field_metadata[fieldname].unsteady else sol
+                fieldname: sol[0]
+                if self._get_field_metadata(fieldname).unsteady
+                else sol
                 for fieldname, sol in self.field_functions.items()
             }
 
@@ -636,7 +641,7 @@ class AdjointMeshSeq(MeshSeq):
             # Get adjoint action on each subinterval
             with pyadjoint.stop_annotating():
                 for fieldname, control in self._controls.items():
-                    field = self.field_metadata[fieldname]
+                    field = self._get_field_metadata(fieldname)
                     if field.solved_for:
                         function_space = self.function_spaces[fieldname][i]
                         seeds[fieldname] = firedrake.Cofunction(function_space.dual())
