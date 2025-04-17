@@ -33,6 +33,11 @@ class FunctionData(ABC):
             discretise the problem in space
         """
         self.time_partition = time_partition
+        self.field_names = [
+            fieldname
+            for fieldname, field in time_partition.field_metadata.items()
+            if field.solved_for
+        ]
         self.function_spaces = function_spaces
         self._data = None
         self.labels = self._label_dict[
@@ -56,7 +61,7 @@ class FunctionData(ABC):
                         for label in self.labels
                     }
                 )
-                for fieldname in tp.field_names
+                for fieldname in self.field_names
             }
         )
 
@@ -86,13 +91,12 @@ class FunctionData(ABC):
         of the doubly-nested dictionary are doubly-nested lists, which retain the
         default layout: indexed first by subinterval and then by export.
         """
-        tp = self.time_partition
         return AttrDict(
             {
                 label: AttrDict(
                     {
                         fieldname: self._data_by_field[fieldname][label]
-                        for fieldname in tp.field_names
+                        for fieldname in self.field_names
                     }
                 )
                 for label in self.labels
@@ -118,7 +122,7 @@ class FunctionData(ABC):
                             for label in self.labels
                         }
                     )
-                    for fieldname in tp.field_names
+                    for fieldname in self.field_names
                 }
             )
             for subinterval in range(tp.num_subintervals)
@@ -219,7 +223,7 @@ class FunctionData(ABC):
         outfile = VTKFile(output_fpath, adaptive=True)
         if initial_condition is not None:
             ics = []
-            for fieldname in sorted(tp.field_names):
+            for fieldname in sorted(self.field_names):
                 ic = initial_condition[fieldname]
                 for field_type in export_field_types:
                     icc = ic.copy(deepcopy=True)
@@ -246,7 +250,7 @@ class FunctionData(ABC):
                     + (j + 1) * tp.timesteps[i] * tp.num_timesteps_per_export[i]
                 )
                 fs = []
-                for fieldname in sorted(tp.field_names):
+                for fieldname in sorted(self.field_names):
                     mixed = hasattr(
                         self.function_spaces[fieldname][0], "num_sub_spaces"
                     )
@@ -269,7 +273,8 @@ class FunctionData(ABC):
         tp = self.time_partition
 
         # Mesh names must be unique
-        mesh_names = [fs.mesh().name for fs in self.function_spaces[tp.field_names[0]]]
+        fieldname0 = self.field_names[0]
+        mesh_names = [fs.mesh().name for fs in self.function_spaces[fieldname0]]
         rename_meshes = len(set(mesh_names)) != len(mesh_names)
         with CheckpointFile(output_fpath, "w") as outfile:
             if initial_condition is not None:
@@ -278,50 +283,50 @@ class FunctionData(ABC):
             for i in range(tp.num_subintervals):
                 if rename_meshes:
                     mesh_name = f"mesh_{i}"
-                    mesh = self.function_spaces[tp.field_names[0]][i].mesh()
+                    mesh = self.function_spaces[self.field_names[0]][i].mesh()
                     mesh.name = mesh_name
                     mesh.topology_dm.name = mesh_name
-                for fieldname in tp.field_names:
+                for fieldname in self.field_names:
                     for field_type in export_field_types:
                         name = f"{fieldname}_{field_type}"
                         for j in range(tp.num_exports_per_subinterval[i] - 1):
                             f = self._data[fieldname][field_type][i][j]
                             outfile.save_function(f, name=name, idx=j)
 
-    def transfer(self, target, method="interpolate"):
+    def transfer(self, other, method="interpolate"):
         """
-        Transfer all functions from this :class:`~.FunctionData` object to the target
+        Transfer all functions from this :class:`~.FunctionData` object to the other
         :class:`~.FunctionData` object by interpolation, projection or prolongation.
 
-        :arg target: the target :class:`~.FunctionData` object to which to transfer the
+        :arg other: the other :class:`~.FunctionData` object to which to transfer the
             data
-        :type target: :class:`~.FunctionData`
+        :type other: :class:`~.FunctionData`
         :arg method: the transfer method to use. Either 'interpolate', 'project' or
             'prolong'
         :type method: :class:`str`
         """
         stp = self.time_partition
-        ttp = target.time_partition
+        otp = other.time_partition
 
         if method not in ["interpolate", "project", "prolong"]:
             raise ValueError(
                 f"Transfer method '{method}' not supported."
                 " Supported methods are 'interpolate', 'project', and 'prolong'."
             )
-        if stp.num_subintervals != ttp.num_subintervals:
+        if stp.num_subintervals != otp.num_subintervals:
             raise ValueError(
                 "Source and target have different numbers of subintervals."
             )
-        if stp.num_exports_per_subinterval != ttp.num_exports_per_subinterval:
+        if stp.num_exports_per_subinterval != otp.num_exports_per_subinterval:
             raise ValueError(
                 "Source and target have different numbers of exports per subinterval."
             )
 
-        common_fields = set(stp.field_names) & set(ttp.field_names)
+        common_fields = set(self.field_names) & set(other.field_names)
         if not common_fields:
             raise ValueError("No common fields between source and target.")
 
-        common_labels = set(self.labels) & set(target.labels)
+        common_labels = set(self.labels) & set(other.labels)
         if not common_labels:
             raise ValueError("No common labels between source and target.")
 
@@ -330,7 +335,7 @@ class FunctionData(ABC):
                 for i in range(stp.num_subintervals):
                     for j in range(stp.num_exports_per_subinterval[i] - 1):
                         source_function = self._data[fieldname][label][i][j]
-                        target_function = target._data[fieldname][label][i][j]
+                        target_function = other._data[fieldname][label][i][j]
                         if method == "interpolate":
                             target_function.interpolate(source_function)
                         elif method == "project":
@@ -395,13 +400,12 @@ class IndicatorData(FunctionData):
         :arg meshes: the list of meshes used to discretise the problem in space
         """
         self._label_dict = dict.fromkeys(("steady", "unsteady"), ("error_indicator",))
-        super().__init__(
-            time_partition,
-            {
-                fieldname: [ffs.FunctionSpace(mesh, "DG", 0) for mesh in meshes]
-                for fieldname in time_partition.field_names
-            },
-        )
+        function_spaces = {
+            fieldname: [ffs.FunctionSpace(mesh, "DG", 0) for mesh in meshes]
+            for fieldname, field in time_partition.field_metadata.items()
+            if field.solved_for
+        }
+        super().__init__(time_partition, function_spaces)
 
     @property
     def _data_by_field(self):
@@ -415,7 +419,7 @@ class IndicatorData(FunctionData):
         return AttrDict(
             {
                 fieldname: self._data[fieldname]["error_indicator"]
-                for fieldname in self.time_partition.field_names
+                for fieldname in self.field_names
             }
         )
 
@@ -434,13 +438,12 @@ class IndicatorData(FunctionData):
         subinterval. Entries of the list are dictionaries, keyed by field label.
         Entries of the dictionaries are lists of field data, indexed by export.
         """
-        tp = self.time_partition
         return [
             AttrDict(
                 {
                     fieldname: self._data_by_field[fieldname][subinterval]
-                    for fieldname in tp.field_names
+                    for fieldname in self.field_names
                 }
             )
-            for subinterval in range(tp.num_subintervals)
+            for subinterval in range(self.time_partition.num_subintervals)
         ]
