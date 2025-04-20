@@ -42,7 +42,7 @@ Documentation = "https://mesh-adaptation.github.io/goalie/index.html"
 Repository = "https://github.com/mesh-adaptation/goalie"
 
 [tool.setuptools]
-packages = ["goalie", "goalie_adjoint"]
+packages = ["goalie"]
 
 [tool.ruff]
 line-length = 88
