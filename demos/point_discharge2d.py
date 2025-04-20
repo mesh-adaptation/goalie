@@ -28,7 +28,7 @@
 
 from firedrake import *
 
-from goalie_adjoint import *
+from goalie import *
 
 # We solve the advection-diffusion problem in :math:`\mathbb P1` space. ::
 

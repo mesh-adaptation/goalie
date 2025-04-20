@@ -7,8 +7,7 @@
 # `another previous demo <./point_discharge2d.py.html>`__ to provide the first
 # exposition of goal-oriented mesh adaptation in these demos.
 #
-# We copy over the setup as before. The only difference is that we import from
-# `goalie_adjoint` rather than `goalie`. ::
+# We copy over the setup as before. ::
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -17,7 +16,7 @@ from animate.metric import RiemannianMetric
 from firedrake import *
 from matplotlib import ticker
 
-from goalie_adjoint import *
+from goalie import *
 
 mesh = RectangleMesh(50, 10, 50, 10)
 fields = [Field("c", family="Lagrange", degree=1, unsteady=False)]

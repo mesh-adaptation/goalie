@@ -9,7 +9,7 @@
 
 from firedrake import *
 
-from goalie_adjoint import *
+from goalie import *
 
 # Redefine the mesh, fields and ``get_initial_condition`` function as in `the previous
 # demo <./burgers2.py.html>`__. ::
