@@ -5,12 +5,10 @@
 # <./burgers1.py.html>`__, but now using two subintervals. There
 # is still no error estimation or mesh adaptation; the same mesh
 # is used in each case to verify that the framework works.
-#
-# Again, begin by importing Goalie with adjoint mode activated. ::
 
 from firedrake import *
 
-from goalie_adjoint import *
+from goalie import *
 
 set_log_level(DEBUG)
 

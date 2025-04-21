@@ -11,7 +11,7 @@
 
 from firedrake import *
 
-from goalie_adjoint import *
+from goalie import *
 
 # The problem is defined on a doubly periodic mesh of squares. ::
 

@@ -32,12 +32,11 @@
 # curve of discontinuities. The test case was introduced in
 # :cite:`LeVeque:1996`.
 #
-# As usual, we import from Firedrake and Goalie, with
-# adjoint mode activated. ::
+# As usual, we import from Firedrake and Goalie. ::
 
 from firedrake import *
 
-from goalie_adjoint import *
+from goalie import *
 
 # The domain of interest is again the unit square, in this case shifted to have its
 # centre at the origin. For simplicity, we use a :math:`\mathbb P1` space for the

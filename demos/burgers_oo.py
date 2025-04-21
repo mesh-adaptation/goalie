@@ -20,7 +20,7 @@
 
 from firedrake import *
 
-from goalie_adjoint import *
+from goalie import *
 
 set_log_level(DEBUG)
 

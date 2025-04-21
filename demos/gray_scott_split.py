@@ -10,7 +10,7 @@
 
 from firedrake import *
 
-from goalie_adjoint import *
+from goalie import *
 
 # This time, we have two fields instead of one and so use two separate
 # :math:`\mathbb{P}1` spaces rather than a mixed space with two such components. ::
