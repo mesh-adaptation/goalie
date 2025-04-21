@@ -8,16 +8,14 @@
 # multiple meshes to adapt. We also chose to apply a QoI which integrates in time as
 # well as space.
 #
-# We copy over the setup as before. The only differences are that we import from
-# ``goalie_adjoint`` rather than ``goalie`` and again need to specifically define the
-# initial mesh for each subinterval. ::
+# We copy over the setup as before. ::
 
 import matplotlib.pyplot as plt
 from animate.adapt import adapt
 from animate.metric import RiemannianMetric
 from firedrake import *
 
-from goalie_adjoint import *
+from goalie import *
 
 n = 32
 meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]

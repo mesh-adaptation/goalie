@@ -9,5 +9,7 @@ from goalie.options import *  # noqa
 from goalie.function_data import *  # noqa
 from goalie.field import *  # noqa
 from goalie.error_estimation import *  # noqa
+from goalie.adjoint import *  # noqa
+from goalie.go_mesh_seq import *  # noqa
 
 __version__ = "0.1"

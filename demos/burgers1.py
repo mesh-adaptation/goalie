@@ -6,13 +6,11 @@
 # automatic differentiation functionality in order to
 # automatically form and solve discrete adjoint problems.
 #
-# We always begin by importing Goalie. Adjoint mode is used
-# so that we have access to the :class:`AdjointMeshSeq` class.
-# ::
+# We always begin by importing Goalie. ::
 
 from firedrake import *
 
-from goalie_adjoint import *
+from goalie import *
 
 # For ease, the list of fields and functions for obtaining the solvers and initial
 # conditions are redefined as in the previous demo. The only difference is that now we
