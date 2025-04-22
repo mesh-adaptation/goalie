@@ -533,10 +533,9 @@ class AdjointMeshSeq(MeshSeq):
                     )
 
             # Update adjoint solver kwargs
-            for fieldname, field in self.field_metadata.items():
-                if field.solved_for:
-                    for block in self.get_solve_blocks(fieldname, i):
-                        block.adj_kwargs.update(adj_solver_kwargs)
+            for fieldname in self.solution_names:
+                for block in self.get_solve_blocks(fieldname, i):
+                    block.adj_kwargs.update(adj_solver_kwargs)
 
             # Solve adjoint problem
             tape = pyadjoint.get_working_tape()
@@ -553,9 +552,8 @@ class AdjointMeshSeq(MeshSeq):
                     )
 
             # Loop over prognostic variables
-            for fieldname, field in self.field_metadata.items():
-                if not field.solved_for:
-                    continue
+            for fieldname in self.solution_names:
+                field = self._get_field_metadata[fieldname]
 
                 # Get solve blocks
                 solve_blocks = self.get_solve_blocks(fieldname, i)
@@ -640,18 +638,18 @@ class AdjointMeshSeq(MeshSeq):
 
             # Get adjoint action on each subinterval
             with pyadjoint.stop_annotating():
-                for fieldname, control in self._controls.items():
+                for fieldname in self.solution_names:
+                    control = self._controls[fieldname]
                     field = self._get_field_metadata(fieldname)
-                    if field.solved_for:
-                        function_space = self.function_spaces[fieldname][i]
-                        seeds[fieldname] = firedrake.Cofunction(function_space.dual())
-                        if control.block_variable.adj_value is not None:
-                            seeds[fieldname].assign(control.block_variable.adj_value)
-                        if field.unsteady and np.isclose(norm(seeds[fieldname]), 0.0):
-                            self.warning(
-                                f"Adjoint action for field '{fieldname}' on"
-                                f" {self.th(i)} subinterval is zero."
-                            )
+                    function_space = self.function_spaces[fieldname][i]
+                    seeds[fieldname] = firedrake.Cofunction(function_space.dual())
+                    if control.block_variable.adj_value is not None:
+                        seeds[fieldname].assign(control.block_variable.adj_value)
+                    if field.unsteady and np.isclose(norm(seeds[fieldname]), 0.0):
+                        self.warning(
+                            f"Adjoint action for field '{fieldname}' on"
+                            f" {self.th(i)} subinterval is zero."
+                        )
 
             yield self.solutions
 

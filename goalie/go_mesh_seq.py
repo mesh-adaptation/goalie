@@ -42,19 +42,18 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             values are the UFL forms
         :type forms_dictionary: :class:`dict`
         """
-        for fieldname, form in forms_dictionary.items():
-            field = self._get_field_metadata(fieldname)
-            if field.solved_for:
-                if fieldname not in self.field_functions:
-                    raise ValueError(
-                        f"Unexpected field '{fieldname}' in forms dictionary."
-                        f" Expected one of {list(self.field_metadata.keys())}."
-                    )
-                if not isinstance(form, ufl.Form):
-                    raise TypeError(
-                        f"Expected a UFL form for field '{fieldname}', not"
-                        f" '{type(form)}'."
-                    )
+        for fieldname in self.solution_names:
+            form = forms_dictionary[fieldname]
+            if fieldname not in self.field_functions:
+                raise ValueError(
+                    f"Unexpected field '{fieldname}' in forms dictionary."
+                    f" Expected one of {list(self.field_metadata.keys())}."
+                )
+            if not isinstance(form, ufl.Form):
+                raise TypeError(
+                    f"Expected a UFL form for field '{fieldname}', not"
+                    f" '{type(form)}'."
+                )
         self._forms = forms_dictionary
 
     @property
@@ -357,19 +356,18 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 f"Expected 'absolute_value' to be a bool, not '{type(absolute_value)}'."
             )
         estimator = 0
-        for fieldname, by_field in self.indicators.items():
-            field = self._get_field_metadata(fieldname)
-            if field.solved_for:
-                assert not isinstance(by_field, Function)
-                assert isinstance(by_field, Iterable)
-                for by_mesh, dt in zip(by_field, self.time_partition.timesteps):
-                    assert not isinstance(by_mesh, Function) and isinstance(
-                        by_mesh, Iterable
-                    )
-                    for indicator in by_mesh:
-                        if absolute_value:
-                            indicator.interpolate(abs(indicator))
-                        estimator += dt * indicator.vector().gather().sum()
+        for fieldname in self.solution_names:
+            by_field = self.indicators[fieldname]
+            assert not isinstance(by_field, Function)
+            assert isinstance(by_field, Iterable)
+            for by_mesh, dt in zip(by_field, self.time_partition.timesteps):
+                assert not isinstance(by_mesh, Function) and isinstance(
+                    by_mesh, Iterable
+                )
+                for indicator in by_mesh:
+                    if absolute_value:
+                        indicator.interpolate(abs(indicator))
+                    estimator += dt * indicator.vector().gather().sum()
         return estimator
 
     def check_estimator_convergence(self):

@@ -36,7 +36,7 @@ class FunctionData(ABC):
             discretise the problem in space
         """
         self.time_partition = time_partition
-        self.field_names = [
+        self.solution_names = [
             fieldname
             for fieldname, field in time_partition.field_metadata.items()
             if field.solved_for
@@ -64,7 +64,7 @@ class FunctionData(ABC):
                         for label in self.labels
                     }
                 )
-                for fieldname in self.field_names
+                for fieldname in self.solution_names
             }
         )
 
@@ -99,7 +99,7 @@ class FunctionData(ABC):
                 label: AttrDict(
                     {
                         fieldname: self._data_by_field[fieldname][label]
-                        for fieldname in self.field_names
+                        for fieldname in self.solution_names
                     }
                 )
                 for label in self.labels
@@ -125,7 +125,7 @@ class FunctionData(ABC):
                             for label in self.labels
                         }
                     )
-                    for fieldname in self.field_names
+                    for fieldname in self.solution_names
                 }
             )
             for subinterval in range(tp.num_subintervals)
@@ -226,7 +226,7 @@ class FunctionData(ABC):
         outfile = VTKFile(output_fpath, adaptive=True)
         if initial_condition is not None:
             ics = []
-            for fieldname in sorted(self.field_names):
+            for fieldname in sorted(self.solution_names):
                 ic = initial_condition[fieldname]
                 for field_type in export_field_types:
                     icc = ic.copy(deepcopy=True)
@@ -253,7 +253,7 @@ class FunctionData(ABC):
                     + (j + 1) * tp.timesteps[i] * tp.num_timesteps_per_export[i]
                 )
                 fs = []
-                for fieldname in sorted(self.field_names):
+                for fieldname in sorted(self.solution_names):
                     mixed = hasattr(
                         self.function_spaces[fieldname][0], "num_sub_spaces"
                     )
@@ -276,7 +276,7 @@ class FunctionData(ABC):
         tp = self.time_partition
 
         # Mesh names must be unique
-        fieldname0 = self.field_names[0]
+        fieldname0 = self.solution_names[0]
         mesh_names = [fs.mesh().name for fs in self.function_spaces[fieldname0]]
         rename_meshes = len(set(mesh_names)) != len(mesh_names)
         with CheckpointFile(output_fpath, "w") as outfile:
@@ -286,10 +286,10 @@ class FunctionData(ABC):
             for i in range(tp.num_subintervals):
                 if rename_meshes:
                     mesh_name = f"mesh_{i}"
-                    mesh = self.function_spaces[self.field_names[0]][i].mesh()
+                    mesh = self.function_spaces[self.solution_names[0]][i].mesh()
                     mesh.name = mesh_name
                     mesh.topology_dm.name = mesh_name
-                for fieldname in self.field_names:
+                for fieldname in self.solution_names:
                     for field_type in export_field_types:
                         name = f"{fieldname}_{field_type}"
                         for j in range(tp.num_exports_per_subinterval[i] - 1):
@@ -325,7 +325,7 @@ class FunctionData(ABC):
                 "Source and target have different numbers of exports per subinterval."
             )
 
-        common_fields = set(self.field_names) & set(other.field_names)
+        common_fields = set(self.solution_names) & set(other.solution_names)
         if not common_fields:
             raise ValueError("No common fields between source and target.")
 
@@ -413,12 +413,12 @@ class IndicatorData(FunctionData):
         :arg meshes: the list of meshes used to discretise the problem in space
         """
         self._label_dict = dict.fromkeys(("steady", "unsteady"), ("error_indicator",))
-        function_spaces = {
+        solution_spaces = {
             fieldname: [ffs.FunctionSpace(mesh, "DG", 0) for mesh in meshes]
             for fieldname, field in time_partition.field_metadata.items()
             if field.solved_for
         }
-        super().__init__(time_partition, function_spaces)
+        super().__init__(time_partition, solution_spaces)
 
     @property
     def _data_by_field(self):
@@ -432,7 +432,7 @@ class IndicatorData(FunctionData):
         return AttrDict(
             {
                 fieldname: self._data[fieldname]["error_indicator"]
-                for fieldname in self.field_names
+                for fieldname in self.solution_names
             }
         )
 
@@ -455,7 +455,7 @@ class IndicatorData(FunctionData):
             AttrDict(
                 {
                     fieldname: self._data_by_field[fieldname][subinterval]
-                    for fieldname in self.field_names
+                    for fieldname in self.solution_names
                 }
             )
             for subinterval in range(self.time_partition.num_subintervals)
