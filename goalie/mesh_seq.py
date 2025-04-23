@@ -51,6 +51,11 @@ class MeshSeq:
         self.num_subintervals = time_partition.num_subintervals
         self.field_names = time_partition.field_names
         self.field_metadata = time_partition.field_metadata
+        self.solution_names = [
+            fieldname
+            for fieldname in self.field_names
+            if self.field_metadata[fieldname].solved_for
+        ]
 
         # Create a dictionary to hold field Functions with field names as keys and None
         # as values

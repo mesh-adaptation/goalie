@@ -85,7 +85,10 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         mesh_seq._indicators = IndicatorData(time_partition2, mesh_seq.meshes)
         with self.assertRaises(ValueError) as cm:
             mesh_seq.error_estimate()
-        msg = "Field 'field2' is not associated with the MeshSeq."
+        msg = (
+            "Field 'field' is not associated with"
+            " <class 'goalie.function_data.IndicatorData'> object."
+        )
         self.assertEqual(str(cm.exception), msg)
 
     def test_absolute_value_type_error(self):
