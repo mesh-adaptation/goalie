@@ -94,7 +94,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 for fieldname, form in self.forms.items()
             }
             self._changed_form_coeffs = {
-                fieldname: {} for fieldname in self.field_names
+                fieldname: {} for fieldname in self.solution_names
             }
         else:
             # Store coefficients that have changed since the previous export timestep
