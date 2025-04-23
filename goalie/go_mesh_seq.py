@@ -304,7 +304,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 # Loop over each strongly coupled field
                 for fieldname in self.solution_names:
                     solutions = self.solutions[fieldname]
-                    enriched_solutions = self.solutions[fieldname]
+                    enriched_solutions = enriched_mesh_seq.solutions[fieldname]
 
                     # Transfer solutions associated with the current field
                     transfer(solutions[FWD][i][j], u[fieldname])
