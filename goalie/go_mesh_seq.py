@@ -42,6 +42,11 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             values are the UFL forms
         :type forms_dictionary: :class:`dict`
         """
+        expected_fields = [
+            fieldname
+            for fieldname, field in self.field_metadata.items()
+            if field.solved_for
+        ]
         for fieldname, form in forms_dictionary.items():
             if fieldname not in self.field_functions:
                 raise ValueError(
