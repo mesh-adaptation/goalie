@@ -329,9 +329,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
                     # Update other time-dependent form coefficients if they changed
                     # since the previous export timestep
-                    changed_coeffs = enriched_mesh_seq._changed_form_coeffs[fieldname]
+                    changed_coeffs = enriched_mesh_seq._changed_form_coeffs
                     if not self.steady and changed_coeffs:
-                        for idx, coeffs in changed_coeffs.items():
+                        for idx, coeffs in changed_coeffs[fieldname].items():
                             if j in coeffs:
                                 form = enriched_mesh_seq.forms[fieldname]
                                 form.coefficients()[idx].assign(coeffs[j])
