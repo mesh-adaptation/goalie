@@ -527,9 +527,9 @@ class AdjointMeshSeq(MeshSeq):
                         self.warning("Zero QoI. Is it implemented as intended?")
                     pyadjoint.pause_annotation()
             else:
-                for fieldname, fs in self.function_spaces.items():
+                for fieldname in self.solution_names:
                     checkpoint[fieldname].block_variable.adj_value = self._transfer(
-                        seeds[fieldname], fs[i]
+                        seeds[fieldname], self.function_spaces[fieldname][i]
                     )
 
             # Update adjoint solver kwargs
