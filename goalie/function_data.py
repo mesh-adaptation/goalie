@@ -81,7 +81,11 @@ class FunctionData(ABC):
         return self._data
 
     def __getitem__(self, key):
-        return self._data_by_field[key]
+        try:
+            return self._data_by_field[key]
+        except KeyError as ke:
+            errmsg = f"Field '{key}' is not associated with {type(self)} object."
+            raise ValueError(errmsg) from ke
 
     def items(self):
         return self._data_by_field.items()
