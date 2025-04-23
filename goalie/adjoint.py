@@ -201,8 +201,7 @@ class AdjointMeshSeq(MeshSeq):
         :rtype: :class:`list` of :class:`pyadjoint.block.Block`\s
         """
         field = self._get_field_metadata(fieldname)
-        if not field.unsteady:
-            return
+        if not field.solved_for:
             raise ValueError(
                 f"Cannot retrieve solve blocks for field '{fieldname}' because it isn't"
                 " solved for."
@@ -580,7 +579,7 @@ class AdjointMeshSeq(MeshSeq):
                 if len(solve_blocks[::stride]) >= num_exports:
                     self.warning(
                         "More solve blocks than expected:"
-                        f" ({len(solve_blocks[::stride])} > {num_exports-1})."
+                        f" ({len(solve_blocks[::stride])} > {num_exports - 1})."
                     )
 
                 # Update forward and adjoint solution data based on block dependencies
@@ -756,7 +755,7 @@ class AdjointMeshSeq(MeshSeq):
             qoi_, qoi = self.qoi_values[-2:]
             if abs(qoi - qoi_) < self.params.qoi_rtol * abs(qoi_):
                 pyrint(
-                    f"QoI converged after {self.fp_iteration+1} iterations"
+                    f"QoI converged after {self.fp_iteration + 1} iterations"
                     f" under relative tolerance {self.params.qoi_rtol}."
                 )
                 return True
