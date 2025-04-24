@@ -43,10 +43,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :type forms_dictionary: :class:`dict`
         """
         for fieldname, form in forms_dictionary.items():
-            if fieldname not in self.field_functions:
+            if fieldname not in self.solution_names:
                 raise ValueError(
                     f"Unexpected field '{fieldname}' in forms dictionary."
-                    f" Expected one of {list(self.field_metadata.keys())}."
+                    f" Expected one of {self.solution_names}."
                 )
             if self.field_metadata[fieldname].solved_for:
                 if not isinstance(form, ufl.Form):

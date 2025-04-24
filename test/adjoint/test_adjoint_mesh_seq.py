@@ -392,10 +392,27 @@ class TestGoalOrientedMeshSeq(BaseClasses.TrivialGoalOrientedBaseClass):
     """
 
     def test_read_forms_error_field(self):
+        fields = [
+            Field("field", family="R"),
+            Field("field2", family="R", solved_for=False),
+        ]
+        go_mesh_seq = GoalOrientedMeshSeq(
+            TimeInterval(1.0, [1.0], fields),
+            self.meshes,
+            qoi_type="steady",
+        )
+
         with self.assertRaises(ValueError) as cm:
-            self.go_mesh_seq().read_forms({"field2": None})
+            go_mesh_seq.read_forms({"field2": None})
         msg = (
             "Unexpected field 'field2' in forms dictionary. Expected one of ['field']."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+        with self.assertRaises(ValueError) as cm:
+            go_mesh_seq.read_forms({"field3": None})
+        msg = (
+            "Unexpected field 'field3' in forms dictionary. Expected one of ['field']."
         )
         self.assertEqual(str(cm.exception), msg)
 
