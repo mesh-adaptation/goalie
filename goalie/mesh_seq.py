@@ -51,6 +51,11 @@ class MeshSeq:
         self.num_subintervals = time_partition.num_subintervals
         self.field_names = time_partition.field_names
         self.field_metadata = time_partition.field_metadata
+        self.solution_names = [
+            fieldname
+            for fieldname in self.field_names
+            if self.field_metadata[fieldname].solved_for
+        ]
 
         # Create a dictionary to hold field Functions with field names as keys and None
         # as values
@@ -240,6 +245,11 @@ class MeshSeq:
         if len(axes) == 1:
             axes = axes[0]
         return fig, axes
+
+    def _get_field_metadata(self, fieldname):
+        if fieldname not in self.field_names:
+            raise ValueError(f"Field '{fieldname}' is not associated with the MeshSeq.")
+        return self.field_metadata[fieldname]
 
     def get_function_spaces(self, mesh):
         """
@@ -451,7 +461,8 @@ class MeshSeq:
         for fieldname in self.field_names:
             ic = initial_conditions[fieldname]
             fs = ic.function_space()
-            if self.field_metadata[fieldname].unsteady:
+            field = self._get_field_metadata(fieldname)
+            if field.unsteady:
                 self.field_functions[fieldname] = (
                     firedrake.Function(fs, name=fieldname),
                     firedrake.Function(fs, name=f"{fieldname}_old").assign(ic),
@@ -505,7 +516,8 @@ class MeshSeq:
                         next(solver_gen)
                     # Update the solution data
                     for fieldname, sol in self.field_functions.items():
-                        if self.field_metadata[fieldname].unsteady:
+                        field = self._get_field_metadata(fieldname)
+                        if field.unsteady:
                             assert isinstance(sol, tuple)
                             solutions[fieldname].forward[i][j].assign(sol[0])
                             solutions[fieldname].forward_old[i][j].assign(sol[1])
@@ -523,7 +535,7 @@ class MeshSeq:
                     {
                         fieldname: self._transfer(
                             self.field_functions[fieldname][0]
-                            if self.field_metadata[fieldname].unsteady
+                            if self._get_field_metadata(fieldname).unsteady
                             else self.field_functions[fieldname],
                             fs[i + 1],
                         )
