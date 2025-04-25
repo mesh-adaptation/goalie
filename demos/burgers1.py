@@ -6,32 +6,25 @@
 # automatic differentiation functionality in order to
 # automatically form and solve discrete adjoint problems.
 #
-# We always begin by importing Goalie. Adjoint mode is used
-# so that we have access to the :class:`AdjointMeshSeq` class.
-# ::
+# We always begin by importing Goalie. ::
 
 from firedrake import *
 
-from goalie_adjoint import *
+from goalie import *
 
-# For ease, the list of field names and functions for obtaining the
-# function spaces, solvers, and initial conditions
-# are redefined as in the previous demo. The only difference
-# is that now we are solving the adjoint problem, which
-# requires that the PDE solve is labelled with an
-# ``ad_block_tag`` that matches the corresponding prognostic
-# variable name. ::
+# For ease, the list of fields and functions for obtaining the solvers and initial
+# conditions are redefined as in the previous demo. The only difference is that now we
+# are solving the adjoint problem, which requires that the PDE solve is labelled with an
+# ``ad_block_tag`` that matches the corresponding prognostic variable name. ::
 
-field_names = ["u"]
-
-
-def get_function_spaces(mesh):
-    return {"u": VectorFunctionSpace(mesh, "CG", 2)}
+n = 32
+mesh = UnitSquareMesh(n, n)
+fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
 def get_solver(mesh_seq):
     def solver(index):
-        u, u_ = mesh_seq.fields["u"]
+        u, u_ = mesh_seq.field_functions["u"]
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
@@ -83,26 +76,19 @@ def get_initial_condition(mesh_seq):
 
 def get_qoi(mesh_seq, i):
     def end_time_qoi():
-        u = mesh_seq.fields["u"][0]
+        u = mesh_seq.field_functions["u"][0]
         return inner(u, u) * ds(2)
 
     return end_time_qoi
 
 
-# Now that we have the above functions defined, we move onto the
-# concrete parts of the solver, which mimic the original demo. ::
+# Next, we define the :class:`~.TimePartition`. In cases where we only solve over a
+# single time subinterval (as in this demo), the partition is trivial and we can use the
+# :class:`~.TimeInterval` constructor, which requires fewer arguments. ::
 
-n = 32
-mesh = UnitSquareMesh(n, n)
 end_time = 0.5
 dt = 1 / n
-
-# Another requirement to solve the adjoint problem using
-# Goalie is a :class:`TimePartition`. In our case, there is a
-# single mesh, so the partition is trivial and we can use the
-# :class:`TimeInterval` constructor. ::
-
-time_partition = TimeInterval(end_time, dt, field_names, num_timesteps_per_export=2)
+time_partition = TimeInterval(end_time, dt, fields, num_timesteps_per_export=2)
 
 # Finally, we are able to construct an :class:`AdjointMeshSeq` and
 # thereby call its :meth:`solve_adjoint` method. This computes the QoI
@@ -112,7 +98,6 @@ time_partition = TimeInterval(end_time, dt, field_names, num_timesteps_per_expor
 mesh_seq = AdjointMeshSeq(
     time_partition,
     mesh,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,

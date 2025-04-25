@@ -43,16 +43,21 @@ k = Constant((0, 1))
 # The problem is solved simultaneously for the velocity :math:`\mathbf{u}` and pressure
 # :math:`p` using a *mixed* formulation, which was introduced in a `previous demo on
 # advection-diffusion reaction <./gray_scott.py.html>`__.
+#
+# To account for the lack of time derivative in the Stokes equations, we set the
+# ``unsteady`` keyword argument of the initialiser for the :class:`~.Field` class to
+# ``False`` rather than the default ``True`` value to specify that the ``"up"``
+# field is *steady* (i.e. without a time derivative). The ``T`` field is *unsteady*
+# (i.e. involves a time derivative) so we can use ``unsteady=True``. Again, given the
+# mixed finite element space used for velocity, it is more convenient to define the
+# finite elements and pass these directly to the :class:`~.Field` constructor. ::
 
-fields = ["up", "T"]
-
-
-def get_function_spaces(mesh):
-    V = VectorFunctionSpace(mesh, "CG", 2, name="velocity")
-    W = FunctionSpace(mesh, "CG", 1, name="pressure")
-    Z = MixedFunctionSpace([V, W], name="velocity-pressure")
-    Q = FunctionSpace(mesh, "CG", 1, name="temperature")
-    return {"up": Z, "T": Q}
+p2v_element = VectorElement(FiniteElement("Lagrange", triangle, 2), dim=2)
+p1_element = FiniteElement("Lagrange", triangle, 1)
+fields = [
+    Field("up", finite_element=MixedElement([p2v_element, p1_element]), unsteady=False),
+    Field("T", finite_element=p1_element, unsteady=True),
+]
 
 
 # We must set initial conditions to solve the problem. Note that we define the initial
@@ -78,9 +83,9 @@ def get_solver(mesh_seq):
         Z = mesh_seq.function_spaces["up"][index]
         Q = mesh_seq.function_spaces["T"][index]
 
-        up = mesh_seq.fields["up"]
+        up = mesh_seq.field_functions["up"]
         u, p = split(up)
-        T, T_ = mesh_seq.fields["T"]
+        T, T_ = mesh_seq.field_functions["T"]
 
         # Crank-Nicolson time discretisation for temperature
         Ttheta = 0.5 * (T + T_)
@@ -159,25 +164,17 @@ num_timesteps = 40
 end_time = dt * num_timesteps
 dt_per_export = [10 for _ in range(num_subintervals)]
 
-# To account for the lack of time derivative in the Stokes equations, we use the
-# ``field_types`` argument of the ``TimePartition`` object to specify that the ``"up"``
-# field is *steady* (i.e. without a time derivative) and that the ``T`` field is
-# *unsteady* (i.e. involves a time derivative). The order in ``field_types`` must
-# match the order of the fields in the ``fields`` list above.
-
 time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
     fields,
     num_timesteps_per_export=dt_per_export,
-    field_types=["steady", "unsteady"],
 )
 
 mesh_seq = MeshSeq(
     time_partition,
     meshes,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     transfer_method="interpolate",

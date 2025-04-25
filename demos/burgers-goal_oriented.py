@@ -8,21 +8,18 @@
 # multiple meshes to adapt. We also chose to apply a QoI which integrates in time as
 # well as space.
 #
-# We copy over the setup as before. The only difference is that we import from
-# ``goalie_adjoint`` rather than ``goalie``. ::
+# We copy over the setup as before. ::
 
 import matplotlib.pyplot as plt
 from animate.adapt import adapt
 from animate.metric import RiemannianMetric
 from firedrake import *
 
-from goalie_adjoint import *
+from goalie import *
 
-fields = ["u"]
-
-
-def get_function_spaces(mesh):
-    return {"u": VectorFunctionSpace(mesh, "CG", 2)}
+n = 32
+meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
+fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
 def get_initial_condition(mesh_seq):
@@ -37,7 +34,7 @@ def get_initial_condition(mesh_seq):
 
 def get_solver(mesh_seq):
     def solver(index):
-        u, u_ = mesh_seq.fields["u"]
+        u, u_ = mesh_seq.field_functions["u"]
 
         # Define constants
         R = FunctionSpace(mesh_seq[index], "R", 0)
@@ -77,7 +74,7 @@ def get_qoi(mesh_seq, i):
     dt = Function(R).assign(mesh_seq.time_partition.timesteps[i])
 
     def time_integrated_qoi(t):
-        u = mesh_seq.fields["u"][0]
+        u = mesh_seq.field_functions["u"][0]
         return dt * inner(u, u) * ds(2)
 
     return time_integrated_qoi
@@ -87,11 +84,8 @@ def get_qoi(mesh_seq, i):
 # as in a `previous demo <./burgers2.py.html>`__, except that we export
 # every timestep rather than every other timestep. ::
 
-n = 32
-meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
 end_time = 0.5
 dt = 1 / n
-
 num_subintervals = len(meshes)
 time_partition = TimePartition(
     end_time,
@@ -107,7 +101,6 @@ time_partition = TimePartition(
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     meshes,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,
@@ -365,7 +358,6 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     meshes,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,

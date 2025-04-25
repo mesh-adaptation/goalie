@@ -7,7 +7,12 @@
 # we consider the time-dependent case. Moreover, we consider a :class:`MeshSeq` with
 # multiple subintervals and hence multiple meshes to adapt.
 #
-# As before, we copy over what is now effectively boiler plate to set up our problem. ::
+# As before, we copy over what is now effectively boiler plate to set up our problem.
+#
+# The only difference is that we need to specifically define the initial mesh for each
+# subinterval and pass them as a list. When a single mesh is passed to the
+# :class:`~.MeshSeq` constructor, it is shallowed copied, which is insufficient for mesh
+# adaptation. ::
 
 import matplotlib.pyplot as plt
 from animate.adapt import adapt
@@ -16,16 +21,14 @@ from firedrake import *
 
 from goalie import *
 
-field_names = ["u"]
+n = 32
+meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
+fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
-class MySolver(Solver):
-    def get_function_spaces(self, mesh):
-        return {"u": VectorFunctionSpace(mesh, "CG", 2)}
-
-    def get_solver(self, index):
-        # def solver(index):
-        u, u_ = self.fields["u"]
+def get_solver(mesh_seq):
+    def solver(index):
+        u, u_ = mesh_seq.field_functions["u"]
 
         # Define constants
         R = FunctionSpace(self.meshes[index], "R", 0)
@@ -60,26 +63,22 @@ class MySolver(Solver):
         return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
-n = 32
-meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
 end_time = 0.5
 dt = 1 / n
-
 num_subintervals = len(meshes)
 time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    field_names,
+    fields,
     num_timesteps_per_export=2,
 )
 
 mesh_seq = MeshSeq(
     # time_partition,
     meshes,
-    # get_function_spaces=get_function_spaces,
-    # get_initial_condition=get_initial_condition,
-    # get_solver=get_solver,
+    get_initial_condition=get_initial_condition,
+    get_solver=get_solver,
 )
 mysolver = MySolver(time_partition, mesh_seq)
 

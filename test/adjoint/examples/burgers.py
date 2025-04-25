@@ -8,26 +8,25 @@ Code here is based on that found at
 """
 
 import ufl
+from finat.ufl import FiniteElement, VectorElement
 from firedrake.function import Function
-from firedrake.functionspace import FunctionSpace, VectorFunctionSpace
+from firedrake.functionspace import FunctionSpace
 from firedrake.solving import solve
 from firedrake.ufl_expr import TestFunction
 from firedrake.utility_meshes import UnitSquareMesh
 
+from goalie.field import Field
+
 # Problem setup
 n = 32
 mesh = UnitSquareMesh(n, n, diagonal="left")
-fields = ["uv_2d"]
+finite_element = VectorElement(FiniteElement("Lagrange", ufl.triangle, 2), dim=2)
+fields = [Field("uv_2d", finite_element=finite_element)]
 end_time = 0.5
 dt = 1 / n
 dt_per_export = 2
 steady = False
 get_bcs = None
-
-
-def get_function_spaces(mesh):
-    r""":math:`\mathbb P2` space."""
-    return {"uv_2d": VectorFunctionSpace(mesh, "CG", 2)}
 
 
 def get_solver(self):
@@ -39,7 +38,7 @@ def get_solver(self):
         t_start, t_end = self.time_partition.subintervals[i]
         dt = self.time_partition.timesteps[i]
 
-        u, u_ = self.fields["uv_2d"]
+        u, u_ = self.field_functions["uv_2d"]
 
         # Setup variational problem
         dt = self.time_partition.timesteps[i]
@@ -89,7 +88,7 @@ def get_qoi(self, i):
     dtc = Function(R).assign(self.time_partition.timesteps[i])
 
     def time_integrated_qoi(t):
-        u = self.fields["uv_2d"][0]
+        u = self.field_functions["uv_2d"][0]
         return dtc * ufl.inner(u, u) * ufl.ds(2)
 
     def end_time_qoi():

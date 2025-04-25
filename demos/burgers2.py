@@ -5,27 +5,25 @@
 # <./burgers1.py.html>`__, but now using two subintervals. There
 # is still no error estimation or mesh adaptation; the same mesh
 # is used in each case to verify that the framework works.
-#
-# Again, begin by importing Goalie with adjoint mode activated. ::
 
 from firedrake import *
 
-from goalie_adjoint import *
+from goalie import *
 
 set_log_level(DEBUG)
 
-# Redefine the ``field_names`` variable from the previous demo, as well as all the
-# getter functions. ::
+# Redefine the meshes and  field metadata as in previous demos, as well as all the
+# getter functions. In this case, we make the default `diagonal="left"` keyword argument
+# to :class:`~.UnitSquareMesh` explicit. (See later.) ::
 
-field_names = ["u"]
+n = 32
+mesh = UnitSquareMesh(n, n, diagonal="left")
+fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
-class BurgersSolver(AdjointSolver):
-    def get_function_spaces(self, mesh):
-        return {"u": VectorFunctionSpace(mesh, "CG", 2)}
-
-    def get_solver(self, index):
-        u, u_ = self.fields["u"]
+def get_solver(mesh_seq):
+    def solver(index):
+        u, u_ = mesh_seq.field_functions["u"]
 
         # Define constants
         R = FunctionSpace(self.meshes[index], "R", 0)
@@ -62,33 +60,40 @@ class BurgersSolver(AdjointSolver):
             u = self.fields["u"][0]
             return inner(u, u) * ds(2)
 
-        return end_time_qoi
+
+def get_initial_condition(mesh_seq):
+    fs = mesh_seq.function_spaces["u"][0]
+    x, y = SpatialCoordinate(mesh_seq[0])
+    return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
-# The solver, initial condition and QoI may be imported from the
-# previous demo. The same basic setup is used. The only difference
-# is that the :class:`MeshSeq` contains two meshes. ::
+def get_qoi(mesh_seq, i):
+    def end_time_qoi():
+        u = mesh_seq.field_functions["u"][0]
+        return inner(u, u) * ds(2)
 
-n = 32
-meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
-end_time = 0.5
-dt = 1 / n
+    return end_time_qoi
+
 
 # This time, the ``TimePartition`` is defined on **two** subintervals. ::
 
-num_subintervals = len(meshes)
+end_time = 0.5
+dt = 1 / n
+num_subintervals = 2
 time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    field_names,
+    fields,
     num_timesteps_per_export=2,
 )
-mesh_seq = MeshSeq(
-    # time_partition,
-    meshes,
-    # solver,
-    # qoi_type="end_time",
+mesh_seq = AdjointMeshSeq(
+    time_partition,
+    mesh,
+    get_initial_condition=get_initial_condition,
+    get_solver=get_solver,
+    get_qoi=get_qoi,
+    qoi_type="end_time",
 )
 solver = BurgersSolver(time_partition, mesh_seq, qoi_type="end_time")
 solutions = solver.solve_adjoint()

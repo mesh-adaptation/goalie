@@ -16,6 +16,7 @@ meaning the effectivity index can be computed.
 
 import numpy as np
 import ufl
+from finat.ufl import FiniteElement
 from firedrake.assemble import assemble
 from firedrake.bcs import DirichletBC
 from firedrake.function import Function
@@ -24,12 +25,14 @@ from firedrake.solving import solve
 from firedrake.ufl_expr import CellSize, TestFunction
 from firedrake.utility_meshes import BoxMesh
 
+from goalie.field import Field
 from goalie.math import bessk0
 
 # Problem setup
 n = 0
 mesh = BoxMesh(100 * 2**n, 20 * 2**n, 20 * 2**n, 50, 10, 10)
-fields = ["tracer_3d"]
+finite_element = FiniteElement("Lagrange", ufl.tetrahedron, 1)
+fields = [Field("tracer_3d", finite_element=finite_element, unsteady=False)]
 end_time = 1.0
 dt = 1.0
 dt_per_export = 1
@@ -60,7 +63,7 @@ def get_solver(self):
 
     def solver(i):
         fs = self.function_spaces["tracer_3d"][i]
-        c = self.fields["tracer_3d"]
+        c = self.field_functions["tracer_3d"]
 
         # Define constants
         fs = self.function_spaces["tracer_3d"][i]
@@ -111,7 +114,7 @@ def get_qoi(self, i):
     """
 
     def steady_qoi():
-        c = self.fields["tracer_3d"]
+        c = self.field_functions["tracer_3d"]
         x, y, z = ufl.SpatialCoordinate(self[i])
         kernel = ufl.conditional(
             (x - rec_x) ** 2 + (y - rec_y) ** 2 + (z - rec_z) ** 2 < rec_r**2, 1, 0

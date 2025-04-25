@@ -26,25 +26,32 @@
 
 from firedrake import *
 
-from goalie_adjoint import *
+from goalie import *
 
 set_log_level(DEBUG)
 
-# Redefine the ``field_names`` variable and the getter functions as in the first
-# adjoint Burgers demo. The only difference is the inclusion of the
-# :meth:`GoalOrientedMeshSeq.read_forms()` method in the ``get_solver`` function. The
-# method is used to communicate the variational form to the mesh sequence object so that
-# Goalie can utilise it in the error estimation process described above. ::
+# Redefine the meshes, fields and the getter functions as in the first adjoint Burgers
+# demo, with two differences:
+#
+# * We need to specifically define the mesh for each subinterval and pass them as a
+#   list. When a single mesh is passed to the :class:`~.MeshSeq` constructor, it is
+#   shallow copied, which is insufficient for the :math:`h`-refinement used in the error
+#   estimation step. ::
+# * We need to call the :meth:`~.GoalOrientedMeshSeq.read_forms()` method in the
+#   ``get_solver`` function. This is used to communicate the variational form to the
+#   mesh sequence object so that Goalie can utilise it in the error estimation process
+#   described above.
+#
+# ::
 
-field_names = ["u"]
+n = 32
+meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
+fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
-class BurgersSolver(GoalOrientedSolver):
-    def get_function_spaces(self, mesh):
-        return {"u": VectorFunctionSpace(mesh, "CG", 2)}
-
-    def get_solver(self, index):
-        u, u_ = self.fields["u"]
+def get_solver(mesh_seq):
+    def solver(index):
+        u, u_ = mesh_seq.field_functions["u"]
 
         # Define constants
         R = FunctionSpace(self.meshes[index], "R", 0)
@@ -84,13 +91,23 @@ class BurgersSolver(GoalOrientedSolver):
             u = self.fields["u"][0]
             return inner(u, u) * ds(2)
 
-        return end_time_qoi
+
+def get_initial_condition(mesh_seq):
+    fs = mesh_seq.function_spaces["u"][0]
+    x, y = SpatialCoordinate(mesh_seq[0])
+    return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
-# Next, create a sequence of meshes and a :class:`TimePartition`. ::
+def get_qoi(mesh_seq, i):
+    def end_time_qoi():
+        u = mesh_seq.field_functions["u"][0]
+        return inner(u, u) * ds(2)
 
-n = 32
-meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
+    return end_time_qoi
+
+
+# Next, create a :class:`TimePartition`. ::
+
 end_time = 0.5
 dt = 1 / n
 num_subintervals = len(meshes)
@@ -98,7 +115,7 @@ time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
-    field_names,
+    fields,
     num_timesteps_per_export=2,
 )
 
@@ -110,11 +127,10 @@ time_partition = TimePartition(
 mesh_seq = MeshSeq(
     # time_partition,
     meshes,
-    # get_function_spaces=get_function_spaces,
-    # get_initial_condition=get_initial_condition,
-    # get_solver=get_solver,
-    # get_qoi=get_qoi,
-    # qoi_type="end_time",
+    get_initial_condition=get_initial_condition,
+    get_solver=get_solver,
+    get_qoi=get_qoi,
+    qoi_type="end_time",
 )
 
 # Given the description of the PDE problem in the form of a

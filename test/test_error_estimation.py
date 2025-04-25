@@ -12,6 +12,7 @@ from goalie.error_estimation import (
     form2indicator,
     get_dwr_indicator,
 )
+from goalie.field import Field
 from goalie.function_data import IndicatorData
 from goalie.go_mesh_seq import GoalOrientedMeshSeq
 from goalie.time_partition import TimeInstant, TimePartition
@@ -24,6 +25,7 @@ class ErrorEstimationTestCase(unittest.TestCase):
 
     def setUp(self):
         self.mesh = UnitSquareMesh(1, 1)
+        self.field = Field("field", family="Real", degree=0)
         self.fs = FunctionSpace(self.mesh, "CG", 1)
         self.trial = TrialFunction(self.fs)
         self.test = TestFunction(self.fs)
@@ -70,18 +72,23 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
     def mesh_seq(self, time_partition=None):
         num_timesteps = 1 if time_partition is None else time_partition.num_timesteps
         return GoalOrientedMeshSeq(
-            time_partition or TimeInstant("field"),
+            time_partition or TimeInstant(self.field),
             self.mesh,
             qoi_type="steady" if num_timesteps == 1 else "end_time",
         )
 
     def test_time_partition_wrong_field_error(self):
-        mesh_seq = self.mesh_seq(TimeInstant("field"))
-        time_partition = TimeInstant("f")
-        mesh_seq._indicators = IndicatorData(time_partition, mesh_seq.meshes)
+        time_partition1 = TimeInstant(self.field)
+        field2 = Field("field2", family="Real", degree=0)
+        time_partition2 = TimeInstant(field2)
+        mesh_seq = self.mesh_seq(time_partition=time_partition1)
+        mesh_seq._indicators = IndicatorData(time_partition2, mesh_seq.meshes)
         with self.assertRaises(ValueError) as cm:
             mesh_seq.error_estimate()
-        msg = "Key 'f' does not exist in the TimePartition provided."
+        msg = (
+            "Field 'field' is not associated with"
+            " <class 'goalie.function_data.IndicatorData'> object."
+        )
         self.assertEqual(str(cm.exception), msg)
 
     def test_absolute_value_type_error(self):
@@ -92,14 +99,14 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         self.assertEqual(str(cm.exception), msg)
 
     def test_unit_time_instant(self):
-        mesh_seq = self.mesh_seq(time_partition=TimeInstant("field", time=1.0))
+        mesh_seq = self.mesh_seq(time_partition=TimeInstant(self.field, time=1.0))
         mesh_seq.indicators["field"][0][0].assign(form2indicator(self.one * ufl.dx))
         estimator = mesh_seq.error_estimate()
         self.assertAlmostEqual(estimator, 1)  # 1 * (0.5 + 0.5)
 
     @parameterized.expand([[False], [True]])
     def test_unit_time_instant_abs(self, absolute_value):
-        mesh_seq = self.mesh_seq(time_partition=TimeInstant("field", time=1.0))
+        mesh_seq = self.mesh_seq(time_partition=TimeInstant(self.field, time=1.0))
         mesh_seq.indicators["field"][0][0].assign(form2indicator(-self.one * ufl.dx))
         estimator = mesh_seq.error_estimate(absolute_value=absolute_value)
         self.assertAlmostEqual(
@@ -107,14 +114,14 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         )  # (-)1 * (0.5 + 0.5)
 
     def test_half_time_instant(self):
-        mesh_seq = self.mesh_seq(time_partition=TimeInstant("field", time=0.5))
+        mesh_seq = self.mesh_seq(time_partition=TimeInstant(self.field, time=0.5))
         mesh_seq.indicators["field"][0][0].assign(form2indicator(self.one * ufl.dx))
         estimator = mesh_seq.error_estimate()
         self.assertAlmostEqual(estimator, 0.5)  # 0.5 * (0.5 + 0.5)
 
     def test_time_partition_same_timestep(self):
         mesh_seq = self.mesh_seq(
-            time_partition=TimePartition(1.0, 2, [0.5, 0.5], ["field"])
+            time_partition=TimePartition(1.0, 2, [0.5, 0.5], [self.field])
         )
         mesh_seq.indicators["field"][0][0].assign(form2indicator(2 * self.one * ufl.dx))
         estimator = mesh_seq.error_estimate()
@@ -122,7 +129,7 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
 
     def test_time_partition_different_timesteps(self):
         mesh_seq = self.mesh_seq(
-            time_partition=TimePartition(1.0, 2, [0.5, 0.25], ["field"])
+            time_partition=TimePartition(1.0, 2, [0.5, 0.25], [self.field])
         )
         indicator = form2indicator(self.one * ufl.dx)
         mesh_seq.indicators["field"][0][0].assign(indicator)
@@ -134,11 +141,12 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         )  # 0.5 * (0.5 + 0.5) + 0.25 * 2 * (0.5 + 0.5)
 
     def test_time_instant_multiple_fields(self):
+        field2 = Field("field2", family="Real", degree=0)
         mesh_seq = self.mesh_seq(
-            time_partition=TimeInstant(["field1", "field2"], time=1.0)
+            time_partition=TimeInstant([self.field, field2], time=1.0)
         )
         indicator = form2indicator(self.one * ufl.dx)
-        mesh_seq.indicators["field1"][0][0].assign(indicator)
+        mesh_seq.indicators["field"][0][0].assign(indicator)
         mesh_seq.indicators["field2"][0][0].assign(indicator)
         estimator = mesh_seq.error_estimate()
         self.assertAlmostEqual(estimator, 2)  # 2 * (1 * (0.5 + 0.5))
