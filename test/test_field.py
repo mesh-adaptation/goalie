@@ -55,8 +55,9 @@ class TestExceptions(unittest.TestCase):
     def test_insufficient_arguments(self):
         with self.assertRaises(ValueError) as cm:
             Field("field")
-        msg = ("Either the finite_element or family must be specified.")
+        msg = "Either the finite_element or family must be specified."
         self.assertEqual(str(cm.exception), msg)
+
 
 class TestInit(unittest.TestCase):
     """Test initialisation of Field class."""
@@ -77,6 +78,23 @@ class TestInit(unittest.TestCase):
         self.assertEqual(field.finite_element, p1_element())
         self.assertFalse(field.solved_for)
         self.assertFalse(field.unsteady)
+
+    def test_field_alternative_real(self):
+        field = Field(
+            name="field",
+            family="Real",
+            degree=0,
+        )
+        self.assertEqual(field.get_element(mesh1d()), real_element())
+
+    def test_field_alternative_p1(self):
+        field = Field(
+            name="field",
+            family="Lagrange",
+            degree=1,
+        )
+        self.assertEqual(field.get_element(mesh2d()), p1_element())
+
 
 class TestGetElement(unittest.TestCase):
     """Test `get_element` method of Field class."""
