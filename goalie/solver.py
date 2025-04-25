@@ -37,7 +37,7 @@ class Solver:
         self.meshes = mesh_sequence
         self._transfer_method = kwargs.get("transfer_method", "project")
         self._transfer_kwargs = kwargs.get("transfer_kwargs", {})
-        self.fields = {field_name: None for field_name in time_partition.field_names}
+        self.fields = dict.fromkeys(time_partition.field_names)
         self.field_types = dict(zip(self.fields, time_partition.field_types))
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
