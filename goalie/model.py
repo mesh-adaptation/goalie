@@ -12,8 +12,6 @@ class Model:
     Base class for all models.
 
     Your model should inherit from this class and implement the following methods:
-
-    - :meth:`get_function_spaces`
     - :meth:`get_solver`.
 
     Additionally, if your problem requires non-zero initial conditions (for
@@ -23,27 +21,6 @@ class Model:
     If your solver is solving an adjoint problem, you should implement the
     :meth:`get_qoi` method.
     """
-
-    def get_function_spaces(self, mesh):
-        """
-        Construct the function spaces corresponding to each field, for a given mesh.
-
-        Should be overridden by all subclasses.
-
-        Signature for the function:
-        ```
-            :arg mesh: the mesh to base the function spaces on
-            :type mesh: :class:`firedrake.mesh.MeshGeometry`
-            :returns: a dictionary whose keys are field names and whose values are the
-                corresponding function spaces
-            :rtype: :class:`dict` with :class:`str` keys and
-                :class:`firedrake.functionspaceimpl.FunctionSpace` values
-        ```
-        """
-        raise NotImplementedError(
-            f"Solver {self.__class__.__name__} is missing the 'get_function_spaces'"
-            " method."
-        )
 
     def get_initial_condition(self, time_partition, meshes, fields, function_spaces):
         """
@@ -80,7 +57,7 @@ class Model:
         ```
         """
         raise NotImplementedError(
-            f"Solver {self.__class__.__name__} is missing the 'get_solver' method."
+            f"Model {self.__class__.__name__} is missing the 'get_solver' method."
         )
 
     def get_qoi(self, index, time_partition, meshes, fields, function_spaces):
@@ -100,13 +77,12 @@ class Model:
         ```
         """
         raise NotImplementedError(
-            f"Solver {self.__class__.__name__} is missing the 'get_qoi' method."
+            f"Model {self.__class__.__name__} is missing the 'get_qoi' method."
         )
 
     def debug(self, msg):
         """
         Print a ``debug`` message.
-
         :arg msg: the message to print
         :type msg: :class:`str`
         """
@@ -117,12 +93,10 @@ class Model:
         Assert that function spaces and initial conditions are given in a
         dictionary format with :attr:`Solver.fields` as keys.
         """
-        for method in ["function_spaces", "initial_condition", "solver"]:
+        for method in ["initial_condition", "solver"]:
             try:
                 method_map = getattr(self, f"get_{method}")
-                if method == "function_spaces":
-                    method_map = method_map(meshes[0])
-                elif method == "initial_condition":
+                if method == "initial_condition":
                     method_map = method_map(
                         time_partition, meshes, fields, function_spaces
                     )
@@ -133,7 +107,7 @@ class Model:
                     solver_gen = method_map(
                         0, time_partition, meshes, fields, function_spaces
                     )
-                    assert hasattr(solver_gen, "__next__"), "solver should yield"
+                    assert hasattr(solver_gen, "__next__"), "get_solver should yield"
                     if logger.level == DEBUG:
                         next(solver_gen)
                         f, f_ = self.fields[next(iter(self.fields))]

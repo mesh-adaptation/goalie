@@ -29,7 +29,8 @@ from goalie import *
 # square, with each grid-box divided into right-angled triangles. ::
 
 n = 32
-mesh = UnitSquareMesh(n, n)
+# mesh = UnitSquareMesh(n, n)
+mesh_seq = MeshSeq([UnitSquareMesh(n, n), UnitSquareMesh(n, n)])
 
 # In the Burgers problem, we have a single prognostic variable, :math:`\mathbf u`. Its
 # name and other metadata are recorded in a :class:`~.Field` object. One important piece
@@ -64,13 +65,12 @@ fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
 class BurgersModel(Model):
-    def get_function_spaces(self, mesh):
-        return {"u": VectorFunctionSpace(mesh, "CG", 2)}
-
-    def get_solver(self, index, time_partition, meshes, fields, function_spaces):
+    def get_solver(
+        self, index, time_partition, meshes, field_functions, function_spaces
+    ):
         # def solver(index):
         # Get the current and lagged solutions
-        u, u_ = mesh_seq.field_functions["u"]
+        u, u_ = field_functions["u"]
 
         # Define constants
         R = FunctionSpace(meshes[index], "R", 0)
@@ -97,7 +97,7 @@ class BurgersModel(Model):
             u_.assign(u)
             t += dt
 
-    # return solver
+        # return solver
 
     # Goalie also requires a function for generating an initial
     # condition from the function space defined on the
@@ -129,12 +129,12 @@ time_partition = TimePartition(
 # or just a single mesh. If a single mesh is passed then this will be used for all
 # subintervals. ::
 
-mesh_seq = MeshSeq(
-    time_partition,
-    mesh,
-    get_initial_condition=get_initial_condition,
-    get_solver=get_solver,
-)
+# mesh_seq = MeshSeq(
+#     time_partition,
+#     mesh,
+#     get_initial_condition=get_initial_condition,
+#     get_solver=get_solver,
+# )
 model = BurgersModel()
 solver = Solver(model, time_partition, mesh_seq)
 solutions = solver.solve_forward()

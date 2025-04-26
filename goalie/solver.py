@@ -5,7 +5,7 @@ from firedrake.adjoint import pyadjoint
 from firedrake.petsc import PETSc
 
 from .function_data import ForwardSolutionData
-from .log import debug, info, pyrint, warning
+from .log import pyrint
 from .options import AdaptParameters
 from .utility import AttrDict
 
@@ -35,50 +35,76 @@ class Solver:
         self.model = model
         self.time_partition = time_partition
         self.meshes = mesh_sequence
-        self._transfer_method = kwargs.get("transfer_method", "project")
-        self._transfer_kwargs = kwargs.get("transfer_kwargs", {})
-        self.fields = dict.fromkeys(time_partition.field_names)
-        self.field_types = dict(zip(self.fields, time_partition.field_types))
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
+        self.field_names = time_partition.field_names
+        self.field_metadata = time_partition.field_metadata
+        self.solution_names = [
+            fieldname
+            for fieldname in self.field_names
+            if self.field_metadata[fieldname].solved_for
+        ]
+
+        # Create a dictionary to hold field Functions with field names as keys and None
+        # as values
+        self.field_functions = dict.fromkeys(self.field_metadata)
+
         self._fs = None
+        self._transfer_method = kwargs.get("transfer_method", "project")
+        self._transfer_kwargs = kwargs.get("transfer_kwargs", {})
         self.steady = time_partition.steady
+        self.check_convergence = np.array([True] * self.num_subintervals, dtype=bool)
+        self.converged = np.array([False] * self.num_subintervals, dtype=bool)
         self.fp_iteration = 0
-        self.check_convergence = np.array([True] * len(self.meshes), dtype=bool)
-        self.converged = np.array([False] * len(self.meshes), dtype=bool)
         self.params = None
 
-        # FIXME: Avoid calling a private method
         self.model._outputs_consistent(
-            self.time_partition, self.meshes, self.fields, self.function_spaces
+            self.time_partition, self.meshes, self.field_functions, self.function_spaces
         )
 
-    def debug(self, msg):
-        """
-        Print a ``debug`` message.
+    def _get_field_metadata(self, fieldname):
+        if fieldname not in self.field_names:
+            raise ValueError(f"Field '{fieldname}' is not associated with the MeshSeq.")
+        return self.field_metadata[fieldname]
 
-        :arg msg: the message to print
-        :type msg: :class:`str`
+    def get_function_spaces(self, mesh):
         """
-        debug(f"{type(self).__name__}: {msg}")
+        Construct the function spaces corresponding to each field, for a given mesh.
 
-    def warning(self, msg):
+        :arg mesh: the mesh to base the function spaces on
+        :type mesh: :class:`firedrake.mesh.MeshGeometry`
+        :returns: a dictionary whose keys are field names and whose values are the
+            corresponding function spaces
+        :rtype: :class:`dict` with :class:`str` keys and
+            :class:`firedrake.functionspaceimpl.FunctionSpace` values
         """
-        Print a ``warning`` message.
+        function_spaces = {}
+        for fieldname, field in self.field_metadata.items():
+            function_spaces[fieldname] = field.get_function_space(mesh)
+        return function_spaces
 
-        :arg msg: the message to print
-        :type msg: :class:`str`
+    def _transfer(self, source, target_space, **kwargs):
         """
-        warning(f"{type(self).__name__}: {msg}")
+        Transfer a field between meshes using the specified transfer method.
 
-    def info(self, msg):
-        """
-        Print an ``info`` level message.
+        :arg source: the function to be transferred
+        :type source: :class:`firedrake.function.Function` or
+            :class:`firedrake.cofunction.Cofunction`
+        :arg target_space: the function space which we seek to transfer onto, or the
+            function or cofunction to use as the target
+        :type target_space: :class:`firedrake.functionspaceimpl.FunctionSpace`,
+            :class:`firedrake.function.Function`
+            or :class:`firedrake.cofunction.Cofunction`
+        :returns: the transferred function
+        :rtype: :class:`firedrake.function.Function` or
+            :class:`firedrake.cofunction.Cofunction`
 
-        :arg msg: the message to print
-        :type msg: :class:`str`
+        Extra keyword arguments are passed to :func:`goalie.interpolation.transfer`.
         """
-        info(f"{type(self).__name__}: {msg}")
+        # Update kwargs with those specified by the user
+        transfer_kwargs = kwargs.copy()
+        transfer_kwargs.update(self._transfer_kwargs)
+        return transfer(source, target_space, self._transfer_method, **transfer_kwargs)
 
     def _function_spaces_consistent(self):
         """
@@ -89,17 +115,18 @@ class Solver:
             ``False``
         :rtype: `:class:`bool`
         """
-        consistent = len(self.time_partition) == len(self.meshes)
+        consistent = len(self.time_partition) == self.num_subintervals
         consistent &= all(
-            len(self.meshes) == len(self._fs[field]) for field in self.fields
+            self.num_subintervals == len(self._fs[fieldname])
+            for fieldname in self.field_functions
         )
-        for field in self.fields:
+        for fieldname in self.field_functions:
             consistent &= all(
-                mesh == fs.mesh() for mesh, fs in zip(self.meshes, self._fs[field])
+                mesh == fs.mesh() for mesh, fs in zip(self.meshes, self._fs[fieldname])
             )
             consistent &= all(
-                self._fs[field][0].ufl_element() == fs.ufl_element()
-                for fs in self._fs[field]
+                self._fs[fieldname][0].ufl_element() == fs.ufl_element()
+                for fs in self._fs[fieldname]
             )
         return consistent
 
@@ -111,11 +138,11 @@ class Solver:
         if self._fs is None or not self._function_spaces_consistent():
             self._fs = AttrDict(
                 {
-                    field: [
-                        self.model.get_function_spaces(mesh)[field]
+                    fieldname: [
+                        self.get_function_spaces(mesh)[fieldname]
                         for mesh in self.meshes
                     ]
-                    for field in self.fields
+                    for fieldname in self.field_functions
                 }
             )
         assert (
@@ -145,7 +172,12 @@ class Solver:
         :rtype: :class:`~.AttrDict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        args = (self.time_partition, self.meshes, self.fields, self.function_spaces)
+        args = (
+            self.time_partition,
+            self.meshes,
+            self.field_functions,
+            self.function_spaces,
+        )
         return AttrDict(self.model.get_initial_condition(*args))
 
     # FIXME: Remove this method
@@ -154,6 +186,9 @@ class Solver:
         """
         See :meth:`~.MeshSeq.get_solver`.
         """
+        # FIXME
+        # return self.model.get_solver(self.time_partition, self.meshes,
+        # self.field_functions, self.function_spaces)
         return self.model.get_solver
 
     def _create_solutions(self):
@@ -180,38 +215,18 @@ class Solver:
         :type initial_conditions: :class:`dict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        for field, ic in initial_conditions.items():
+        for fieldname in self.field_names:
+            ic = initial_conditions[fieldname]
             fs = ic.function_space()
-            if self.field_types[field] == "steady":
-                self.fields[field] = firedrake.Function(fs, name=f"{field}").assign(ic)
-            else:
-                self.fields[field] = (
-                    firedrake.Function(fs, name=field),
-                    firedrake.Function(fs, name=f"{field}_old").assign(ic),
+            field = self._get_field_metadata(fieldname)
+            if field.unsteady:
+                self.field_functions[fieldname] = (
+                    firedrake.Function(fs, name=fieldname),
+                    firedrake.Function(fs, name=f"{fieldname}_old").assign(ic),
                 )
-
-    def _transfer(self, source, target_space, **kwargs):
-        """
-        Transfer a field between meshes using the specified transfer method.
-
-        :arg source: the function to be transferred
-        :type source: :class:`firedrake.function.Function` or
-            :class:`firedrake.cofunction.Cofunction`
-        :arg target_space: the function space which we seek to transfer onto, or the
-            function or cofunction to use as the target
-        :type target_space: :class:`firedrake.functionspaceimpl.FunctionSpace`,
-            :class:`firedrake.function.Function`
-            or :class:`firedrake.cofunction.Cofunction`
-        :returns: the transferred function
-        :rtype: :class:`firedrake.function.Function` or
-            :class:`firedrake.cofunction.Cofunction`
-
-        Extra keyword arguments are passed to :func:`goalie.interpolation.transfer`.
-        """
-        # Update kwargs with those specified by the user
-        transfer_kwargs = kwargs.copy()
-        transfer_kwargs.update(self._transfer_kwargs)
-        return transfer(source, target_space, self._transfer_method, **transfer_kwargs)
+            else:
+                self.field_functions[fieldname] = firedrake.Function(fs, name=fieldname)
+                self.field_functions[fieldname].assign(ic)
 
     @PETSc.Log.EventDecorator()
     def _solve_forward(self, update_solutions=True, solver_kwargs=None):
@@ -228,7 +243,6 @@ class Solver:
         :ytype: :class:`~.ForwardSolutionData`
         """
         solver_kwargs = solver_kwargs or {}
-        num_subintervals = self.num_subintervals
         tp = self.time_partition
 
         if update_solutions:
@@ -245,15 +259,17 @@ class Solver:
 
         # Loop over the subintervals
         checkpoint = self.initial_condition
-        for i in range(num_subintervals):
-            # FIXME: Tidy this up
-            solver_args = (
+        for i in range(self.num_subintervals):
+            # FIXME: tidy this up
+            # solver_gen = self.solver(i, **solver_kwargs)
+            solver_gen = self.solver(
+                i,
                 self.time_partition,
                 self.meshes,
-                self.fields,
+                self.field_functions,
                 self.function_spaces,
+                **solver_kwargs,
             )
-            solver_gen = self.solver(i, *solver_args, **solver_kwargs)
 
             # Reinitialise fields and assign initial conditions
             self._reinitialise_fields(checkpoint)
@@ -264,30 +280,31 @@ class Solver:
                     for _ in range(tp.num_timesteps_per_export[i]):
                         next(solver_gen)
                     # Update the solution data
-                    for field, sol in self.fields.items():
-                        if not self.field_types[field] == "steady":
+                    for fieldname, sol in self.field_functions.items():
+                        field = self._get_field_metadata(fieldname)
+                        if field.unsteady:
                             assert isinstance(sol, tuple)
-                            solutions[field].forward[i][j].assign(sol[0])
-                            solutions[field].forward_old[i][j].assign(sol[1])
+                            solutions[fieldname].forward[i][j].assign(sol[0])
+                            solutions[fieldname].forward_old[i][j].assign(sol[1])
                         else:
                             assert isinstance(sol, firedrake.Function)
-                            solutions[field].forward[i][j].assign(sol)
+                            solutions[fieldname].forward[i][j].assign(sol)
             else:
                 # Solve over the entire subinterval in one go
                 for _ in range(tp.num_timesteps_per_subinterval[i]):
                     next(solver_gen)
 
             # Transfer the checkpoint to the next subintervals
-            if i < num_subintervals - 1:
+            if i < self.num_subintervals - 1:
                 checkpoint = AttrDict(
                     {
-                        field: self._transfer(
-                            self.fields[field]
-                            if self.field_types[field] == "steady"
-                            else self.fields[field][0],
+                        fieldname: self._transfer(
+                            self.field_functions[fieldname][0]
+                            if self._get_field_metadata(fieldname).unsteady
+                            else self.field_functions[fieldname],
                             fs[i + 1],
                         )
-                        for field, fs in self._fs.items()
+                        for fieldname, fs in self._fs.items()
                     }
                 )
 
@@ -308,7 +325,7 @@ class Solver:
         :rtype: :class:`list` of :class:`firedrake.function.Function`\s
         """
         solver_kwargs = solver_kwargs or {}
-        N = self.num_subintervals  # FIXME
+        N = self.num_subintervals
 
         # The first checkpoint is the initial condition
         checkpoints = [self.initial_condition]
@@ -359,7 +376,7 @@ class Solver:
         if self.params.drop_out_converged:
             converged = self.converged
         else:
-            converged = np.array([False] * len(self.meshes), dtype=bool)
+            converged = np.array([False] * self.num_subintervals, dtype=bool)
         if len(self.meshes.element_counts) >= max(2, self.params.miniter + 1):
             for i, (ne_, ne) in enumerate(zip(*self.meshes.element_counts[-2:])):
                 if not self.check_convergence[i]:
@@ -370,7 +387,7 @@ class Solver:
                     continue
                 if abs(ne - ne_) <= self.params.element_rtol * ne_:
                     converged[i] = True
-                    if len(self.meshes) == 1:
+                    if self.num_subintervals == 1:
                         pyrint(
                             f"Element count converged after {self.fp_iteration+1}"
                             " iterations under relative tolerance"
@@ -438,9 +455,7 @@ class Solver:
             self.solve_forward(solver_kwargs=solver_kwargs)
 
             # Adapt meshes, logging element and vertex counts
-            continue_unconditionally = adaptor(
-                self, self.meshes, self.solutions, **adaptor_kwargs
-            )
+            continue_unconditionally = adaptor(self, self.solutions, **adaptor_kwargs)
             if self.params.drop_out_converged:
                 self.check_convergence[:] = np.logical_not(
                     np.logical_or(continue_unconditionally, self.converged)

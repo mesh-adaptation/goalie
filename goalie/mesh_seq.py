@@ -23,14 +23,14 @@ class MeshSeq:
     """
 
     @PETSc.Log.EventDecorator()
-    def __init__(self, initial_meshes, **kwargs):
+    def __init__(self, initial_meshes):
         r"""
         :arg initial_meshes: a list of meshes corresponding to the subinterval of the
             time partition, or a single mesh to use for all subintervals
         :type initial_meshes: :class:`list` or :class:`~.MeshGeometry`
         """
         self.set_meshes(initial_meshes)
-        self.sections = [{} for mesh in self]  # FIXME
+        self.sections = [{} for mesh in self]
 
     def __str__(self):
         return f"{[str(mesh) for mesh in self.meshes]}"
