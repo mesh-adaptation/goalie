@@ -24,7 +24,7 @@ class BaseClasses:
 
     class ModelTestCase(unittest.TestCase):
         """
-        Test case with a simple setUp method and model constructor.
+        Test case with a simple setUp method.
         """
 
         def setUp(self):

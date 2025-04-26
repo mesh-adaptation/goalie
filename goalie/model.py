@@ -88,29 +88,28 @@ class Model:
         """
         debug(f"{type(self).__name__}: {msg}")
 
-    def _outputs_consistent(self, time_partition, meshes, fields, function_spaces):
+    def _outputs_consistent(
+        self, time_partition, meshes, field_functions, function_spaces
+    ):
         """
-        Assert that function spaces and initial conditions are given in a
-        dictionary format with :attr:`Solver.fields` as keys.
+        Assert that initial conditions are given in a dictionary format with
+        :attr:`Solver.fields` as keys, and that the get_solver function is a generator.
         """
         for method in ["initial_condition", "solver"]:
             try:
                 method_map = getattr(self, f"get_{method}")
                 if method == "initial_condition":
                     method_map = method_map(
-                        time_partition, meshes, fields, function_spaces
+                        time_partition, meshes, field_functions, function_spaces
                     )
                 elif method == "solver":
-                    # FIXME: _reinitialise_fields is a Solver method... should also move
-                    # it inside the if block below
-                    # self._reinitialise_fields(self.get_initial_condition())
                     solver_gen = method_map(
-                        0, time_partition, meshes, fields, function_spaces
+                        0, time_partition, meshes, field_functions, function_spaces
                     )
                     assert hasattr(solver_gen, "__next__"), "get_solver should yield"
                     if logger.level == DEBUG:
                         next(solver_gen)
-                        f, f_ = self.fields[next(iter(self.fields))]
+                        f, f_ = field_functions[next(iter(field_functions))]
                         if np.array_equal(f.vector().array(), f_.vector().array()):
                             self.debug(
                                 "Current and lagged solutions are equal. Does the"
@@ -120,9 +119,9 @@ class Model:
             except NotImplementedError:
                 continue
             assert isinstance(method_map, dict), f"get_{method} should return a dict"
-            mesh_seq_fields = set(fields)
+            solver_fields = set(field_functions)
             method_fields = set(method_map.keys())
-            diff = mesh_seq_fields.difference(method_fields)
+            diff = solver_fields.difference(method_fields)
             assert len(diff) == 0, f"missing fields {diff} in get_{method}"
-            diff = method_fields.difference(mesh_seq_fields)
+            diff = method_fields.difference(solver_fields)
             assert len(diff) == 0, f"unexpected fields {diff} in get_{method}"
