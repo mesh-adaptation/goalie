@@ -5,7 +5,7 @@
 # we saw how to create a :class:`TimePartition` instance
 # - one of the fundamental objects in Goalie. Another
 # fundamental object is the mesh sequence, :class:`MeshSeq`,
-# which is built on top of a time partition. The idea is
+# which corresponds to a time partition. The idea is
 # that a single mesh is associated with each subinterval.
 #
 # For this and subsequent demos, we import from the namespaces
@@ -19,21 +19,6 @@ from goalie import *
 
 set_log_level(DEBUG)
 
-# Consider the final subinterval from the previous demo. ::
-
-end_time = 1.0
-fields = [Field("solution", family="Real")]
-dt = [0.125, 0.0625]
-subintervals = [(0.0, 0.75), (0.75, 1.0)]
-time_partition = TimePartition(
-    end_time,
-    len(subintervals),
-    dt,
-    fields,
-    num_timesteps_per_export=[2, 4],
-    subintervals=subintervals,
-)
-
 # We use Firedrake's utility :func:`UnitSquareMesh` function
 # to create a list of two meshes with different resolutions. ::
 
@@ -42,11 +27,16 @@ meshes = [UnitSquareMesh(m, m), UnitSquareMesh(n, n)]
 
 # Creating a :class:`MeshSeq` is as simple as ::
 
-mesh_seq = MeshSeq(time_partition, meshes)
+mesh_seq = MeshSeq(meshes)
 
 # With debugging turned on, we get a report of the number of
 # elements and vertices in each mesh in the sequence, as well
 # as the corresponding maximal aspect ratio over all elements.
+#
+# .. code-block:: console
+#
+#     DEBUG MeshSeq: 0:    2048 cells,    1089 vertices,  max aspect ratio 1.21
+#     DEBUG MeshSeq: 1:     512 cells,     289 vertices,  max aspect ratio 1.21
 #
 # We can plot the meshes comprising the :class:`MeshSeq` using
 # the :meth:`plot` method, provided they are two dimensional. ::

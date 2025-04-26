@@ -29,7 +29,8 @@ from goalie import *
 # square, with each grid-box divided into right-angled triangles. ::
 
 n = 32
-mesh = UnitSquareMesh(n, n)
+# mesh = UnitSquareMesh(n, n)
+mesh_seq = MeshSeq([UnitSquareMesh(n, n), UnitSquareMesh(n, n)])
 
 # In the Burgers problem, we have a single prognostic variable, :math:`\mathbf u`. Its
 # name and other metadata are recorded in a :class:`~.Field` object. One important piece
@@ -63,14 +64,17 @@ fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 # constants.::
 
 
-def get_solver(mesh_seq):
-    def solver(index):
+class BurgersModel(Model):
+    def get_solver(
+        self, index, time_partition, meshes, field_functions, function_spaces
+    ):
+        # def solver(index):
         # Get the current and lagged solutions
-        u, u_ = mesh_seq.field_functions["u"]
+        u, u_ = field_functions["u"]
 
         # Define constants
-        R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
+        R = FunctionSpace(meshes[index], "R", 0)
+        dt = Function(R).assign(time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -82,7 +86,7 @@ def get_solver(mesh_seq):
         )
 
         # Time integrate from t_start to t_end
-        tp = mesh_seq.time_partition
+        tp = time_partition
         t_start, t_end = tp.subintervals[index]
         dt = tp.timesteps[index]
         t = t_start
@@ -93,18 +97,16 @@ def get_solver(mesh_seq):
             u_.assign(u)
             t += dt
 
-    return solver
+        # return solver
 
+    # Goalie also requires a function for generating an initial
+    # condition from the function space defined on the
+    # :math:`0^{th}` mesh. ::
 
-# Goalie also requires a function for generating an initial
-# condition from the function space defined on the
-# :math:`0^{th}` mesh. ::
-
-
-def get_initial_condition(mesh_seq):
-    fs = mesh_seq.function_spaces["u"][0]
-    x, y = SpatialCoordinate(mesh_seq[0])
-    return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
+    def get_initial_condition(self, time_partition, meshes, fields, function_spaces):
+        fs = function_spaces["u"][0]
+        x, y = SpatialCoordinate(meshes[0])
+        return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
 # Now that we have the above functions defined, we need to define the time
@@ -127,13 +129,15 @@ time_partition = TimePartition(
 # or just a single mesh. If a single mesh is passed then this will be used for all
 # subintervals. ::
 
-mesh_seq = MeshSeq(
-    time_partition,
-    mesh,
-    get_initial_condition=get_initial_condition,
-    get_solver=get_solver,
-)
-solutions = mesh_seq.solve_forward()
+# mesh_seq = MeshSeq(
+#     time_partition,
+#     mesh,
+#     get_initial_condition=get_initial_condition,
+#     get_solver=get_solver,
+# )
+model = BurgersModel()
+solver = Solver(model, time_partition, mesh_seq)
+solutions = solver.solve_forward()
 
 # During the :func:`solve_forward` call, the solver that was provided
 # is applied on the first subinterval. The forward solution at the end
