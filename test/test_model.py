@@ -9,6 +9,7 @@ from firedrake import (
     FunctionSpace,
     UnitSquareMesh,
 )
+from parameterized import parameterized
 
 from goalie.field import Field
 from goalie.mesh_seq import MeshSeq
@@ -44,12 +45,13 @@ class TestExceptions(BaseClasses.ModelTestCase):
     Unit tests for exceptions raised by :class:`Model`.
     """
 
-    def test_get_solver_notimplemented_error(self):
+    @parameterized.expand(["get_solver", "get_qoi"])
+    def test_notimplemented_error(self, method):
         model = Model()
         with self.assertRaises(NotImplementedError) as cm:
-            model.get_solver(0, *self.outputs_consistent_args)
+            getattr(model, method)(0, *self.outputs_consistent_args)
         self.assertEqual(
-            str(cm.exception), "Model Model is missing the 'get_solver' method."
+            str(cm.exception), f"Model Model is missing the '{method}' method."
         )
 
     def test_return_dict_error(self):
