@@ -19,10 +19,10 @@ mesh = UnitSquareMesh(n, n)
 fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
-def get_initial_condition(mesh_seq):
-    fs = mesh_seq.function_spaces["u"][0]
-    x, y = SpatialCoordinate(mesh_seq[0])
-    return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
+# def get_initial_condition(mesh_seq):
+#     fs = mesh_seq.function_spaces["u"][0]
+#     x, y = SpatialCoordinate(mesh_seq[0])
+#     return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
 # The solver needs to be modified slightly in order to take account of time dependent
@@ -33,13 +33,21 @@ def get_initial_condition(mesh_seq):
 # :class:`AdjointMeshSeq` as follows. ::
 
 
-def get_solver(mesh_seq):
-    def solver(index):
-        u, u_ = mesh_seq.field_functions["u"]
+class BurgersModel(Model):
+    def get_initial_condition(self, time_partition, meshes, fields, function_spaces):
+        fs = function_spaces["u"][0]
+        x, y = SpatialCoordinate(meshes[0])
+        return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
+
+    def get_solver(
+        self, index, time_partition, meshes, field_functions, function_spaces
+    ):
+        # Get the current and lagged solutions
+        u, u_ = field_functions["u"]
 
         # Define constants
-        R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
+        R = FunctionSpace(meshes[index], "R", 0)
+        dt = Function(R).assign(time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -51,19 +59,68 @@ def get_solver(mesh_seq):
         )
 
         # Time integrate from t_start to t_end
-        t_start, t_end = mesh_seq.subintervals[index]
-        dt = mesh_seq.time_partition.timesteps[index]
+        t_start, t_end = time_partition.subintervals[index]
+        dt = time_partition.timesteps[index]
         t = t_start
-        qoi = mesh_seq.get_qoi(index)
+        qoi = self.get_qoi(
+            index, time_partition, meshes, field_functions, function_spaces
+        )
         while t < t_end - 1.0e-05:
             solve(F == 0, u, ad_block_tag="u")
-            mesh_seq.J += qoi(t)
             yield
+            self.J += qoi(t)
 
             u_.assign(u)
             t += dt
 
-    return solver
+    # def get_qoi(self, i, time_partition, meshes, field_functions, function_spaces):
+    #     def end_time_qoi():
+    #         u = field_functions["u"][0]
+    #         return inner(u, u) * ds(2)
+
+    #     return end_time_qoi
+    def get_qoi(self, i, time_partition, meshes, field_functions, function_spaces):
+        R = FunctionSpace(meshes[i], "R", 0)
+        dt = Function(R).assign(time_partition.timesteps[i])
+
+        def time_integrated_qoi(t):
+            u = field_functions["u"][0]
+            return dt * inner(u, u) * ds(2)
+
+        return time_integrated_qoi
+
+
+# def get_solver(mesh_seq):
+#     def solver(index):
+#         u, u_ = mesh_seq.field_functions["u"]
+
+#         # Define constants
+#         R = FunctionSpace(mesh_seq[index], "R", 0)
+#         dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
+#         nu = Function(R).assign(0.0001)
+
+#         # Setup variational problem
+#         v = TestFunction(u.function_space())
+#         F = (
+#             inner((u - u_) / dt, v) * dx
+#             + inner(dot(u, nabla_grad(u)), v) * dx
+#             + nu * inner(grad(u), grad(v)) * dx
+#         )
+
+#         # Time integrate from t_start to t_end
+#         t_start, t_end = mesh_seq.subintervals[index]
+#         dt = mesh_seq.time_partition.timesteps[index]
+#         t = t_start
+#         qoi = mesh_seq.get_qoi(index)
+#         while t < t_end - 1.0e-05:
+#             solve(F == 0, u, ad_block_tag="u")
+#             mesh_seq.J += qoi(t)
+#             yield
+
+#             u_.assign(u)
+#             t += dt
+
+#     return solver
 
 
 # The QoI is effectively just a time-integrated version of the one previously seen.
@@ -77,15 +134,15 @@ def get_solver(mesh_seq):
 # :class:`Function` from `'R'` space to avoid recompilation if the value is changed. ::
 
 
-def get_qoi(mesh_seq, i):
-    R = FunctionSpace(mesh_seq[i], "R", 0)
-    dt = Function(R).assign(mesh_seq.time_partition.timesteps[i])
+# def get_qoi(mesh_seq, i):
+#     R = FunctionSpace(mesh_seq[i], "R", 0)
+#     dt = Function(R).assign(mesh_seq.time_partition.timesteps[i])
 
-    def time_integrated_qoi(t):
-        u = mesh_seq.field_functions["u"][0]
-        return dt * inner(u, u) * ds(2)
+#     def time_integrated_qoi(t):
+#         u = mesh_seq.field_functions["u"][0]
+#         return dt * inner(u, u) * ds(2)
 
-    return time_integrated_qoi
+#     return time_integrated_qoi
 
 
 # We use the same time partitioning as in `the previous demo <./burgers2.py.html>`__,
@@ -101,15 +158,10 @@ time_partition = TimePartition(
 # The only difference when defining the :class:`AdjointMeshSeq` is that we specify
 # ``qoi_type="time_integrated"``, rather than ``qoi_type="end_time"``. ::
 
-mesh_seq = AdjointMeshSeq(
-    time_partition,
-    mesh,
-    get_initial_condition=get_initial_condition,
-    get_solver=get_solver,
-    get_qoi=get_qoi,
-    qoi_type="time_integrated",
-)
-solutions = mesh_seq.solve_adjoint()
+mesh_seq = [mesh for _ in range(num_subintervals)]
+model = BurgersModel()
+solver = AdjointSolver(model, time_partition, mesh_seq, qoi_type="time_integrated")
+solutions = solver.solve_adjoint()
 
 fig, axes, tcs = plot_snapshots(solutions, time_partition, "u", "adjoint")
 fig.savefig("burgers-time_integrated.jpg")
