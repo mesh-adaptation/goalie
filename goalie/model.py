@@ -22,7 +22,9 @@ class Model:
     :meth:`get_qoi` method.
     """
 
-    def get_initial_condition(self, time_partition, meshes, fields, function_spaces):
+    def get_initial_condition(
+        self, time_partition, meshes, field_functions, function_spaces
+    ):
         """
         Get the initial conditions applied on the first mesh in the sequence.
 
@@ -35,7 +37,9 @@ class Model:
             field: firedrake.Function(fs[0]) for field, fs in function_spaces.items()
         }
 
-    def get_solver(self, index, time_partition, meshes, fields, function_spaces):
+    def get_solver(
+        self, index, time_partition, meshes, field_functions, function_spaces
+    ):
         """
         Get the function mapping a subinterval index and an initial condition dictionary
         to a dictionary of solutions for the corresponding solver step.
@@ -60,7 +64,7 @@ class Model:
             f"Model {self.__class__.__name__} is missing the 'get_solver' method."
         )
 
-    def get_qoi(self, index, time_partition, meshes, fields, function_spaces):
+    def get_qoi(self, index, time_partition, meshes, field_functions, function_spaces):
         """
         Get the function for evaluating the QoI, which has either zero or one arguments,
         corresponding to either an end time or time integrated quantity of interest,

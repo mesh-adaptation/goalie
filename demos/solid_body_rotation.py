@@ -46,6 +46,7 @@ mesh = UnitSquareMesh(40, 40)
 coords = mesh.coordinates.copy(deepcopy=True)
 coords.interpolate(coords - as_vector([0.5, 0.5]))
 mesh = Mesh(coords)
+mesh_seq = MeshSeq(mesh)
 
 fields = [Field("c", family="Lagrange", degree=1)]
 
@@ -77,13 +78,67 @@ def slot_cyl_initial_condition(x, y):
     )
 
 
-def get_initial_condition(mesh_seq):
-    fs = mesh_seq.function_spaces["c"][0]
-    x, y = SpatialCoordinate(mesh_seq[0])
-    bell = bell_initial_condition(x, y)
-    cone = cone_initial_condition(x, y)
-    slot_cyl = slot_cyl_initial_condition(x, y)
-    return {"c": Function(fs).interpolate(bell + cone + slot_cyl)}
+class SolidBodyRotationModel(Model):
+    def get_initial_condition(
+        self, time_partition, meshes, field_functions, function_spaces
+    ):
+        fs = function_spaces["c"][0]
+        x, y = SpatialCoordinate(meshes[0])
+        bell = bell_initial_condition(x, y)
+        cone = cone_initial_condition(x, y)
+        slot_cyl = slot_cyl_initial_condition(x, y)
+        return {"c": Function(fs).interpolate(bell + cone + slot_cyl)}
+
+    def get_solver(
+        self, index, time_partition, meshes, field_functions, function_spaces
+    ):
+        V = function_spaces["c"][index]
+        c, c_ = field_functions["c"]
+
+        # Define velocity field
+        x, y = SpatialCoordinate(mesh)
+        u = as_vector([-y, x])
+
+        # Define constants
+        R = FunctionSpace(meshes[index], "R", 0)
+        dt = Function(R).assign(time_partition.timesteps[index])
+        theta = Function(R).assign(0.5)
+
+        # Setup variational problem
+        psi = TrialFunction(V)
+        phi = TestFunction(V)
+        a = psi * phi * dx + dt * theta * dot(u, grad(psi)) * phi * dx
+        L = c_ * phi * dx - dt * (1 - theta) * dot(u, grad(c_)) * phi * dx
+
+        # Zero Dirichlet condition on the boundary
+        bcs = DirichletBC(V, 0, "on_boundary")
+
+        # Setup the solver object
+        lvp = LinearVariationalProblem(a, L, c, bcs=bcs)
+        lvs = LinearVariationalSolver(lvp, ad_block_tag="c")
+
+        # Time integrate from t_start to t_end
+        t_start, t_end = time_partition.subintervals[index]
+        dt = time_partition.timesteps[index]
+        t = t_start
+        while t < t_end - 0.5 * dt:
+            lvs.solve()
+            yield
+
+            c_.assign(c)
+            t += dt
+
+    # return solver
+
+    def get_qoi(self, index, time_partition, meshes, field_functions, function_spaces):
+        def qoi():
+            c = field_functions["c"][0]
+            x, y = SpatialCoordinate(meshes[index])
+            x0, y0, r0 = 0.0, 0.25, 0.15
+            ball = conditional((x - x0) ** 2 + (y - y0) ** 2 < r0**2, 1.0, 0.0)
+            return ball * c * dx
+
+        return qoi
 
 
 # Now let's set up the time interval of interest. ::
@@ -103,10 +158,11 @@ time_partition = TimeInterval(
 import matplotlib.pyplot as plt
 from firedrake.pyplot import tricontourf
 
-mesh_seq = MeshSeq(time_partition, mesh, get_initial_condition=get_initial_condition)
+model = SolidBodyRotationModel()
+solver = AdjointSolver(model, time_partition, mesh_seq, qoi_type="end_time")
 
 fig, axes = plt.subplots()
-tc = tricontourf(mesh_seq.get_initial_condition()["c"], axes=axes)
+tc = tricontourf(solver.initial_condition["c"], axes=axes)
 fig.colorbar(tc)
 axes.set_aspect("equal")
 plt.tight_layout()
@@ -125,48 +181,6 @@ plt.savefig("solid_body_rotation-init.jpg")
 # output both of them. ::
 
 
-def get_solver(mesh_seq):
-    def solver(index):
-        V = mesh_seq.function_spaces["c"][index]
-        c, c_ = mesh_seq.field_functions["c"]
-
-        # Define velocity field
-        x, y = SpatialCoordinate(mesh)
-        u = as_vector([-y, x])
-
-        # Define constants
-        R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
-        theta = Function(R).assign(0.5)
-
-        # Setup variational problem
-        psi = TrialFunction(V)
-        phi = TestFunction(V)
-        a = psi * phi * dx + dt * theta * dot(u, grad(psi)) * phi * dx
-        L = c_ * phi * dx - dt * (1 - theta) * dot(u, grad(c_)) * phi * dx
-
-        # Zero Dirichlet condition on the boundary
-        bcs = DirichletBC(V, 0, "on_boundary")
-
-        # Setup the solver object
-        lvp = LinearVariationalProblem(a, L, c, bcs=bcs)
-        lvs = LinearVariationalSolver(lvp, ad_block_tag="c")
-
-        # Time integrate from t_start to t_end
-        tp = mesh_seq.time_partition
-        t_start, t_end = tp.subintervals[index]
-        dt = tp.timesteps[index]
-        t = t_start
-        while t < t_end - 0.5 * dt:
-            lvs.solve()
-            yield
-
-            c_.assign(c)
-            t += dt
-
-    return solver
-
-
 # Note that we use a :class:`LinearVariationalSolver` object
 # and its :meth:`solve` method, rather than calling the
 # :func:`solve` function at every timestep because this avoids
@@ -177,29 +191,9 @@ def get_solver(mesh_seq):
 # integral over a disc where the slotted cylinder is expected
 # to be positioned at the end time. ::
 
-
-def get_qoi(mesh_seq, index):
-    def qoi():
-        c = mesh_seq.field_functions["c"][0]
-        x, y = SpatialCoordinate(mesh_seq[index])
-        x0, y0, r0 = 0.0, 0.25, 0.15
-        ball = conditional((x - x0) ** 2 + (y - y0) ** 2 < r0**2, 1.0, 0.0)
-        return ball * c * dx
-
-    return qoi
-
-
 # We are now ready to create an :class:`AdjointMeshSeq`.
 
-mesh_seq = AdjointMeshSeq(
-    time_partition,
-    mesh,
-    get_initial_condition=get_initial_condition,
-    get_solver=get_solver,
-    get_qoi=get_qoi,
-    qoi_type="end_time",
-)
-solutions = mesh_seq.solve_adjoint()
+solutions = solver.solve_adjoint()
 
 # So far, we have visualised outputs using `Matplotlib`. In many cases, it is better to
 # use Paraview. To save all adjoint solution components in Paraview format, use the

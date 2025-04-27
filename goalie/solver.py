@@ -5,7 +5,7 @@ from firedrake.adjoint import pyadjoint
 from firedrake.petsc import PETSc
 
 from .function_data import ForwardSolutionData
-from .log import pyrint
+from .log import DEBUG, debug, logger, pyrint
 from .options import AdaptParameters
 from .utility import AttrDict
 
@@ -58,9 +58,22 @@ class Solver:
         self.fp_iteration = 0
         self.params = None
 
+        # This is needed for Model._outputs_consistent to work correctly in debug mode.
+        # Otherwise self.field_functions are None
+        if logger.level == DEBUG:
+            self._reinitialise_fields(self.initial_condition)
         self.model._outputs_consistent(
             self.time_partition, self.meshes, self.field_functions, self.function_spaces
         )
+
+    def debug(self, msg):
+        """
+        Print a ``debug`` message.
+
+        :arg msg: the message to print
+        :type msg: :class:`str`
+        """
+        debug(f"{type(self).__name__}: {msg}")
 
     def _get_field_metadata(self, fieldname):
         if fieldname not in self.field_names:

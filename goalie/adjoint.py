@@ -119,32 +119,17 @@ class AdjointSolver(Solver):
             )
         return self._gradient
 
-    # @annotate_qoi  # TODO (see below)
-    def get_qoi(self, subinterval):
-        """
-        Get the function for evaluating the QoI, which has either zero or one arguments,
-        corresponding to either an end time or time integrated quantity of interest,
-        respectively. If the QoI has an argument then it is for the current time.
-
-        Should be overridden by all subclasses.
-
-        Signature for the function to be returned:
-        ```
-        :arg t: the current time (for time-integrated QoIs)
-        :type t: :class:`float`
-        :return: the QoI as a 0-form
-        :rtype: :class:`ufl.form.Form`
-        ```
-        """
-        raise NotImplementedError(
-            f"Solver {self.__class__.__name__} is missing the 'get_qoi' method."
-        )
-
     # TODO: This is a temporary wrapper since we need the @annotate_qoi decorator
     # to be applied to the get_qoi method. Need to think how to refactor this
     @annotate_qoi
     def my_qoi(self, subinterval):
-        return self.get_qoi(subinterval)
+        return self.model.get_qoi(
+            subinterval,
+            self.time_partition,
+            self.meshes,
+            self.field_functions,
+            self.function_spaces,
+        )
 
     @pyadjoint.no_annotations
     @PETSc.Log.EventDecorator()
@@ -469,7 +454,14 @@ class AdjointSolver(Solver):
             # Reinitialise fields and assign initial conditions
             self._reinitialise_fields(initial_condition_map)
 
-            return solver(subinterval, **kwargs)
+            return solver(
+                subinterval,
+                self.time_partition,
+                self.meshes,
+                self.field_functions,
+                self.function_spaces,
+                **kwargs,
+            )
 
         # Loop over subintervals in reverse
         seeds = {}
