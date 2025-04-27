@@ -73,13 +73,16 @@ class AdjointSolver(Solver):
     :attr:`~AdjointSolver.J`, which holds the QoI value.
     """
 
-    def __init__(self, time_partition, mesh_sequence, **kwargs):
+    def __init__(self, model, time_partition, mesh_sequence, **kwargs):
         r"""
+        :arg model: the model to be solved
+        :type model: :class:`~goalie.model.Model`
         :arg time_partition: a partition of the temporal domain
         :type time_partition: :class:`~.TimePartition`
         :arg mesh_sequence: a sequence of meshes on which to solve the problem
         :type mesh_sequence: :class:`~.MeshSeq`
         """
+        # TODO reword model argument in docstring below
         # TODO #278: qoi_type missing from docstring
         self.qoi_type = kwargs.pop("qoi_type")
         if self.qoi_type not in ["end_time", "time_integrated", "steady"]:
@@ -88,7 +91,7 @@ class AdjointSolver(Solver):
                 " Choose from 'end_time', 'time_integrated', or 'steady'."
             )
         self.J = 0
-        super().__init__(time_partition, mesh_sequence, **kwargs)
+        super().__init__(model, time_partition, mesh_sequence, **kwargs)
         if self.qoi_type == "steady" and not self.steady:
             raise ValueError(
                 "QoI type is set to 'steady' but the time partition is not steady."
