@@ -182,7 +182,7 @@ class MeshSeq:
             meshes = [Mesh(meshes) for subinterval in self.subintervals]
         self.meshes = meshes
         if len(self) != len(self.time_partition):
-            raise ValueError("Meshes and time partitions are inconsistent")
+            raise ValueError("Meshes and time partitions are inconsistent.")
         dim = np.array([mesh.topological_dimension() for mesh in meshes])
         if dim.min() != dim.max():
             raise ValueError("Meshes must all have the same topological dimension.")

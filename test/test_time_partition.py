@@ -216,19 +216,15 @@ class TestSetup(BaseTestCase):
         self.assertFalse(time_partition != time_interval)
 
 
-class TestDropLastSubinterval(unittest.TestCase):
+class TestDropLastSubinterval(BaseTestCase):
     r"""
     Tests related to :method:\~.drop_last_subinterval` of :class:`~.TimePartition`
     """
 
-    def setUp(self):
-        self.end_time = 1.0
-        self.field_names = ["field"]
-
     def get_time_partition(self, n):
         split = self.end_time / n
         timesteps = [split if i % 2 else split / 2 for i in range(n)]
-        return TimePartition(self.end_time, n, timesteps, self.field_names)
+        return TimePartition(self.end_time, n, timesteps, self.field)
 
     def test_drop_last_subinterval(self):
         n = 5
@@ -281,7 +277,7 @@ class TestDropLastSubinterval(unittest.TestCase):
             multi_subintervals.drop_last_subinterval()
 
 
-class TestStringFormatting(unittest.TestCase):
+class TestStringFormatting(BaseTestCase):
     """
     Test that the :meth:`__str__`` and :meth:`__repr__`` methods work as intended for
     Goalie's time partition objects.

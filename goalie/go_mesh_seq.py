@@ -154,8 +154,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         else:
             meshes = [Mesh(mesh) for mesh in self.meshes]
 
-        # Apply p-refinement
-        tp = self.time_partition
+        # Create copy of time_partition
+        tp = deepcopy(self.time_partition)
+
         if enrichment_method == "p":
             field_metadata = {}
             for fieldname, field in self.field_metadata.items():
@@ -176,9 +177,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 start_time=tp.start_time,
                 subintervals=tp.subintervals,
             )
-
-        # Create copy of time_partition
-        tp = deepcopy(self.time_partition)
 
         # Construct object to hold enriched spaces
         enriched_mesh_seq = type(self)(
