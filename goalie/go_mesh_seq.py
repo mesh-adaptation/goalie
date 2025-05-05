@@ -365,7 +365,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 for fieldname in self.field_functions:
                     enriched_mesh_seq._fs[fieldname].pop(-1)
                 enriched_mesh_seq.meshes.pop(-1)
-                enriched_mesh_seq.time_partition.drop_last_subinterval()
+                # enriched_mesh_seq.time_partition.drop_last_subinterval()
 
         # clear empty labels
         for fieldname in self.field_functions:
