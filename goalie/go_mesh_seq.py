@@ -356,53 +356,28 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
             # discard current subinterval duplicate solution fields
             if not self.steady:
-                for f in self.fields:
-                    self.solutions[f][FWD_OLD].pop(-1)
-                    self.solutions[f][ADJ_NEXT].pop(-1)
-                    enriched_mesh_seq.solutions[f][FWD_OLD].pop(-1)
-                    enriched_mesh_seq.solutions[f][ADJ_NEXT].pop(-1)
+                for fieldname in self.field_functions:
+                    self.solutions[fieldname][FWD_OLD].pop(-1)
+                    self.solutions[fieldname][ADJ_NEXT].pop(-1)
+                    enriched_mesh_seq.solutions[fieldname][FWD_OLD].pop(-1)
+                    enriched_mesh_seq.solutions[fieldname][ADJ_NEXT].pop(-1)
 
             # delete current subinterval enriched mesh to reduce the memory footprint
             if len(enriched_mesh_seq.meshes) > 1:
-                for f in self.fields:
-                    enriched_mesh_seq._fs[f].pop(-1)
+                for fieldname in self.field_functions:
+                    enriched_mesh_seq._fs[fieldname].pop(-1)
                 enriched_mesh_seq.meshes.pop(-1)
                 enriched_mesh_seq.time_partition.drop_last_subinterval()
 
         # clear empty labels
-        for f in self.fields:
+        for fieldname in self.field_functions:
             if self.steady:
                 self.solutions.labels = ("forward",)
-                self.solutions[f].pop("forward_old", None)
+                self.solutions[fieldname].pop("forward_old", None)
             else:
                 self.solutions.labels = ("forward", "adjoint")
-                self.solutions[f].pop("forward_old", None)
-                self.solutions[f].pop("adjoint_next", None)
-
-            # discard current subinterval duplicate solution fields
-            if not self.steady:
-                for f in self.fields:
-                    self.solutions[f][FWD_OLD].pop(-1)
-                    self.solutions[f][ADJ_NEXT].pop(-1)
-                    enriched_mesh_seq.solutions[f][FWD_OLD].pop(-1)
-                    enriched_mesh_seq.solutions[f][ADJ_NEXT].pop(-1)
-
-            # delete current subinterval enriched mesh to reduce the memory footprint
-            if len(enriched_mesh_seq.meshes) > 1:
-                for f in self.fields:
-                    enriched_mesh_seq._fs[f].pop(-1)
-                enriched_mesh_seq.meshes.pop(-1)
-                enriched_mesh_seq.time_partition.drop_last_subinterval()
-
-        # clear empty labels
-        for f in self.fields:
-            if self.steady:
-                self.solutions.labels = ("forward",)
-                self.solutions[f].pop("forward_old", None)
-            else:
-                self.solutions.labels = ("forward", "adjoint")
-                self.solutions[f].pop("forward_old", None)
-                self.solutions[f].pop("adjoint_next", None)
+                self.solutions[fieldname].pop("forward_old", None)
+                self.solutions[fieldname].pop("adjoint_next", None)
 
         return self.solutions, self.indicators
 
