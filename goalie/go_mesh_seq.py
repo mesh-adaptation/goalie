@@ -224,6 +224,54 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             self._create_indicators()
         return self._indicators
 
+    def _remove_adjoint_labels(self):
+        r"""
+        Remove adjoint-related solution labels and associated fields from the
+        solution dictionary.
+        """
+        for fieldname in self.field_functions:
+            if self.steady:
+                self.solutions.labels = ("forward",)
+                self.solutions[fieldname].pop("forward_old", None)
+            else:
+                self.solutions.labels = ("forward", "adjoint")
+                self.solutions[fieldname].pop("forward_old", None)
+                self.solutions[fieldname].pop("adjoint_next", None)
+
+    @staticmethod
+    def _delete_adjoint_sol_fields(mesh_seq):
+        r"""
+        Remove the most recent time-step data for adjoint and forward solutions
+        in unsteady simulations.
+
+        :arg mesh_seq: a MeshSeq object
+        :type mesh_seq: :class:`~.MeshSeq`
+        :returns: the updated MeshSeq object
+        :rtype: :class:`~.MeshSeq`
+        """
+        if not mesh_seq.steady:
+            for fieldname in mesh_seq.field_functions:
+                mesh_seq.solutions[fieldname]["forward_old"].pop(-1)
+                mesh_seq.solutions[fieldname]["adjoint_next"].pop(-1)
+        return mesh_seq
+
+    @staticmethod
+    def _delete_last_subinterval(mesh_seq):
+        r"""
+        if more than one subinterval is present, deletes the last mesh
+        in a mesh sequence to reduce the memory footprint
+
+        :arg mesh_seq: a MeshSeq object
+        :type mesh_seq: :class:`~.MeshSeq`
+        :returns: the updated MeshSeq object
+        :rtype: :class:`~.MeshSeq`
+        """
+        if len(mesh_seq.meshes) > 1:
+            for fieldname in mesh_seq.field_functions:
+                mesh_seq._fs[fieldname].pop(-1)
+            mesh_seq.meshes.pop(-1)
+        return mesh_seq
+
     @PETSc.Log.EventDecorator()
     def indicate_errors(
         self, enrichment_kwargs=None, solver_kwargs=None, indicator_fn=get_dwr_indicator
@@ -353,29 +401,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     )
 
             # discard current subinterval duplicate solution fields
-            if not self.steady:
-                for fieldname in self.field_functions:
-                    self.solutions[fieldname][FWD_OLD].pop(-1)
-                    self.solutions[fieldname][ADJ_NEXT].pop(-1)
-                    enriched_mesh_seq.solutions[fieldname][FWD_OLD].pop(-1)
-                    enriched_mesh_seq.solutions[fieldname][ADJ_NEXT].pop(-1)
+            self._delete_adjoint_sol_fields(self)
+            self._delete_adjoint_sol_fields(enriched_mesh_seq)
 
             # delete current subinterval enriched mesh to reduce the memory footprint
-            if len(enriched_mesh_seq.meshes) > 1:
-                for fieldname in self.field_functions:
-                    enriched_mesh_seq._fs[fieldname].pop(-1)
-                enriched_mesh_seq.meshes.pop(-1)
-                # enriched_mesh_seq.time_partition.drop_last_subinterval()
+            self._delete_last_subinterval(enriched_mesh_seq)
 
         # clear empty labels
-        for fieldname in self.field_functions:
-            if self.steady:
-                self.solutions.labels = ("forward",)
-                self.solutions[fieldname].pop("forward_old", None)
-            else:
-                self.solutions.labels = ("forward", "adjoint")
-                self.solutions[fieldname].pop("forward_old", None)
-                self.solutions[fieldname].pop("adjoint_next", None)
+        self._remove_adjoint_labels()
 
         return self.solutions, self.indicators
 
