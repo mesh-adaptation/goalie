@@ -4,7 +4,6 @@ Drivers for goal-oriented error estimation on sequences of meshes.
 
 from collections.abc import Iterable
 from copy import deepcopy
-from copy import deepcopy
 
 import numpy as np
 import ufl
@@ -178,15 +177,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 subintervals=tp.subintervals,
             )
 
-        # Construct object to hold enriched spaces
-        enriched_mesh_seq = type(self)(
-            tp,
         # Create copy of time_partition
-        time_partition = deepcopy(self.time_partition)
+        tp = deepcopy(self.time_partition)
 
         # Construct object to hold enriched spaces
         enriched_mesh_seq = type(self)(
-            time_partition,
+            tp,
             meshes,
             get_initial_condition=self._get_initial_condition,
             get_solver=self._get_solver,
@@ -357,6 +353,31 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     self.indicators[fieldname][i][j].interpolate(
                         ufl.max_value(indi, 1.0e-16)
                     )
+
+            # discard current subinterval duplicate solution fields
+            if not self.steady:
+                for f in self.fields:
+                    self.solutions[f][FWD_OLD].pop(-1)
+                    self.solutions[f][ADJ_NEXT].pop(-1)
+                    enriched_mesh_seq.solutions[f][FWD_OLD].pop(-1)
+                    enriched_mesh_seq.solutions[f][ADJ_NEXT].pop(-1)
+
+            # delete current subinterval enriched mesh to reduce the memory footprint
+            if len(enriched_mesh_seq.meshes) > 1:
+                for f in self.fields:
+                    enriched_mesh_seq._fs[f].pop(-1)
+                enriched_mesh_seq.meshes.pop(-1)
+                enriched_mesh_seq.time_partition.drop_last_subinterval()
+
+        # clear empty labels
+        for f in self.fields:
+            if self.steady:
+                self.solutions.labels = ("forward",)
+                self.solutions[f].pop("forward_old", None)
+            else:
+                self.solutions.labels = ("forward", "adjoint")
+                self.solutions[f].pop("forward_old", None)
+                self.solutions[f].pop("adjoint_next", None)
 
             # discard current subinterval duplicate solution fields
             if not self.steady:
