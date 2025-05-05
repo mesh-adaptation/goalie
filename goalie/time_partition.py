@@ -274,8 +274,9 @@ class TimePartition:
 
     def drop_last_subinterval(self):
         """
-        Drop the last of multiple subinterval and reset lists and counters appropriately,
-        with a single subinterval always maintained for a valid :class:`~.TimePartition`.
+        Drop the last of multiple subinterval and reset lists and counters
+        appropriately, with a single subinterval always maintained for a
+        valid :class:`~.TimePartition`.
         """
         if self.num_subintervals > 1:
             self.end_time = self.subintervals[-1][0]

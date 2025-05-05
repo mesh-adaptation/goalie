@@ -181,6 +181,8 @@ class MeshSeq:
         if not isinstance(meshes, list):
             meshes = [Mesh(meshes) for subinterval in self.subintervals]
         self.meshes = meshes
+        if len(self) != len(self.time_partition):
+            raise ValueError("Meshes and time partitions are inconsistent")
         dim = np.array([mesh.topological_dimension() for mesh in meshes])
         if dim.min() != dim.max():
             raise ValueError("Meshes must all have the same topological dimension.")
@@ -371,8 +373,7 @@ class MeshSeq:
             ``False``
         :rtype: `:class:`bool`
         """
-        consistent = len(self.time_partition) == len(self)
-        consistent &= all(
+        consistent = all(
             len(self) == len(self._fs[fieldname]) for fieldname in self.field_functions
         )
         for fieldname in self.field_functions:
