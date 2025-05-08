@@ -223,10 +223,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             self._create_indicators()
         return self._indicators
 
-    def _remove_adjoint_labels(self):
+    def _remove_solve_adjoint_labels(self):
         r"""
-        Remove adjoint-related solution labels and associated fields from the
-        solution dictionary.
+        Remove additional solution labels used in `solve_adjoint`
+        from the solution dictionary for the last interval in the sequence.
+        This should only be run if the additional resources to
+        run `solve_adjoint` are no longer required.
         """
         for fieldname in self.field_functions:
             if self.steady:
@@ -237,39 +239,27 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 self.solutions[fieldname].pop("forward_old", None)
                 self.solutions[fieldname].pop("adjoint_next", None)
 
-    @staticmethod
-    def _delete_adjoint_sol_fields(mesh_seq):
+    def _delete_solve_adjoint_sol_fields(self):
         r"""
-        Remove the most recent time-step data for adjoint and forward solutions
-        in unsteady simulations.
-
-        :arg mesh_seq: a MeshSeq object
-        :type mesh_seq: :class:`~.MeshSeq`
-        :returns: the updated MeshSeq object
-        :rtype: :class:`~.MeshSeq`
+        For unsteady simulations, removes additional solution fields
+        used in `solve_adjoint` from the solution dictionary for the last
+        interval in the sequence. This should only be run if the additional
+        resources to run `solve_adjoint` are no longer required.
         """
-        if not mesh_seq.steady:
-            for fieldname in mesh_seq.field_functions:
-                mesh_seq.solutions[fieldname]["forward_old"].pop(-1)
-                mesh_seq.solutions[fieldname]["adjoint_next"].pop(-1)
-        return mesh_seq
+        if not self.steady:
+            for fieldname in self.field_functions:
+                self.solutions[fieldname]["forward_old"].pop(-1)
+                self.solutions[fieldname]["adjoint_next"].pop(-1)
 
-    @staticmethod
-    def _delete_last_subinterval(mesh_seq):
+    def _delete_last_subinterval(self):
         r"""
         if more than one subinterval is present, deletes the last mesh
         in a mesh sequence to reduce the memory footprint
-
-        :arg mesh_seq: a MeshSeq object
-        :type mesh_seq: :class:`~.MeshSeq`
-        :returns: the updated MeshSeq object
-        :rtype: :class:`~.MeshSeq`
         """
-        if len(mesh_seq.meshes) > 1:
-            for fieldname in mesh_seq.field_functions:
-                mesh_seq._fs[fieldname].pop(-1)
-            mesh_seq.meshes.pop(-1)
-        return mesh_seq
+        if len(self.meshes) > 1:
+            for fieldname in self.field_functions:
+                self._fs[fieldname].pop(-1)
+            self.meshes.pop(-1)
 
     @PETSc.Log.EventDecorator()
     def indicate_errors(
@@ -399,14 +389,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                         ufl.max_value(indi, 1.0e-16)
                     )
 
-            # discard current subinterval duplicate solution fields
-            self._delete_adjoint_sol_fields(self)
-            self._delete_adjoint_sol_fields(enriched_mesh_seq)
+            # discard current subinterval extra solution fields needed for adjoint solve
+            self._delete_adjoint_sol_fields()
+            enriched_mesh_seq._delete_adjoint_sol_fields()
 
             # delete current subinterval h-enriched mesh to reduce the memory footprint
             if enrichment_kwargs["enrichment_method"] == "h":
                 print("delete last interval")
-                self._delete_last_subinterval(enriched_mesh_seq)
+                enriched_mesh_seq._delete_last_subinterval()
 
         # clear empty labels
         self._remove_adjoint_labels()
