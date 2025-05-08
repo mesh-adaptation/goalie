@@ -153,8 +153,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         else:
             meshes = self.meshes
 
-        # Apply p-refinement
-        tp = self.time_partition
+        # Create copy of time_partition
+        tp = deepcopy(self.time_partition)
+
         if enrichment_method == "p":
             field_metadata = {}
             for fieldname, field in self.field_metadata.items():
@@ -222,6 +223,44 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             self._create_indicators()
         return self._indicators
 
+    def _remove_solve_adjoint_labels(self):
+        r"""
+        Remove additional solution labels used in `solve_adjoint`
+        from the solution dictionary for the last interval in the sequence.
+        This should only be run if the additional resources to
+        run `solve_adjoint` are no longer required.
+        """
+        for fieldname in self.field_functions:
+            if self.steady:
+                self.solutions.labels = ("forward",)
+                self.solutions[fieldname].pop("forward_old", None)
+            else:
+                self.solutions.labels = ("forward", "adjoint")
+                self.solutions[fieldname].pop("forward_old", None)
+                self.solutions[fieldname].pop("adjoint_next", None)
+
+    def _delete_solve_adjoint_sol_fields(self):
+        r"""
+        For unsteady simulations, removes additional solution fields
+        used in `solve_adjoint` from the solution dictionary for the last
+        interval in the sequence. This should only be run if the additional
+        resources to run `solve_adjoint` are no longer required.
+        """
+        if not self.steady:
+            for fieldname in self.field_functions:
+                self.solutions[fieldname]["forward_old"].pop(-1)
+                self.solutions[fieldname]["adjoint_next"].pop(-1)
+
+    def _delete_last_subinterval(self):
+        r"""
+        if more than one subinterval is present, deletes the last mesh
+        in a mesh sequence to reduce the memory footprint
+        """
+        if len(self.meshes) > 1:
+            for fieldname in self.field_functions:
+                self._fs[fieldname].pop(-1)
+            self.meshes.pop(-1)
+
     @PETSc.Log.EventDecorator()
     def indicate_errors(
         self, enrichment_kwargs=None, solver_kwargs=None, indicator_fn=get_dwr_indicator
@@ -269,6 +308,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         FWD_OLD = "forward" if self.steady else "forward_old"
         ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
         P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
+
         # Loop over each subinterval in reverse
         for i in reversed(range(len(self))):
             # Solve the adjoint problem on the current subinterval
@@ -348,6 +388,18 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     self.indicators[fieldname][i][j].interpolate(
                         ufl.max_value(indi, 1.0e-16)
                     )
+
+            # discard current subinterval extra solution fields needed for adjoint solve
+            self._delete_adjoint_sol_fields()
+            enriched_mesh_seq._delete_adjoint_sol_fields()
+
+            # delete current subinterval h-enriched mesh to reduce the memory footprint
+            if enrichment_kwargs["enrichment_method"] == "h":
+                print("delete last interval")
+                enriched_mesh_seq._delete_last_subinterval()
+
+        # clear empty labels
+        self._remove_adjoint_labels()
 
         return self.solutions, self.indicators
 
