@@ -8,7 +8,6 @@ from copy import deepcopy
 import numpy as np
 import ufl
 from animate.interpolation import interpolate
-from animate.utility import Mesh
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
 from firedrake.petsc import PETSc
 
@@ -152,7 +151,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 )
             meshes = [MeshHierarchy(mesh, num_enrichments)[-1] for mesh in self.meshes]
         else:
-            meshes = [Mesh(mesh) for mesh in self.meshes]
+            meshes = self.meshes
 
         # Create copy of time_partition
         tp = deepcopy(self.time_partition)
@@ -404,8 +403,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             self._delete_adjoint_sol_fields(self)
             self._delete_adjoint_sol_fields(enriched_mesh_seq)
 
-            # delete current subinterval enriched mesh to reduce the memory footprint
-            self._delete_last_subinterval(enriched_mesh_seq)
+            # delete current subinterval h-enriched mesh to reduce the memory footprint
+            if enrichment_kwargs["enrichment_method"] == "h":
+                print("delete last interval")
+                self._delete_last_subinterval(enriched_mesh_seq)
 
         # clear empty labels
         self._remove_adjoint_labels()
