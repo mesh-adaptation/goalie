@@ -73,10 +73,8 @@ class AdjointSolver(Solver):
     :attr:`~AdjointSolver.J`, which holds the QoI value.
     """
 
-    def __init__(self, model, time_partition, mesh_sequence, **kwargs):
+    def __init__(self, time_partition, mesh_sequence, **kwargs):
         r"""
-        :arg model: the model to be solved
-        :type model: :class:`~goalie.model.Model`
         :arg time_partition: a partition of the temporal domain
         :type time_partition: :class:`~.TimePartition`
         :arg mesh_sequence: a sequence of meshes on which to solve the problem
@@ -91,7 +89,7 @@ class AdjointSolver(Solver):
                 " Choose from 'end_time', 'time_integrated', or 'steady'."
             )
         self.J = 0
-        super().__init__(model, time_partition, mesh_sequence, **kwargs)
+        super().__init__(time_partition, mesh_sequence, **kwargs)
         if self.qoi_type == "steady" and not self.steady:
             raise ValueError(
                 "QoI type is set to 'steady' but the time partition is not steady."
@@ -123,13 +121,7 @@ class AdjointSolver(Solver):
     # to be applied to the get_qoi method. Need to think how to refactor this
     @annotate_qoi
     def my_qoi(self, subinterval):
-        return self.model.get_qoi(
-            subinterval,
-            self.time_partition,
-            self.meshes,
-            self.field_functions,
-            self.function_spaces,
-        )
+        return self.get_qoi(subinterval)
 
     @pyadjoint.no_annotations
     @PETSc.Log.EventDecorator()
@@ -454,14 +446,7 @@ class AdjointSolver(Solver):
             # Reinitialise fields and assign initial conditions
             self._reinitialise_fields(initial_condition_map)
 
-            return solver(
-                subinterval,
-                self.time_partition,
-                self.meshes,
-                self.field_functions,
-                self.function_spaces,
-                **kwargs,
-            )
+            return solver(subinterval, **kwargs)
 
         # Loop over subintervals in reverse
         seeds = {}

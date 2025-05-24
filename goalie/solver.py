@@ -5,7 +5,7 @@ from firedrake.adjoint import pyadjoint
 from firedrake.petsc import PETSc
 
 from .function_data import ForwardSolutionData
-from .log import DEBUG, debug, logger, pyrint
+from .log import debug, pyrint
 from .options import AdaptParameters
 from .utility import AttrDict
 
@@ -13,13 +13,9 @@ __all__ = ["Solver"]
 
 
 class Solver:
-    # FIXME: Add a class docstring. And reword model argument in docstring below
-
     @PETSc.Log.EventDecorator()
-    def __init__(self, model, time_partition, mesh_sequence, **kwargs):
+    def __init__(self, time_partition, mesh_sequence, **kwargs):
         r"""
-        :arg model: the model to solve
-        :type model: :class:`~.Model`
         :arg time_partition: a partition of the temporal domain
         :type time_partition: :class:`~.TimePartition`
         :arg mesh_sequence: a sequence of meshes on which to solve the problem
@@ -32,7 +28,6 @@ class Solver:
         :type transfer_kwargs: :class:`dict` with :class:`str` keys and values which may
             take various types
         """
-        self.model = model
         self.time_partition = time_partition
         self.meshes = mesh_sequence
         self.subintervals = time_partition.subintervals
@@ -58,13 +53,7 @@ class Solver:
         self.fp_iteration = 0
         self.params = None
 
-        # This is needed for Model._outputs_consistent to work correctly in debug mode.
-        # Otherwise self.field_functions are None
-        if logger.level == DEBUG:
-            self._reinitialise_fields(self.initial_condition)
-        self.model._outputs_consistent(
-            self.time_partition, self.meshes, self.field_functions, self.function_spaces
-        )
+        self._outputs_consistent()
 
     def debug(self, msg):
         """
@@ -74,6 +63,92 @@ class Solver:
         :type msg: :class:`str`
         """
         debug(f"{type(self).__name__}: {msg}")
+
+    def get_initial_condition(self):
+        """
+        Get the initial conditions applied on the first mesh in the sequence.
+
+        This method may be overridden by all subclasses. If not overridden, it defines
+        initial conditions that are zero everywhere.
+
+        :returns: the dictionary, whose keys are field names and whose values are the
+            corresponding initial conditions
+        :rtype: :class:`dict` with :class:`str` keys and
+            :class:`firedrake.function.Function` values
+        """
+        return {
+            field: firedrake.Function(fs[0])
+            for field, fs in self.function_spaces.items()
+        }
+
+    def get_solver(self, *args, **kwargs):
+        """
+        Get the function mapping a subinterval index to a dictionary of solutions.
+
+        Should be overridden by all subclasses.
+
+        Signature for the function:
+        ```
+            :arg index: the subinterval index
+            :type index: :class:`int`
+        ```
+        """
+        raise NotImplementedError(
+            f"Solver {self.__class__.__name__} is missing the 'get_solver' method."
+        )
+
+    def get_qoi(self, *args, **kwargs):
+        """
+        Get the function for evaluating the QoI, which has either zero or one arguments,
+        corresponding to either an end time or time integrated quantity of interest,
+        respectively. If the QoI has an argument then it is for the current time.
+
+        Should be overridden by all subclasses.
+
+        Signature for the function to be returned:
+        ```
+        :arg t: the current time (for time-integrated QoIs)
+        :type t: :class:`float`
+        :return: the QoI as a 0-form
+        :rtype: :class:`ufl.form.Form`
+        ```
+        """
+        raise NotImplementedError(
+            f"Solver {self.__class__.__name__} is missing the 'get_qoi' method."
+        )
+
+    def _outputs_consistent(self):
+        """
+        Assert that initial conditions are given in a dictionary format with
+        :attr:`Solver.fields` as keys, and that the get_solver function is a generator.
+        """
+        for method in ["initial_condition", "solver"]:
+            try:
+                method_map = getattr(self, f"get_{method}")
+                if method == "initial_condition":
+                    method_map = method_map()
+                elif method == "solver":
+                    solver_gen = method_map(0)
+                    assert hasattr(solver_gen, "__next__"), "get_solver should yield"
+                    # FIXME: This doesn't work
+                    # if logger.level == DEBUG:
+                    # self.reinitialise_fields(self.get_initial_condition())
+                    # next(solver_gen)
+                    # if np.array_equal(f.vector().array(), f_.vector().array()):
+                    #     self.debug(
+                    #         "Current and lagged solutions are equal. Does the"
+                    #         " solver yield before updating lagged solutions?"
+                    #     )  # noqa
+                    break
+            except NotImplementedError:
+                continue
+            assert isinstance(method_map, dict), f"get_{method} should return a dict"
+            solver_fields = set(self.field_functions)
+            method_fields = set(method_map.keys())
+            diff = solver_fields.difference(method_fields)
+            assert len(diff) == 0, f"missing fields {diff} in get_{method}"
+            diff = method_fields.difference(solver_fields)
+            assert len(diff) == 0, f"unexpected fields {diff} in get_{method}"
 
     def _get_field_metadata(self, fieldname):
         if fieldname not in self.field_names:
@@ -185,13 +260,7 @@ class Solver:
         :rtype: :class:`~.AttrDict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        args = (
-            self.time_partition,
-            self.meshes,
-            self.field_functions,
-            self.function_spaces,
-        )
-        return AttrDict(self.model.get_initial_condition(*args))
+        return AttrDict(self.get_initial_condition())
 
     # FIXME: Remove this method
     @property
@@ -199,10 +268,7 @@ class Solver:
         """
         See :meth:`~.MeshSeq.get_solver`.
         """
-        # FIXME
-        # return self.model.get_solver(self.time_partition, self.meshes,
-        # self.field_functions, self.function_spaces)
-        return self.model.get_solver
+        return self.get_solver
 
     def _create_solutions(self):
         """
@@ -273,16 +339,7 @@ class Solver:
         # Loop over the subintervals
         checkpoint = self.initial_condition
         for i in range(self.num_subintervals):
-            # FIXME: tidy this up
-            # solver_gen = self.solver(i, **solver_kwargs)
-            solver_gen = self.solver(
-                i,
-                self.time_partition,
-                self.meshes,
-                self.field_functions,
-                self.function_spaces,
-                **solver_kwargs,
-            )
+            solver_gen = self.solver(i, **solver_kwargs)
 
             # Reinitialise fields and assign initial conditions
             self._reinitialise_fields(checkpoint)

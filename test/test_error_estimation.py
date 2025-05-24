@@ -16,7 +16,6 @@ from goalie.field import Field
 from goalie.function_data import IndicatorData
 from goalie.go_mesh_seq import GoalOrientedSolver
 from goalie.mesh_seq import MeshSeq
-from goalie.model import Model
 from goalie.time_partition import TimeInstant, TimePartition
 
 
@@ -27,7 +26,6 @@ class ErrorEstimationTestCase(unittest.TestCase):
 
     def setUp(self):
         self.mesh = UnitSquareMesh(1, 1)
-        self.model = Model()
         self.field = Field("field", family="Real", degree=0)
         self.fs = FunctionSpace(self.mesh, "CG", 1)
         self.trial = TrialFunction(self.fs)
@@ -76,7 +74,6 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         num_timesteps = 1 if time_partition is None else time_partition.num_timesteps
         num_subint = 1 if time_partition is None else time_partition.num_subintervals
         return GoalOrientedSolver(
-            self.model,
             time_partition or TimeInstant(self.field),
             MeshSeq([self.mesh for _ in range(num_subint)]),
             qoi_type="steady" if num_timesteps == 1 else "end_time",
