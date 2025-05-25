@@ -34,15 +34,15 @@ def source(mesh):
     return 100.0 * exp(-((x - x0) ** 2 + (y - y0) ** 2) / r**2)
 
 
-def get_solver(mesh_seq):
-    def solver(index):
-        function_space = mesh_seq.function_spaces["c"][index]
-        c = mesh_seq.field_functions["c"]
-        h = CellSize(mesh_seq[index])
-        S = source(mesh_seq[index])
+class PointDischargeSolver(Solver):
+    def get_solver(self, index):
+        function_space = self.function_spaces["c"][index]
+        c = self.field_functions["c"]
+        h = CellSize(self.meshes[index])
+        S = source(self.meshes[index])
 
         # Define constants
-        R = FunctionSpace(mesh_seq[index], "R", 0)
+        R = FunctionSpace(self.meshes[index], "R", 0)
         D = Function(R).assign(0.1)
         u_x = Function(R).assign(1.0)
         u_y = Function(R).assign(0.0)
@@ -66,18 +66,17 @@ def get_solver(mesh_seq):
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
         yield
 
-    return solver
-
 
 # Take a :class:`TimeInstant` (since we have a steady-state problem), and put everything
 # together in a :class:`MeshSeq`. ::
 
 time_partition = TimeInstant(fields)
-mesh_seq = MeshSeq(
-    time_partition,
-    mesh,
-    get_solver=get_solver,
-)
+# mesh_seq = MeshSeq(
+#     time_partition,
+#     mesh,
+#     get_solver=get_solver,
+# )
+mesh_seq = MeshSeq(mesh)
 
 # Give the initial mesh, we can plot it, solve the PDE on it, and plot the resulting
 # solution field. ::
@@ -91,7 +90,8 @@ axes.set_title("Initial mesh")
 fig.savefig("point_discharge2d-mesh0.jpg")
 plt.close()
 
-solutions = mesh_seq.solve_forward()
+solver = PointDischargeSolver(time_partition, mesh_seq, qoi_type="steady")
+solutions = solver.solve_forward()
 
 plot_kwargs = {"levels": 50, "figsize": (10, 3), "cmap": "coolwarm"}
 fig, axes, tcs = plot_snapshots(
@@ -127,27 +127,27 @@ plt.close()
 # count. ::
 
 
-def adaptor(mesh_seq, solutions):
+def adaptor(solver, solutions):
     c = solutions["c"]["forward"][0][0]
 
     # Define the Riemannian metric
-    P1_tensor = TensorFunctionSpace(mesh_seq[0], "CG", 1)
+    P1_tensor = TensorFunctionSpace(solver.meshes[0], "CG", 1)
     metric = RiemannianMetric(P1_tensor)
 
     # Recover the Hessian of the current solution
     metric.compute_hessian(c)
 
     # Ramp the target metric complexity from 400 to 1000 over the first few iterations
-    base, target, iteration = 400, 1000, mesh_seq.fp_iteration
+    base, target, iteration = 400, 1000, solver.fp_iteration
     mp = {"dm_plex_metric_target_complexity": ramp_complexity(base, target, iteration)}
     metric.set_parameters(mp)
 
     # Normalise the metric according to the target complexity and then adapt the mesh
     metric.normalise()
     complexity = metric.complexity()
-    mesh_seq[0] = adapt(mesh_seq[0], metric)
-    num_dofs = mesh_seq.count_vertices()[0]
-    num_elem = mesh_seq.count_elements()[0]
+    solver.meshes[0] = adapt(solver.meshes[0], metric)
+    num_dofs = solver.meshes.count_vertices()[0]
+    num_elem = solver.meshes.count_elements()[0]
     pyrint(
         f"{iteration + 1:2d}, complexity: {complexity:4.0f}"
         f", dofs: {num_dofs:4d}, elements: {num_elem:4d}"
@@ -155,7 +155,7 @@ def adaptor(mesh_seq, solutions):
 
     # Plot each intermediate adapted mesh
     fig, axes = plt.subplots(figsize=(10, 2))
-    mesh_seq.plot(fig=fig, axes=axes, interior_kw=interior_kw)
+    solver.meshes.plot(fig=fig, axes=axes, interior_kw=interior_kw)
     axes.set_title(f"Mesh at iteration {iteration + 1}")
     fig.savefig(f"point_discharge2d-hessian_mesh{iteration + 1}.jpg")
     plt.close()
@@ -181,7 +181,7 @@ params = AdaptParameters(
         "maxiter": 35,
     }
 )
-solutions = mesh_seq.fixed_point_iteration(adaptor, parameters=params)
+solutions = solver.fixed_point_iteration(adaptor, parameters=params)
 
 # Mesh adaptation often gives slightly different results on difference machines.
 # However, the output should look something like

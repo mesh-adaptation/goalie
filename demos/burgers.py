@@ -64,17 +64,14 @@ fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 # constants.::
 
 
-class BurgersModel(Model):
-    def get_solver(
-        self, index, time_partition, meshes, field_functions, function_spaces
-    ):
-        # def solver(index):
+class BurgersSolver(Solver):
+    def get_solver(self, index):
         # Get the current and lagged solutions
-        u, u_ = field_functions["u"]
+        u, u_ = self.field_functions["u"]
 
         # Define constants
-        R = FunctionSpace(meshes[index], "R", 0)
-        dt = Function(R).assign(time_partition.timesteps[index])
+        R = FunctionSpace(self.meshes[index], "R", 0)
+        dt = Function(R).assign(self.time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -86,7 +83,7 @@ class BurgersModel(Model):
         )
 
         # Time integrate from t_start to t_end
-        tp = time_partition
+        tp = self.time_partition
         t_start, t_end = tp.subintervals[index]
         dt = tp.timesteps[index]
         t = t_start
@@ -97,15 +94,13 @@ class BurgersModel(Model):
             u_.assign(u)
             t += dt
 
-        # return solver
-
     # Goalie also requires a function for generating an initial
     # condition from the function space defined on the
     # :math:`0^{th}` mesh. ::
 
-    def get_initial_condition(self, time_partition, meshes, fields, function_spaces):
-        fs = function_spaces["u"][0]
-        x, y = SpatialCoordinate(meshes[0])
+    def get_initial_condition(self):
+        fs = self.function_spaces["u"][0]
+        x, y = SpatialCoordinate(self.meshes[0])
         return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
@@ -129,14 +124,7 @@ time_partition = TimePartition(
 # or just a single mesh. If a single mesh is passed then this will be used for all
 # subintervals. ::
 
-# mesh_seq = MeshSeq(
-#     time_partition,
-#     mesh,
-#     get_initial_condition=get_initial_condition,
-#     get_solver=get_solver,
-# )
-model = BurgersModel()
-solver = Solver(model, time_partition, mesh_seq)
+solver = BurgersSolver(time_partition, mesh_seq)
 solutions = solver.solve_forward()
 
 # During the :func:`solve_forward` call, the solver that was provided

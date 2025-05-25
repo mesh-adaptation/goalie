@@ -103,22 +103,18 @@ time_partition = TimeInterval(end_time, dt, fields)
 # The Forward Euler scheme may be implemented and solved as follows. ::
 
 
-class ForwardEulerModel(Model):
-    def get_initial_condition(
-        self, time_partition, meshes, field_functions, function_spaces
-    ):
-        fs = function_spaces["u"][0]
+class ForwardEulerSolver(Solver):
+    def get_initial_condition(self):
+        fs = self.function_spaces["u"][0]
         return {"u": Function(fs).assign(1.0)}
 
-    def get_solver(
-        self, index, time_partition, meshes, field_functions, function_spaces
-    ):
+    def get_solver(self, index):
         # Get the current and lagged solutions
-        u, u_ = field_functions["u"]
+        u, u_ = self.field_functions["u"]
 
         # Define the (trivial) form
-        R = function_spaces["u"][index]
-        dt = Function(R).assign(time_partition.timesteps[index])
+        R = self.function_spaces["u"][index]
+        dt = Function(R).assign(self.time_partition.timesteps[index])
         v = TestFunction(R)
         F = (u - u_ - dt * u_) * v * dx
 
@@ -127,8 +123,8 @@ class ForwardEulerModel(Model):
         sp = {"ksp_type": "preonly", "pc_type": "jacobi"}
 
         # Time integrate from t_start to t_end
-        dt = time_partition.timesteps[index]
-        t_start, t_end = time_partition.subintervals[index]
+        dt = self.time_partition.timesteps[index]
+        t_start, t_end = self.time_partition.subintervals[index]
         t = t_start
         while t < t_end - 1.0e-05:
             solve(F == 0, u, solver_parameters=sp)
@@ -138,8 +134,7 @@ class ForwardEulerModel(Model):
             t += dt
 
 
-model = ForwardEulerModel()
-solver = Solver(model, time_partition, mesh_seq)
+solver = ForwardEulerSolver(time_partition, mesh_seq)
 
 # We can solve the ODE using the :meth:`~.MeshSeq.solve_forward` method and extract the
 # solution trajectory as follows. The method returns a nested dictionary of solutions,
@@ -192,21 +187,19 @@ plt.savefig("ode-forward_euler.jpg")
 # `get_solver_forward_euler` substituted for `get_solver_backward_euler`. ::
 
 
-class BackwardEulerModel(ForwardEulerModel):
-    def get_solver(
-        self, index, time_partition, meshes, field_functions, function_spaces
-    ):
-        u, u_ = field_functions["u"]
-        R = function_spaces["u"][index]
-        dt = Function(R).assign(time_partition.timesteps[index])
+class BackwardEulerSolver(ForwardEulerSolver):
+    def get_solver(self, index):
+        u, u_ = self.field_functions["u"]
+        R = self.function_spaces["u"][index]
+        dt = Function(R).assign(self.time_partition.timesteps[index])
         v = TestFunction(R)
 
         # This is the only change from the Forward Euler solver
         F = (u - u_ - u * dt) * v * dx
 
         sp = {"ksp_type": "preonly", "pc_type": "jacobi"}
-        dt = time_partition.timesteps[index]
-        t_start, t_end = time_partition.subintervals[index]
+        dt = self.time_partition.timesteps[index]
+        t_start, t_end = self.time_partition.subintervals[index]
         t = t_start
         while t < t_end - 1.0e-05:
             solve(F == 0, u, solver_parameters=sp)
@@ -216,8 +209,7 @@ class BackwardEulerModel(ForwardEulerModel):
             t += dt
 
 
-model = BackwardEulerModel()
-solver = Solver(model, time_partition, mesh_seq)
+solver = BackwardEulerSolver(time_partition, mesh_seq)
 solutions = solver.solve_forward()["u"]["forward"]
 
 backward_euler_trajectory = [1]
@@ -251,13 +243,11 @@ plt.savefig("ode-backward_euler.jpg")
 # ::
 
 
-class CrankNicolsonModel(ForwardEulerModel):
-    def get_solver(
-        self, index, time_partition, meshes, field_functions, function_spaces
-    ):
-        u, u_ = field_functions["u"]
-        R = function_spaces["u"][index]
-        dt = Function(R).assign(time_partition.timesteps[index])
+class CrankNicolsonSolver(ForwardEulerSolver):
+    def get_solver(self, index):
+        u, u_ = self.field_functions["u"]
+        R = self.function_spaces["u"][index]
+        dt = Function(R).assign(self.time_partition.timesteps[index])
         v = TestFunction(R)
 
         # This is the only change from the Forward and Backward Euler solvers
@@ -265,8 +255,8 @@ class CrankNicolsonModel(ForwardEulerModel):
         F = (u - u_ - dt * (theta * u + (1 - theta) * u_)) * v * dx
 
         sp = {"ksp_type": "preonly", "pc_type": "jacobi"}
-        dt = time_partition.timesteps[index]
-        t_start, t_end = time_partition.subintervals[index]
+        dt = self.time_partition.timesteps[index]
+        t_start, t_end = self.time_partition.subintervals[index]
         t = t_start
         while t < t_end - 1.0e-05:
             solve(F == 0, u, solver_parameters=sp)
@@ -276,8 +266,7 @@ class CrankNicolsonModel(ForwardEulerModel):
             t += dt
 
 
-model = CrankNicolsonModel()
-solver = Solver(model, time_partition, mesh_seq)
+solver = CrankNicolsonSolver(time_partition, mesh_seq)
 
 solutions = solver.solve_forward()["u"]["forward"]
 crank_nicolson_trajectory = [1]

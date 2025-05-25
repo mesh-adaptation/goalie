@@ -78,30 +78,26 @@ def slot_cyl_initial_condition(x, y):
     )
 
 
-class SolidBodyRotationModel(Model):
-    def get_initial_condition(
-        self, time_partition, meshes, field_functions, function_spaces
-    ):
-        fs = function_spaces["c"][0]
-        x, y = SpatialCoordinate(meshes[0])
+class SolidBodyRotationSolver(AdjointSolver):
+    def get_initial_condition(self):
+        fs = self.function_spaces["c"][0]
+        x, y = SpatialCoordinate(self.meshes[0])
         bell = bell_initial_condition(x, y)
         cone = cone_initial_condition(x, y)
         slot_cyl = slot_cyl_initial_condition(x, y)
         return {"c": Function(fs).interpolate(bell + cone + slot_cyl)}
 
-    def get_solver(
-        self, index, time_partition, meshes, field_functions, function_spaces
-    ):
-        V = function_spaces["c"][index]
-        c, c_ = field_functions["c"]
+    def get_solver(self, index):
+        V = self.function_spaces["c"][index]
+        c, c_ = self.field_functions["c"]
 
         # Define velocity field
-        x, y = SpatialCoordinate(mesh)
+        x, y = SpatialCoordinate(self.meshes[index])
         u = as_vector([-y, x])
 
         # Define constants
-        R = FunctionSpace(meshes[index], "R", 0)
-        dt = Function(R).assign(time_partition.timesteps[index])
+        R = FunctionSpace(self.meshes[index], "R", 0)
+        dt = Function(R).assign(self.time_partition.timesteps[index])
         theta = Function(R).assign(0.5)
 
         # Setup variational problem
@@ -118,8 +114,8 @@ class SolidBodyRotationModel(Model):
         lvs = LinearVariationalSolver(lvp, ad_block_tag="c")
 
         # Time integrate from t_start to t_end
-        t_start, t_end = time_partition.subintervals[index]
-        dt = time_partition.timesteps[index]
+        t_start, t_end = self.time_partition.subintervals[index]
+        dt = self.time_partition.timesteps[index]
         t = t_start
         while t < t_end - 0.5 * dt:
             lvs.solve()
@@ -128,12 +124,10 @@ class SolidBodyRotationModel(Model):
             c_.assign(c)
             t += dt
 
-    # return solver
-
-    def get_qoi(self, index, time_partition, meshes, field_functions, function_spaces):
+    def get_qoi(self, index):
         def qoi():
-            c = field_functions["c"][0]
-            x, y = SpatialCoordinate(meshes[index])
+            c = self.field_functions["c"][0]
+            x, y = SpatialCoordinate(self.meshes[index])
             x0, y0, r0 = 0.0, 0.25, 0.15
             ball = conditional((x - x0) ** 2 + (y - y0) ** 2 < r0**2, 1.0, 0.0)
             return ball * c * dx
@@ -158,8 +152,7 @@ time_partition = TimeInterval(
 import matplotlib.pyplot as plt
 from firedrake.pyplot import tricontourf
 
-model = SolidBodyRotationModel()
-solver = AdjointSolver(model, time_partition, mesh_seq, qoi_type="end_time")
+solver = SolidBodyRotationSolver(time_partition, mesh_seq, qoi_type="end_time")
 
 fig, axes = plt.subplots()
 tc = tricontourf(solver.initial_condition["c"], axes=axes)

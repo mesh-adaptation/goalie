@@ -21,21 +21,19 @@ mesh = UnitSquareMesh(n, n, diagonal="left")
 fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
-class BurgersModel(Model):
-    def get_initial_condition(self, time_partition, meshes, fields, function_spaces):
-        fs = function_spaces["u"][0]
-        x, y = SpatialCoordinate(meshes[0])
+class BurgersSolver(AdjointSolver):
+    def get_initial_condition(self):
+        fs = self.function_spaces["u"][0]
+        x, y = SpatialCoordinate(self.meshes[0])
         return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
-    def get_solver(
-        self, index, time_partition, meshes, field_functions, function_spaces
-    ):
+    def get_solver(self, index):
         # Get the current and lagged solutions
-        u, u_ = field_functions["u"]
+        u, u_ = self.field_functions["u"]
 
         # Define constants
-        R = FunctionSpace(meshes[index], "R", 0)
-        dt = Function(R).assign(time_partition.timesteps[index])
+        R = FunctionSpace(self.meshes[index], "R", 0)
+        dt = Function(R).assign(self.time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -47,8 +45,8 @@ class BurgersModel(Model):
         )
 
         # Time integrate from t_start to t_end
-        t_start, t_end = time_partition.subintervals[index]
-        dt = time_partition.timesteps[index]
+        t_start, t_end = self.time_partition.subintervals[index]
+        dt = self.time_partition.timesteps[index]
         t = t_start
         while t < t_end - 1.0e-05:
             solve(F == 0, u, ad_block_tag="u")
@@ -57,9 +55,9 @@ class BurgersModel(Model):
             u_.assign(u)
             t += dt
 
-    def get_qoi(self, i, time_partition, meshes, field_functions, function_spaces):
+    def get_qoi(self, i):
         def end_time_qoi():
-            u = field_functions["u"][0]
+            u = self.field_functions["u"][0]
             return inner(u, u) * ds(2)
 
         return end_time_qoi
@@ -78,16 +76,7 @@ time_partition = TimePartition(
     num_timesteps_per_export=2,
 )
 mesh_seq = MeshSeq([mesh for _ in range(num_subintervals)])
-# mesh_seq = AdjointMeshSeq(
-#     time_partition,
-#     mesh,
-#     get_initial_condition=get_initial_condition,
-#     get_solver=get_solver,
-#     get_qoi=get_qoi,
-#     qoi_type="end_time",
-# )
-model = BurgersModel()
-solver = AdjointSolver(model, time_partition, mesh_seq, qoi_type="end_time")
+solver = BurgersSolver(time_partition, mesh_seq, qoi_type="end_time")
 solutions = solver.solve_adjoint()
 
 # Recall that :func:`solve_forward` runs the solver on each subinterval and
