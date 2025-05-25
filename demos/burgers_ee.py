@@ -45,17 +45,17 @@ set_log_level(DEBUG)
 # ::
 
 n = 32
-meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
+mesh_seq = MeshSeq([UnitSquareMesh(n, n), UnitSquareMesh(n, n)])
 fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
-def get_solver(mesh_seq):
-    def solver(index):
-        u, u_ = mesh_seq.field_functions["u"]
+class BurgersSolver(GoalOrientedSolver):
+    def get_solver(self, index):
+        u, u_ = self.field_functions["u"]
 
         # Define constants
-        R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
+        R = FunctionSpace(self.meshes[index], "R", 0)
+        dt = Function(R).assign(self.time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -67,12 +67,12 @@ def get_solver(mesh_seq):
         )
 
         # Communicate variational form to mesh_seq
-        mesh_seq.read_forms({"u": F})
+        self.read_forms({"u": F})
 
         # Time integrate from t_start to t_end
-        P = mesh_seq.time_partition
-        t_start, t_end = P.subintervals[index]
-        dt = P.timesteps[index]
+        tp = self.time_partition
+        t_start, t_end = tp.subintervals[index]
+        dt = tp.timesteps[index]
         t = t_start
         while t < t_end - 1.0e-05:
             solve(F == 0, u, ad_block_tag="u")
@@ -81,28 +81,24 @@ def get_solver(mesh_seq):
             u_.assign(u)
             t += dt
 
-    return solver
+    def get_initial_condition(self):
+        fs = self.function_spaces["u"][0]
+        x, y = SpatialCoordinate(self.meshes[0])
+        return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
+    def get_qoi(self, i):
+        def end_time_qoi():
+            u = self.field_functions["u"][0]
+            return inner(u, u) * ds(2)
 
-def get_initial_condition(mesh_seq):
-    fs = mesh_seq.function_spaces["u"][0]
-    x, y = SpatialCoordinate(mesh_seq[0])
-    return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
-
-
-def get_qoi(mesh_seq, i):
-    def end_time_qoi():
-        u = mesh_seq.field_functions["u"][0]
-        return inner(u, u) * ds(2)
-
-    return end_time_qoi
+        return end_time_qoi
 
 
 # Next, create a :class:`TimePartition`. ::
 
 end_time = 0.5
 dt = 1 / n
-num_subintervals = len(meshes)
+num_subintervals = len(mesh_seq)
 time_partition = TimePartition(
     end_time,
     num_subintervals,
@@ -116,15 +112,6 @@ time_partition = TimePartition(
 # functionality. Note that :class:`GoalOrientedMeshSeq` is a subclass of
 # :class:`AdjointMeshSeq`, which is a subclass of :class:`MeshSeq`. ::
 
-mesh_seq = GoalOrientedMeshSeq(
-    time_partition,
-    meshes,
-    get_initial_condition=get_initial_condition,
-    get_solver=get_solver,
-    get_qoi=get_qoi,
-    qoi_type="end_time",
-)
-
 # Given the description of the PDE problem in the form of a
 # :class:`GoalOrientedMeshSeq`, Goalie is able to extract all of the relevant
 # information to automatically compute error estimators. During the computation, we
@@ -135,7 +122,8 @@ mesh_seq = GoalOrientedMeshSeq(
 # both) of these as the ``"enrichment_method"``, we are able to compute error indicator
 # fields as follows. ::
 
-solutions, indicators = mesh_seq.indicate_errors(
+solver = BurgersSolver(time_partition, mesh_seq, qoi_type="end_time")
+solutions, indicators = solver.indicate_errors(
     enrichment_kwargs={"enrichment_method": "h"}
 )
 

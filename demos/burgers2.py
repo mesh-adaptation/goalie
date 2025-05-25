@@ -21,13 +21,19 @@ mesh = UnitSquareMesh(n, n, diagonal="left")
 fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
-def get_solver(mesh_seq):
-    def solver(index):
-        u, u_ = mesh_seq.field_functions["u"]
+class BurgersSolver(AdjointSolver):
+    def get_initial_condition(self):
+        fs = self.function_spaces["u"][0]
+        x, y = SpatialCoordinate(self.meshes[0])
+        return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
+
+    def get_solver(self, index):
+        # Get the current and lagged solutions
+        u, u_ = self.field_functions["u"]
 
         # Define constants
-        R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
+        R = FunctionSpace(self.meshes[index], "R", 0)
+        dt = Function(R).assign(self.time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -39,9 +45,8 @@ def get_solver(mesh_seq):
         )
 
         # Time integrate from t_start to t_end
-        tp = mesh_seq.time_partition
-        t_start, t_end = tp.subintervals[index]
-        dt = tp.timesteps[index]
+        t_start, t_end = self.time_partition.subintervals[index]
+        dt = self.time_partition.timesteps[index]
         t = t_start
         while t < t_end - 1.0e-05:
             solve(F == 0, u, ad_block_tag="u")
@@ -50,21 +55,12 @@ def get_solver(mesh_seq):
             u_.assign(u)
             t += dt
 
-    return solver
+    def get_qoi(self, i):
+        def end_time_qoi():
+            u = self.field_functions["u"][0]
+            return inner(u, u) * ds(2)
 
-
-def get_initial_condition(mesh_seq):
-    fs = mesh_seq.function_spaces["u"][0]
-    x, y = SpatialCoordinate(mesh_seq[0])
-    return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
-
-
-def get_qoi(mesh_seq, i):
-    def end_time_qoi():
-        u = mesh_seq.field_functions["u"][0]
-        return inner(u, u) * ds(2)
-
-    return end_time_qoi
+        return end_time_qoi
 
 
 # This time, the ``TimePartition`` is defined on **two** subintervals. ::
@@ -79,15 +75,9 @@ time_partition = TimePartition(
     fields,
     num_timesteps_per_export=2,
 )
-mesh_seq = AdjointMeshSeq(
-    time_partition,
-    mesh,
-    get_initial_condition=get_initial_condition,
-    get_solver=get_solver,
-    get_qoi=get_qoi,
-    qoi_type="end_time",
-)
-solutions = mesh_seq.solve_adjoint()
+mesh_seq = MeshSeq([mesh for _ in range(num_subintervals)])
+solver = BurgersSolver(time_partition, mesh_seq, qoi_type="end_time")
+solutions = solver.solve_adjoint()
 
 # Recall that :func:`solve_forward` runs the solver on each subinterval and
 # uses conservative projection to transfer inbetween. This also happens in

@@ -31,8 +31,8 @@ def get_solver(mesh_seq):
         u, u_ = mesh_seq.field_functions["u"]
 
         # Define constants
-        R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
+        R = FunctionSpace(self.meshes[index], "R", 0)
+        dt = Function(R).assign(self.time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -44,7 +44,7 @@ def get_solver(mesh_seq):
         )
 
         # Time integrate from t_start to t_end
-        tp = mesh_seq.time_partition
+        tp = self.time_partition
         t_start, t_end = tp.subintervals[index]
         dt = tp.timesteps[index]
         t = t_start
@@ -55,13 +55,12 @@ def get_solver(mesh_seq):
             u_.assign(u)
             t += dt
 
-    return solver
+        # return solver
 
-
-def get_initial_condition(mesh_seq):
-    fs = mesh_seq.function_spaces["u"][0]
-    x, y = SpatialCoordinate(mesh_seq[0])
-    return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
+    def get_initial_condition(self):
+        fs = self.function_spaces["u"][0]
+        x, y = SpatialCoordinate(self.meshes[0])
+        return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
 end_time = 0.5
@@ -76,11 +75,12 @@ time_partition = TimePartition(
 )
 
 mesh_seq = MeshSeq(
-    time_partition,
+    # time_partition,
     meshes,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
 )
+mysolver = MySolver(time_partition, mesh_seq)
 
 # As in the previous adaptation demos, the most important part is the adaptor function.
 # The one used here takes a similar form, except that we need to handle multiple meshes
@@ -100,12 +100,12 @@ mesh_seq = MeshSeq(
 # skipped. ::
 
 
-def adaptor(mesh_seq, solutions):
+def adaptor(solver, mesh_seq, solutions):
     metrics = []
     complexities = []
 
     # Ramp the target average metric complexity per timestep
-    base, target, iteration = 400, 1000, mesh_seq.fp_iteration
+    base, target, iteration = 400, 1000, solver.fp_iteration
     mp = {
         "dm_plex_metric": {
             "target_complexity": ramp_complexity(base, target, iteration),
@@ -118,7 +118,7 @@ def adaptor(mesh_seq, solutions):
     # Construct the metric on each subinterval
     for i, mesh in enumerate(mesh_seq):
         sols = solutions["u"]["forward"][i]
-        dt = mesh_seq.time_partition.timesteps[i]
+        dt = solver.time_partition.timesteps[i]
 
         # Define the Riemannian metric
         P1_ten = TensorFunctionSpace(mesh, "CG", 1)
@@ -136,11 +136,11 @@ def adaptor(mesh_seq, solutions):
         metrics.append(metric)
 
     # Apply space time normalisation
-    space_time_normalise(metrics, mesh_seq.time_partition, mp)
+    space_time_normalise(metrics, solver.time_partition, mp)
 
     # Adapt each mesh w.r.t. the corresponding metric, provided it hasn't converged
     for i, metric in enumerate(metrics):
-        if not mesh_seq.converged[i]:
+        if not solver.converged[i]:
             mesh_seq[i] = adapt(mesh_seq[i], metric)
         complexities.append(metric.complexity())
     num_dofs = mesh_seq.count_vertices()
@@ -175,7 +175,7 @@ params = AdaptParameters(
         "maxiter": 35,
     }
 )
-solutions = mesh_seq.fixed_point_iteration(adaptor, parameters=params)
+solutions = mysolver.fixed_point_iteration(adaptor, parameters=params)
 
 # Here the output should look something like
 #
