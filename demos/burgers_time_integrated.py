@@ -1,5 +1,5 @@
 # Adjoint Burgers equation with a time integrated QoI
-# ======================================================
+# ===================================================
 #
 # So far, we only considered a quantity of interest corresponding to a spatial integral
 # at the end time. For some problems, it is more suitable to have a QoI which integrates
