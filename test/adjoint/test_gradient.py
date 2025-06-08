@@ -24,15 +24,23 @@ class TestExceptions(unittest.TestCase):
     Unit tests for exceptions raised during gradient computation.
     """
 
-    def test_attribute_error(self):
+    def setUp(self):
         field = Field("field", family="Real", degree=0, unsteady=False)
-        mesh_seq = AdjointMeshSeq(
+        self.mesh_seq = AdjointMeshSeq(
             TimeInterval(1.0, 1.0, field),
             UnitIntervalMesh(1),
             qoi_type="steady",
         )
+
+    def test_controls_attribute_error(self):
         with self.assertRaises(AttributeError) as cm:
-            _ = mesh_seq.gradient
+            _ = self.mesh_seq.controls
+        msg = "To determine controls, call the solve_adjoint method."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_gradient_attribute_error(self):
+        with self.assertRaises(AttributeError) as cm:
+            _ = self.mesh_seq.gradient
         msg = (
             "To compute the gradient, pass compute_gradient=True to the solve_adjoint"
             " method."
