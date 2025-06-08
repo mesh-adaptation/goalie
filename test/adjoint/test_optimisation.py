@@ -3,6 +3,7 @@ Unit tests for the optimisation module.
 """
 
 import unittest
+
 from firedrake.exceptions import ConvergenceError
 from firedrake.function import Function
 from firedrake.functionspace import FunctionSpace
