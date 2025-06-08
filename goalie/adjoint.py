@@ -115,6 +115,14 @@ class AdjointMeshSeq(MeshSeq):
         return super().initial_condition
 
     @property
+    def controls(self):
+        if self._controls is None:
+            raise AttributeError(
+                "To determine controls, call the solve_adjoint method."
+            )
+        return self._controls
+
+    @property
     def gradient(self):
         if self._gradient is None:
             raise AttributeError(
@@ -428,7 +436,7 @@ class AdjointMeshSeq(MeshSeq):
             run_final_subinterval=test_checkpoint_qoi,
         )
         J_chk = float(self.J)
-        if test_checkpoint_qoi and np.isclose(J_chk, 0.0):
+        if test_checkpoint_qoi and abs(J_chk) < 1e-12:
             self.warning("Zero QoI. Is it implemented as intended?")
 
         # Reset the QoI to zero
@@ -522,7 +530,7 @@ class AdjointMeshSeq(MeshSeq):
                     pyadjoint.continue_annotation()
                     qoi = self.get_qoi(i)
                     self.J = qoi(**qoi_kwargs)
-                    if np.isclose(float(self.J), 0.0):
+                    if abs(self.J) < 1e-12:
                         self.warning("Zero QoI. Is it implemented as intended?")
                     pyadjoint.pause_annotation()
             else:
