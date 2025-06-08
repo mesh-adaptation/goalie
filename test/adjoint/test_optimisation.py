@@ -4,6 +4,7 @@ Unit tests for the optimisation module.
 
 import unittest
 
+import ufl
 from firedrake.exceptions import ConvergenceError
 from firedrake.function import Function
 from firedrake.functionspace import FunctionSpace
@@ -11,13 +12,12 @@ from firedrake.mesh import VertexOnlyMesh
 from firedrake.solving import solve
 from firedrake.ufl_expr import TestFunction
 from firedrake.utility_meshes import UnitIntervalMesh
-import ufl
 
 from goalie.adjoint import AdjointMeshSeq, annotate_qoi
 from goalie.field import Field
 from goalie.optimisation import OptimisationProgress, QoIOptimiser
 from goalie.options import OptimisationParameters
-from goalie.time_partition import TimeInterval, TimeInstant
+from goalie.time_partition import TimeInstant, TimeInterval
 
 
 class TestOptimisationProgress(unittest.TestCase):
