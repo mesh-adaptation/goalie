@@ -659,6 +659,7 @@ class MeshSeq:
             mesh sequence and the solution data object. It should return ``True`` if the
             convergence criteria checks are to be skipped for this iteration. Otherwise,
             it should return ``False``.
+        :arg adaptor: :class:`function`
         :kwarg parameters: parameters to apply to the mesh adaptation process
         :type parameters: :class:`~.AdaptParameters`
         :kwarg update_params: function for updating :attr:`~.MeshSeq.params` at each
