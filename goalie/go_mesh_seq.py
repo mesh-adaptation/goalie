@@ -247,7 +247,11 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
     @PETSc.Log.EventDecorator()
     def indicate_errors(
-        self, enrichment_kwargs=None, solver_kwargs=None, indicator_fn=get_dwr_indicator
+        self,
+        enrichment_kwargs=None,
+        solver_kwargs=None,
+        indicator_fn=get_dwr_indicator,
+        compute_gradient=False,
     ):
         """
         Compute goal-oriented error indicators for each subinterval based on solving the
@@ -266,6 +270,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :kwarg indicator_fn: function which maps the form, adjoint error and enriched
             space(s) as arguments to the error indicator
             :class:`firedrake.function.Function`
+        :kwarg compute_gradient: if ``True``, the gradient of the QoI with respect to
+            the initial conditions is computed and is available via the `gradient`
+            attribute
+        :type compute_gradient: :class:`bool`
         :returns: solution and indicator data objects
         :rtype1: :class:`~.AdjointSolutionData`
         :rtype2: :class:`~.IndicatorData`
@@ -280,7 +288,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self._create_indicators()
 
         # Initialise adjoint solver generators on the MeshSeq and its enriched version
-        adj_sol_gen = self._solve_adjoint(**solver_kwargs)
+        adj_sol_gen = self._solve_adjoint(
+            solver_kwargs=solver_kwargs, compute_gradient=compute_gradient
+        )
         # Track form coefficient changes in the enriched problem if the problem is
         # unsteady
         adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(
@@ -448,6 +458,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             mesh sequence and the solution and indicator data objects. It should return
             ``True`` if the convergence criteria checks are to be skipped for this
             iteration. Otherwise, it should return ``False``.
+        :arg adaptor: :class:`function`
         :kwarg parameters: parameters to apply to the mesh adaptation process
         :type parameters: :class:`~.GoalOrientedAdaptParameters`
         :kwarg update_params: function for updating :attr:`~.MeshSeq.params` at each
