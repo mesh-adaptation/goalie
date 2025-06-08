@@ -10,7 +10,7 @@ import ufl
 from firedrake.assemble import assemble
 from firedrake.exceptions import ConvergenceError
 
-from .log import warning
+from .log import pyrint, warning
 from .utility import AttrDict
 
 __all__ = ["OptimisationProgress", "QoIOptimiser"]
@@ -99,7 +99,7 @@ class QoIOptimiser_Base(abc.ABC):
         """
         dJ = float(self.mesh_seq.gradient[self.control])
         if abs(dJ / float(self.progress["gradient"][0])) < self.params.gtol:
-            print("Gradient convergence detected.")
+            pyrint("Gradient convergence detected.")
             return True
         return False
 
@@ -128,9 +128,9 @@ class QoIOptimiser_Base(abc.ABC):
         """
         for it in range(self.params.maxiter):
             J, dJ, u = self.step()
-            print(
+            pyrint(
                 f"it={it + 1:2d}, "
-                f"u={float(u):11.4e}, "
+                f"control={float(u):11.4e}, "
                 f"J={J:11.4e}, "
                 f"dJ={float(dJ):11.4e}, "
                 f"lr={self.params.lr:10.4e}"
@@ -201,7 +201,10 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
         # Update initial condition getter
         ics = self.mesh_seq.get_initial_condition()
         ics[self.control] = u
-        self.mesh_seq._get_initial_condition = lambda mesh_seq: ics
+        if self.mesh_seq._get_initial_condition is None:  # NOTE: Object-oriented case
+            self.mesh_seq.get_initial_condition = lambda: ics
+        else:
+            self.mesh_seq._get_initial_condition = lambda mesh_seq: ics
 
         return J, dJ, u
 
