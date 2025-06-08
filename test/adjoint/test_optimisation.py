@@ -8,13 +8,16 @@ from firedrake.exceptions import ConvergenceError
 from firedrake.function import Function
 from firedrake.functionspace import FunctionSpace
 from firedrake.mesh import VertexOnlyMesh
+from firedrake.solving import solve
+from firedrake.ufl_expr import TestFunction
 from firedrake.utility_meshes import UnitIntervalMesh
+import ufl
 
-from goalie.adjoint import AdjointMeshSeq
+from goalie.adjoint import AdjointMeshSeq, annotate_qoi
 from goalie.field import Field
 from goalie.optimisation import OptimisationProgress, QoIOptimiser
 from goalie.options import OptimisationParameters
-from goalie.time_partition import TimeInterval
+from goalie.time_partition import TimeInterval, TimeInstant
 
 
 class TestOptimisationProgress(unittest.TestCase):
@@ -102,7 +105,79 @@ class TestQoIOptimiserExceptions(unittest.TestCase):
         self.assertEqual(str(cm.exception), "Method 'method' not supported.")
 
 
-# TODO: Checks that QoIOptimiser can actually optimise
+class SimpleMeshSeq(AdjointMeshSeq):
+    """
+    Simple :class:`goalie.adjoint.AdjointMeshSeq` for optimising the scalar equation
+
+    .. math::
+        a u = b
+
+    for scalar :math:`a` with a given :math:`b`, where :math:`u` is the prognostic
+    solution. The QoI is defined such that the optimal value of :math:`u` is unity,
+    which is achieved with :math:`a = 2`.
+    """
+
+    def get_initial_condition(self):
+        return {
+            "a": Function(self.function_spaces["a"][0]).assign(1.0),
+            "u": Function(self.function_spaces["u"][0]),
+        }
+
+    def get_solver(self):
+        def solver(index):
+            u = self.field_functions["u"]
+            a = self.field_functions["a"]
+            R = self.function_spaces["u"][index]
+            b = Function(R).assign(2.0)
+            F = (a * u - b) * TestFunction(R) * ufl.dx
+            sp = {"ksp_type": "preonly", "pc_type": "jacobi"}
+            solve(F == 0, u, solver_parameters=sp, ad_block_tag="u")
+            yield
+
+        return solver
+
+    @annotate_qoi
+    def get_qoi(self, index):
+        R = self.function_spaces["u"][index]
+
+        def steady_qoi():
+            sol = Function(R).assign(1.0)
+            u = self.field_functions["u"]
+            return ufl.inner(u - sol, u - sol) * ufl.dx
+
+        return steady_qoi
+
+
+class TestQoIOptimiserConvergence(unittest.TestCase):
+    """
+    Unit tests for convergence of the :class:`goalie.optimisation.QoIOptimiser` class.
+    """
+
+    def setUp(self):
+        self.parameters = OptimisationParameters({"lr": 0.1, "maxiter": 10})
+        mesh = VertexOnlyMesh(UnitIntervalMesh(1), [[0.5]])
+        fields = [
+            Field("u", family="Real", degree=0, unsteady=False),
+            Field("a", family="Real", degree=0, unsteady=False, solved_for=False),
+        ]
+        self.mesh_seq = SimpleMeshSeq(TimeInstant(fields), mesh, qoi_type="steady")
+
+    def test_gradient_converged(self):
+        optimiser = QoIOptimiser(self.mesh_seq, "a", self.parameters)
+        optimiser.progress["gradient"] = [1.0]
+        self.mesh_seq._gradient = {"a": 1e-06}
+        self.assertTrue(optimiser.converged)
+
+    def test_gradient_not_converged(self):
+        optimiser = QoIOptimiser(self.mesh_seq, "a", self.parameters)
+        optimiser.progress["gradient"] = [1.0]
+        self.mesh_seq._gradient = {"a": 1.0}
+        self.assertFalse(optimiser.converged)
+
+    def test_minimise(self):
+        optimiser = QoIOptimiser(self.mesh_seq, "a", self.parameters)
+        optimiser.minimise()
+        self.assertTrue(optimiser.converged)
 
 
 if __name__ == "__main__":
