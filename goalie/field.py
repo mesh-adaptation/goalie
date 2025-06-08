@@ -57,6 +57,8 @@ class Field:
                     "The finite_element and vector arguments cannot be used in"
                     " conjunction."
                 )
+            kwargs["family"] = finite_element.family()
+            kwargs["degree"] = finite_element.degree()
         elif kwargs.get("family") is None:
             raise ValueError("Either the finite_element or family must be specified.")
         self.finite_element = finite_element
