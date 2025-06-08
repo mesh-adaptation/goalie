@@ -9,6 +9,7 @@ import pyadjoint
 import ufl
 from firedrake.assemble import assemble
 from firedrake.exceptions import ConvergenceError
+from firedrake.function import Function
 
 from .go_mesh_seq import GoalOrientedMeshSeq
 from .log import pyrint, warning
@@ -60,7 +61,7 @@ class QoIOptimiser_Base(abc.ABC):
     """
 
     # TODO: Use Goalie Solver rather than MeshSeq (#239)
-    def __init__(self, mesh_seq, control, params, adapt_fn=None):
+    def __init__(self, mesh_seq, control, params, adaptor=None, adaptor_kwargs=None):
         """
         :arg mesh_seq: a mesh sequence that implements the forward model and
             computes the objective functional
@@ -74,6 +75,9 @@ class QoIOptimiser_Base(abc.ABC):
             ``True`` if the convergence criteria checks are to be skipped for this
             iteration. Otherwise, it should return ``False``.
         :kwarg adaptor: :class:`function`
+        :kwarg adaptor_kwargs: parameters to pass to the adaptor
+        :type adaptor_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
         """
         self.mesh_seq = mesh_seq
         self.control = control
@@ -87,6 +91,8 @@ class QoIOptimiser_Base(abc.ABC):
         self.progress = OptimisationProgress()
         self.adaptor = adaptor
         self.adaptive = adaptor is not None
+        self.adaptor_kwargs = adaptor_kwargs
+        self.goal_oriented = isinstance(self.mesh_seq, GoalOrientedMeshSeq)
 
     @abc.abstractmethod
     def step(self):
@@ -141,10 +147,10 @@ class QoIOptimiser_Base(abc.ABC):
 
             # Solve the forward and adjoint problems for the current control values
             pyadjoint.continue_annotation()
-            if self.adaptive and isinstance(self, GoalOrientedMeshSeq)
-                self.mesh_seq.indicate_errors(compute_gradient=True)
+            if self.adaptive and self.goal_oriented:
+                mesh_seq.indicate_errors(compute_gradient=True)
             else:
-                self.mesh_seq.solve_adjoint(compute_gradient=True)
+                mesh_seq.solve_adjoint(compute_gradient=True)
             pyadjoint.pause_annotation()
             J = mesh_seq.J
             u = mesh_seq.controls[self.control].tape_value()
@@ -165,6 +171,58 @@ class QoIOptimiser_Base(abc.ABC):
             self.progress["control"].append(u)
             self.progress["qoi"].append(J)
             self.progress["gradient"].append(dJ)
+
+            if self.adaptive:
+                # Check for QoI convergence
+                # TODO #23: Put this check inside the adjoint solve as an optional
+                #           return condition so that we can avoid unnecessary extra
+                #           solves
+                mesh_seq.qoi_values.append(J)
+                qoi_converged = mesh_seq.check_qoi_convergence()
+                if qoi_converged:
+                    pyrint("QoI convergence detected.")
+                    if mesh_seq.params.convergence_criteria == "any":
+                        mesh_seq.converged[:] = True
+                        self.adaptive = False
+
+                # Check for error estimator convergence
+                if self.goal_oriented:
+                    mesh_seq.estimator_values.append(mesh_seq.error_estimate())
+                    ee_converged = mesh_seq.check_estimator_convergence()
+                    if ee_converged:
+                        pyrint("Error estimator convergence detected.")
+                        if mesh_seq.params.convergence_criteria == "any":
+                            mesh_seq.converged[:] = True
+                            self.adaptive = False
+                else:
+                    ee_converged = True
+
+                # Adapt meshes and log element counts
+                continue_unconditionally = self.adaptor(
+                    mesh_seq,
+                    mesh_seq.solutions,
+                    mesh_seq.indicators,
+                    **adaptor_kwargs,
+                )
+                if mesh_seq.params.drop_out_converged:
+                    mesh_seq.check_convergence[:] = np.logical_not(
+                        np.logical_or(continue_unconditionally, mesh_seq.converged)
+                    )
+                mesh_seq.element_counts.append(mesh_seq.count_elements())
+                mesh_seq.vertex_counts.append(mesh_seq.count_vertices())
+
+                # Check for element count convergence
+                mesh_seq.converged[:] = mesh_seq.check_element_count_convergence()
+                elem_converged = mesh_seq.converged.all()
+                if elem_converged:
+                    pyrint("Element count convergence detected.")
+                    if mesh_seq.params.convergence_criteria == "any":
+                        self.adaptive = False
+
+                # Convergence check for 'all' mode
+                if qoi_converged and ee_converged and elem_converged:
+                    pyrint("Convergence of all quantities detected.")
+                    self.adaptive = False
 
             # Update the value of the control in the MeshSeq
             mesh_seq.controls[self.control].assign(float(u))
