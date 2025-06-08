@@ -6,11 +6,10 @@ import abc
 
 import numpy as np
 import pyadjoint
+import ufl
 from firedrake.assemble import assemble
 from firedrake.exceptions import ConvergenceError
-import ufl
 
-from .log import log
 from .utility import AttrDict
 
 __all__ = ["OptimisationProgress", "QoIOptimiser"]
