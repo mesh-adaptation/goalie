@@ -10,6 +10,7 @@ import ufl
 from firedrake.assemble import assemble
 from firedrake.exceptions import ConvergenceError
 
+from .go_mesh_seq import GoalOrientedMeshSeq
 from .log import pyrint, warning
 from .utility import AttrDict
 
@@ -59,7 +60,7 @@ class QoIOptimiser_Base(abc.ABC):
     """
 
     # TODO: Use Goalie Solver rather than MeshSeq (#239)
-    def __init__(self, mesh_seq, control, params):
+    def __init__(self, mesh_seq, control, params, adapt_fn=None):
         """
         :arg mesh_seq: a mesh sequence that implements the forward model and
             computes the objective functional
@@ -68,6 +69,11 @@ class QoIOptimiser_Base(abc.ABC):
         :type control: :class:`str`
         :kwarg params: Class holding parameters for optimisation routine
         :type params: :class:`~.OptimisationParameters`
+        :kwarg adaptor: function for adapting the mesh sequence. Its arguments are the
+            mesh sequence and the solution and indicator data objects. It should return
+            ``True`` if the convergence criteria checks are to be skipped for this
+            iteration. Otherwise, it should return ``False``.
+        :kwarg adaptor: :class:`function`
         """
         self.mesh_seq = mesh_seq
         self.control = control
@@ -79,6 +85,8 @@ class QoIOptimiser_Base(abc.ABC):
             )
         self.params = params
         self.progress = OptimisationProgress()
+        self.adaptor = adaptor
+        self.adaptive = adaptor is not None
 
     @abc.abstractmethod
     def step(self):
@@ -133,7 +141,10 @@ class QoIOptimiser_Base(abc.ABC):
 
             # Solve the forward and adjoint problems for the current control values
             pyadjoint.continue_annotation()
-            self.mesh_seq.solve_adjoint(compute_gradient=True)
+            if self.adaptive and isinstance(self, GoalOrientedMeshSeq)
+                self.mesh_seq.indicate_errors(compute_gradient=True)
+            else:
+                self.mesh_seq.solve_adjoint(compute_gradient=True)
             pyadjoint.pause_annotation()
             J = self.mesh_seq.J
             u = self.mesh_seq.controls[self.control].tape_value()
