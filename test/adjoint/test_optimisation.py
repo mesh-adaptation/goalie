@@ -3,11 +3,17 @@ Unit tests for the optimisation module.
 """
 
 import unittest
+from firedrake.exceptions import ConvergenceError
 from firedrake.function import Function
 from firedrake.functionspace import FunctionSpace
 from firedrake.mesh import VertexOnlyMesh
 from firedrake.utility_meshes import UnitIntervalMesh
-from goalie.optimisation import OptimisationProgress
+
+from goalie.adjoint import AdjointMeshSeq
+from goalie.field import Field
+from goalie.optimisation import OptimisationProgress, QoIOptimiser
+from goalie.options import OptimisationParameters
+from goalie.time_partition import TimeInterval
 
 
 class TestOptimisationProgress(unittest.TestCase):
@@ -40,6 +46,62 @@ class TestOptimisationProgress(unittest.TestCase):
         self.assertEqual(self.progress["qoi"], [1.0])
         self.assertEqual(self.progress["control"], [2.0])
         self.assertEqual(self.progress["gradient"], [3.0])
+
+
+class TestQoIOptimiserExceptions(unittest.TestCase):
+    """
+    Unit tests for exceptions raised by the :class:`goalie.optimisation.QoIOpimiser`
+    class.
+    """
+
+    def setUp(self):
+        self.parameters = OptimisationParameters()
+        self.mesh = VertexOnlyMesh(UnitIntervalMesh(1), [[0.5]])
+
+    def time_partition(self, family="Real", degree=0):
+        field = Field("field", family=family, degree=degree)
+        return TimeInterval(1, 1.0, field)
+
+    def test_invalid_control_error(self):
+        mesh_seq = AdjointMeshSeq(self.time_partition(), self.mesh, qoi_type="steady")
+        with self.assertRaises(ValueError) as cm:
+            _ = QoIOptimiser(mesh_seq, "control", self.parameters)
+        self.assertEqual(str(cm.exception), "Invalid control 'control'.")
+
+    def test_not_r_space_error(self):
+        time_partition = self.time_partition(family="CG", degree=1)
+        mesh = UnitIntervalMesh(1)
+        mesh_seq = AdjointMeshSeq(time_partition, mesh, qoi_type="steady")
+        with self.assertRaises(NotImplementedError) as cm:
+            _ = QoIOptimiser(mesh_seq, "field", self.parameters)
+        msg = "Only controls in R-space are currently implemented."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_divergence_error(self):
+        mesh_seq = AdjointMeshSeq(self.time_partition(), self.mesh, qoi_type="steady")
+        optimiser = QoIOptimiser(mesh_seq, "field", self.parameters)
+        optimiser.progress["qoi"] = [1.0]
+        mesh_seq.J = 2.0
+        with self.assertRaises(ConvergenceError) as cm:
+            optimiser.check_divergence()
+        self.assertEqual(str(cm.exception), "QoI divergence detected.")
+
+    def test_maxiter_error(self):
+        parameters = OptimisationParameters({"maxiter": 0})
+        mesh_seq = AdjointMeshSeq(self.time_partition(), self.mesh, qoi_type="steady")
+        optimiser = QoIOptimiser(mesh_seq, "field", parameters)
+        with self.assertRaises(ConvergenceError) as cm:
+            optimiser.minimise()
+        self.assertEqual(str(cm.exception), "Reached maximum number of iterations.")
+
+    def test_method_key_error(self):
+        mesh_seq = AdjointMeshSeq(self.time_partition(), self.mesh, qoi_type="steady")
+        with self.assertRaises(ValueError) as cm:
+            _ = QoIOptimiser(mesh_seq, "field", self.parameters, method="method")
+        self.assertEqual(str(cm.exception), "Method 'method' not supported.")
+
+
+# TODO: Checks that QoIOptimiser can actually optimise
 
 
 if __name__ == "__main__":
