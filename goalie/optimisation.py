@@ -201,7 +201,7 @@ class QoIOptimiser_Base(abc.ABC):
                     mesh_seq,
                     mesh_seq.solutions,
                     mesh_seq.indicators,
-                    **adaptor_kwargs,
+                    **self.adaptor_kwargs,
                 )
                 if mesh_seq.params.drop_out_converged:
                     mesh_seq.check_convergence[:] = np.logical_not(
