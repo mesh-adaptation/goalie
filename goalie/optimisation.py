@@ -10,6 +10,7 @@ import ufl
 from firedrake.assemble import assemble
 from firedrake.exceptions import ConvergenceError
 
+from .log import warning
 from .utility import AttrDict
 
 __all__ = ["OptimisationProgress", "QoIOptimiser"]
@@ -185,8 +186,14 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
             u_prev = self.progress["control"][-2]
             dJ_prev = self.progress["gradient"][-1]
             dJ_diff = assemble(ufl.inner(dJ_prev - dJ, dJ_prev - dJ) * ufl.dx)
-            lr = assemble(abs(ufl.inner(u_prev - u, dJ_prev - dJ)) * ufl.dx) / dJ_diff
-            self.params.lr = max(lr, self.params.lr_min)
+            if dJ_diff < 1e-12:
+                warning(
+                    "Near-zero difference between successive gradient values."
+                    " Skipping Barzilai-Borwein step length update."
+                )
+            else:
+                product = assemble(abs(ufl.inner(u_prev - u, dJ_prev - dJ)) * ufl.dx)
+                self.params.lr = max(product / dJ_diff, self.params.lr_min)
 
         # Take a step downhill
         u.dat.data[:] += self.params.lr * P.dat.data
