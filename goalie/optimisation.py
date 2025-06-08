@@ -127,7 +127,19 @@ class QoIOptimiser_Base(abc.ABC):
             reached.
         """
         for it in range(self.params.maxiter):
-            J, dJ, u = self.step()
+            tape = pyadjoint.get_working_tape()
+            tape.clear_tape()
+
+            # Solve the forward and adjoint problems for the current control values
+            pyadjoint.continue_annotation()
+            self.mesh_seq.solve_adjoint(compute_gradient=True)
+            pyadjoint.pause_annotation()
+            J = self.mesh_seq.J
+            u = self.mesh_seq.controls[self.control].tape_value()
+            dJ = self.mesh_seq.gradient[self.control]
+
+            # Take a step with the specified optimisation method and track progress
+            self.step(u, J, dJ)
             pyrint(
                 f"it={it + 1:2d}, "
                 f"control={float(u):11.4e}, "
@@ -138,6 +150,19 @@ class QoIOptimiser_Base(abc.ABC):
             self.progress["control"].append(u)
             self.progress["qoi"].append(J)
             self.progress["gradient"].append(dJ)
+
+            # Update initial condition getter for the next iteration
+            ics = self.mesh_seq.get_initial_condition()
+            ics[self.control] = u
+            if self.mesh_seq._get_initial_condition is None:
+                # NOTE: mesh_seq.get_initial_condition may have been defined directly
+                #       in the 'object-oriented' approach (for example, see
+                #       https://mesh-adaptation.github.io/docs/demos/burgers_oo.py.html)
+                self.mesh_seq.get_initial_condition = lambda: ics
+            else:
+                self.mesh_seq._get_initial_condition = lambda mesh_seq: ics
+
+            # Check for convergence and divergence
             if it == 0:
                 continue
             if self.converged:
@@ -155,7 +180,7 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
     order = 1
     method_type = "gradient-based"
 
-    def step(self):
+    def step(self, u, J, dJ):
         """
         Take one gradient descent step.
 
@@ -163,19 +188,13 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
         :meth:`goalie.mesh_seq.MeshSeq._get_initial_condition` so that the control
         variable value corresponds to the updated value from this iteration.
 
-        :return: QoI value, gradient, and control value
-        :rtype: :class:`tuple` of :class:`~.AdjFloat`,
-            :class:`firedrake.function.Function`, and
-            :class:`firedrake.function.Function`
+        :arg u: control value at the current iteration
+        :type u: :class:`firedrake.function.Function`, and
+        :arg J: QoI value at the current iteration
+        :type J: :class:`tuple` of :class:`~.AdjFloat`,
+        :arg dJ: gradient at the current iteration
+        :type dJ: :class:`firedrake.function.Function`
         """
-        tape = pyadjoint.get_working_tape()
-        tape.clear_tape()
-        pyadjoint.continue_annotation()
-        self.mesh_seq.solve_adjoint(compute_gradient=True)
-        pyadjoint.pause_annotation()
-        J = self.mesh_seq.J
-        u = self.mesh_seq.controls[self.control].tape_value()
-        dJ = self.mesh_seq.gradient[self.control]
 
         # Compute descent direction
         P = dJ.copy(deepcopy=True)
@@ -197,16 +216,6 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
 
         # Take a step downhill
         u.dat.data[:] += self.params.lr * P.dat.data
-
-        # Update initial condition getter
-        ics = self.mesh_seq.get_initial_condition()
-        ics[self.control] = u
-        if self.mesh_seq._get_initial_condition is None:  # NOTE: Object-oriented case
-            self.mesh_seq.get_initial_condition = lambda: ics
-        else:
-            self.mesh_seq._get_initial_condition = lambda mesh_seq: ics
-
-        return J, dJ, u
 
 
 def QoIOptimiser(mesh_seq, control, params, method="gradient_descent"):
