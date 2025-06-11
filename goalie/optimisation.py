@@ -103,13 +103,12 @@ class QoIOptimiser_Base(abc.ABC):
         """
         pass
 
-    @property
-    def converged(self):
+    def check_gradient_convergence(self):
         """
-        Check for convergence of the optimiser.
+        Check for convergence of the optimisation routine due to the relative
+        difference in gradient norm value being smaller than the specified tolerance.
 
-        :return: `True` if the gradients have converged according to the gradient
-            convergence tolerance, else `False`
+        :return: ``True`` if gradient convergence is detected, else ``False``
         :rtype: :class:`bool`
         """
         dJ = float(self.mesh_seq.gradient[self.control])
@@ -118,9 +117,9 @@ class QoIOptimiser_Base(abc.ABC):
             return True
         return False
 
-    def check_divergence(self):
+    def check_qoi_divergence(self):
         """
-        Check for divergence of the optimiser.
+        Check for divergence of the optimisation routine due to diverging QoI values.
 
         :raises: :class:`~.ConvergenceError` if the QoI values have diverged according
             to the divergence tolerance
@@ -198,10 +197,10 @@ class QoIOptimiser_Base(abc.ABC):
             # Check for convergence and divergence
             if it == 1:
                 continue
-            if self.converged:
+            if self.check_gradient_convergence():
                 self.progress.convert_to_float()
                 return
-            self.check_divergence()
+            self.check_qoi_divergence()
         raise ConvergenceError("Reached maximum number of iterations.")
 
 
