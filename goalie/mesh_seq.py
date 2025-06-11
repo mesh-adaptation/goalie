@@ -398,9 +398,9 @@ class MeshSeq:
                     for fieldname in self.field_functions
                 }
             )
-        assert (
-            self._function_spaces_consistent()
-        ), "Meshes and function spaces are inconsistent"
+        assert self._function_spaces_consistent(), (
+            "Meshes and function spaces are inconsistent"
+        )
 
     @property
     def function_spaces(self):
@@ -625,14 +625,14 @@ class MeshSeq:
                     converged[i] = True
                     if len(self) == 1:
                         pyrint(
-                            f"Element count converged after {self.fp_iteration+1}"
+                            f"Element count converged after {self.fp_iteration + 1}"
                             " iterations under relative tolerance"
                             f" {self.params.element_rtol}."
                         )
                     else:
                         pyrint(
                             f"Element count converged on subinterval {i} after"
-                            f" {self.fp_iteration+1} iterations under relative"
+                            f" {self.fp_iteration + 1} iterations under relative"
                             f" tolerance {self.params.element_rtol}."
                         )
 
@@ -642,6 +642,38 @@ class MeshSeq:
             converged[first_not_converged:] = False
 
         return converged
+
+    @PETSc.Log.EventDecorator()
+    def _adapt_and_check(self, adaptor, adaptor_kwargs=None):
+        """
+        Apply an adaptor and check for mesh element convergence.
+
+        :arg adaptor: function for adapting the mesh sequence. Its arguments are the
+            mesh sequence and the solution data object. It should return ``True`` if the
+            convergence criteria checks are to be skipped for this iteration. Otherwise,
+            it should return ``False``.
+        :arg adaptor: :class:`function`
+        :kwarg adaptor_kwargs: parameters to pass to the adaptor
+        :type adaptor_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :return: `True` if convergence is reached, else `False`
+        :rtype: :class:`bool`
+        """
+        # Adapt meshes, logging element and vertex counts
+        continue_unconditionally = adaptor(self, self.solutions, **adaptor_kwargs)
+        if self.params.drop_out_converged:
+            self.check_convergence[:] = np.logical_not(
+                np.logical_or(continue_unconditionally, self.converged)
+            )
+        self.element_counts.append(self.count_elements())
+        self.vertex_counts.append(self.count_vertices())
+
+        # Check for element count convergence
+        self.converged[:] = self.check_element_count_convergence()
+        if self.converged.all():
+            pyrint("Element count convergence detected.")
+            return True
+        return False
 
     @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
@@ -691,18 +723,9 @@ class MeshSeq:
             # Solve the forward problem over all meshes
             self.solve_forward(solver_kwargs=solver_kwargs)
 
-            # Adapt meshes, logging element and vertex counts
-            continue_unconditionally = adaptor(self, self.solutions, **adaptor_kwargs)
-            if self.params.drop_out_converged:
-                self.check_convergence[:] = np.logical_not(
-                    np.logical_or(continue_unconditionally, self.converged)
-                )
-            self.element_counts.append(self.count_elements())
-            self.vertex_counts.append(self.count_vertices())
-
-            # Check for element count convergence
-            self.converged[:] = self.check_element_count_convergence()
-            if self.converged.all():
+            # Apply the adaptor and check for convergence
+            converged = self._adapt_and_check(adaptor, adaptor_kwargs=adaptor_kwargs)
+            if converged:
                 break
         else:
             for i, conv in enumerate(self.converged):
