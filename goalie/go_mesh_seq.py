@@ -224,7 +224,11 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
     @PETSc.Log.EventDecorator()
     def indicate_errors(
-        self, enrichment_kwargs=None, solver_kwargs=None, indicator_fn=get_dwr_indicator
+        self,
+        enrichment_kwargs=None,
+        solver_kwargs=None,
+        indicator_fn=get_dwr_indicator,
+        compute_gradient=False,
     ):
         """
         Compute goal-oriented error indicators for each subinterval based on solving the
@@ -243,6 +247,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :kwarg indicator_fn: function which maps the form, adjoint error and enriched
             space(s) as arguments to the error indicator
             :class:`firedrake.function.Function`
+        :kwarg compute_gradient: if ``True``, the gradient of the QoI with respect to
+            the initial conditions is computed and is available via the `gradient`
+            attribute
+        :type compute_gradient: :class:`bool`
         :returns: solution and indicator data objects
         :rtype1: :class:`~.AdjointSolutionData`
         :rtype2: :class:`~.IndicatorData`
@@ -257,7 +265,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self._create_indicators()
 
         # Initialise adjoint solver generators on the MeshSeq and its enriched version
-        adj_sol_gen = self._solve_adjoint(**solver_kwargs)
+        adj_sol_gen = self._solve_adjoint(
+            solver_kwargs=solver_kwargs, compute_gradient=compute_gradient
+        )
         # Track form coefficient changes in the enriched problem if the problem is
         # unsteady
         adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(
@@ -408,6 +418,64 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         return False
 
     @PETSc.Log.EventDecorator()
+    def _adapt_and_check(self, adaptor, adaptor_kwargs=None):
+        """
+        Apply mesh adaptation using a fixed point iteration loop approach.
+
+        :arg adaptor: function for adapting the mesh sequence. Its arguments are the
+            mesh sequence and the solution and indicator data objects. It should return
+            ``True`` if the convergence criteria checks are to be skipped for this
+            iteration. Otherwise, it should return ``False``.
+        :arg adaptor: :class:`function`
+        :kwarg adaptor_kwargs: parameters to pass to the adaptor
+        :type adaptor_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :return: `True` if convergence is reached, else `False`
+        :rtype: :class:`bool`
+        """
+        # Check for QoI convergence
+        # TODO #23: Put this check inside the adjoint solve as an optional return
+        #           condition so that we can avoid unnecessary extra solves
+        self.qoi_values.append(self.J)
+        qoi_converged = self.check_qoi_convergence()
+        if self.params.convergence_criteria == "any" and qoi_converged:
+            pyrint("QoI convergence detected.")
+            self.converged[:] = True
+            return True
+
+        # Check for error estimator convergence
+        self.estimator_values.append(self.error_estimate())
+        ee_converged = self.check_estimator_convergence()
+        if self.params.convergence_criteria == "any" and ee_converged:
+            pyrint("Error estimator convergence detected.")
+            self.converged[:] = True
+            return True
+
+        # Adapt meshes and log element counts
+        continue_unconditionally = adaptor(
+            self, self.solutions, self.indicators, **adaptor_kwargs
+        )
+        if self.params.drop_out_converged:
+            self.check_convergence[:] = np.logical_not(
+                np.logical_or(continue_unconditionally, self.converged)
+            )
+        self.element_counts.append(self.count_elements())
+        self.vertex_counts.append(self.count_vertices())
+
+        # Check for element count convergence
+        self.converged[:] = self.check_element_count_convergence()
+        elem_converged = self.converged.all()
+        if self.params.convergence_criteria == "any" and elem_converged:
+            pyrint("Element count convergence detected.")
+            return True
+
+        # Convergence check for 'all' mode
+        if qoi_converged and ee_converged and elem_converged:
+            pyrint("Convergence of all quantities detected.")
+            return True
+        return False
+
+    @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
         self,
         adaptor,
@@ -425,6 +493,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             mesh sequence and the solution and indicator data objects. It should return
             ``True`` if the convergence criteria checks are to be skipped for this
             iteration. Otherwise, it should return ``False``.
+        :arg adaptor: :class:`function`
         :kwarg parameters: parameters to apply to the mesh adaptation process
         :type parameters: :class:`~.GoalOrientedAdaptParameters`
         :kwarg update_params: function for updating :attr:`~.MeshSeq.params` at each
@@ -471,41 +540,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 indicator_fn=indicator_fn,
             )
 
-            # Check for QoI convergence
-            # TODO #23: Put this check inside the adjoint solve as an optional return
-            #           condition so that we can avoid unnecessary extra solves
-            self.qoi_values.append(self.J)
-            qoi_converged = self.check_qoi_convergence()
-            if self.params.convergence_criteria == "any" and qoi_converged:
-                self.converged[:] = True
-                break
-
-            # Check for error estimator convergence
-            self.estimator_values.append(self.error_estimate())
-            ee_converged = self.check_estimator_convergence()
-            if self.params.convergence_criteria == "any" and ee_converged:
-                self.converged[:] = True
-                break
-
-            # Adapt meshes and log element counts
-            continue_unconditionally = adaptor(
-                self, self.solutions, self.indicators, **adaptor_kwargs
-            )
-            if self.params.drop_out_converged:
-                self.check_convergence[:] = np.logical_not(
-                    np.logical_or(continue_unconditionally, self.converged)
-                )
-            self.element_counts.append(self.count_elements())
-            self.vertex_counts.append(self.count_vertices())
-
-            # Check for element count convergence
-            self.converged[:] = self.check_element_count_convergence()
-            elem_converged = self.converged.all()
-            if self.params.convergence_criteria == "any" and elem_converged:
-                break
-
-            # Convergence check for 'all' mode
-            if qoi_converged and ee_converged and elem_converged:
+            # Apply the adaptor and check for convergence
+            converged = self._adapt_and_check(adaptor, adaptor_kwargs=adaptor_kwargs)
+            if converged:
                 break
         else:
             if self.params.convergence_criteria == "all":
