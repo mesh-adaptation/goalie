@@ -171,56 +171,12 @@ class QoIOptimiser_Base(abc.ABC):
             self.progress["qoi"].append(J)
             self.progress["gradient"].append(dJ)
 
+            # Apply mesh adaptation, if enabled
             if self.adaptive:
-                # Check for QoI convergence
-                # TODO #23: Put this check inside the adjoint solve as an optional
-                #           return condition so that we can avoid unnecessary extra
-                #           solves
-                mesh_seq.qoi_values.append(J)
-                qoi_converged = mesh_seq.check_qoi_convergence()
-                if qoi_converged:
-                    pyrint("QoI convergence detected.")
-                    if mesh_seq.params.convergence_criteria == "any":
-                        mesh_seq.converged[:] = True
-                        self.adaptive = False
-
-                # Check for error estimator convergence
-                if self.goal_oriented:
-                    mesh_seq.estimator_values.append(mesh_seq.error_estimate())
-                    ee_converged = mesh_seq.check_estimator_convergence()
-                    if ee_converged:
-                        pyrint("Error estimator convergence detected.")
-                        if mesh_seq.params.convergence_criteria == "any":
-                            mesh_seq.converged[:] = True
-                            self.adaptive = False
-                else:
-                    ee_converged = True
-
-                # Adapt meshes and log element counts
-                continue_unconditionally = self.adaptor(
-                    mesh_seq,
-                    mesh_seq.solutions,
-                    mesh_seq.indicators,
-                    **self.adaptor_kwargs,
+                mesh_converged = mesh_seq._adapt_and_check(
+                    self.adaptor, adaptor_kwargs=self.adaptor_kwargs
                 )
-                if mesh_seq.params.drop_out_converged:
-                    mesh_seq.check_convergence[:] = np.logical_not(
-                        np.logical_or(continue_unconditionally, mesh_seq.converged)
-                    )
-                mesh_seq.element_counts.append(mesh_seq.count_elements())
-                mesh_seq.vertex_counts.append(mesh_seq.count_vertices())
-
-                # Check for element count convergence
-                mesh_seq.converged[:] = mesh_seq.check_element_count_convergence()
-                elem_converged = mesh_seq.converged.all()
-                if elem_converged:
-                    pyrint("Element count convergence detected.")
-                    if mesh_seq.params.convergence_criteria == "any":
-                        self.adaptive = False
-
-                # Convergence check for 'all' mode
-                if qoi_converged and ee_converged and elem_converged:
-                    pyrint("Convergence of all quantities detected.")
+                if mesh_converged:
                     self.adaptive = False
 
             # Update initial condition getter for the next iteration
