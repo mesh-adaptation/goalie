@@ -517,13 +517,14 @@ class MeshSeq:
                     # Update the solution data
                     for fieldname, sol in self.field_functions.items():
                         field = self._get_field_metadata(fieldname)
-                        if field.unsteady:
-                            assert isinstance(sol, tuple)
-                            solutions[fieldname].forward[i][j].assign(sol[0])
-                            solutions[fieldname].forward_old[i][j].assign(sol[1])
-                        else:
-                            assert isinstance(sol, firedrake.Function)
-                            solutions[fieldname].forward[i][j].assign(sol)
+                        if field.solved_for:
+                            if field.unsteady:
+                                assert isinstance(sol, tuple)
+                                solutions[fieldname].forward[i][j].assign(sol[0])
+                                solutions[fieldname].forward_old[i][j].assign(sol[1])
+                            else:
+                                assert isinstance(sol, firedrake.Function)
+                                solutions[fieldname].forward[i][j].assign(sol)
             else:
                 # Solve over the entire subinterval in one go
                 for _ in range(tp.num_timesteps_per_subinterval[i]):
