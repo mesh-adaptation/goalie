@@ -19,6 +19,7 @@ mesh_seq = AdjointMeshSeq(
 # Solve the adjoint problem, computing gradients, and plot the x-velocity component of
 # both the forward and adjoint solutions
 solutions = mesh_seq.solve_adjoint(compute_gradient=True)
+# FIXME: It seems the QoI is independent of solution_2d
 u, eta = solutions["solution_2d"]["forward"][0][0].subfunctions
 fig, axes = plt.subplots(figsize=(12, 5))
 axes.set_title(r"Forward $x$-velocity")
