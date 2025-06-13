@@ -491,11 +491,11 @@ class AdjointMeshSeq(MeshSeq):
             num_exports = tp.num_exports_per_subinterval[i]
 
             # Clear tape and start annotation
-            if not pyadjoint.annotate_tape():
-                pyadjoint.continue_annotation()
             tape = pyadjoint.get_working_tape()
             if tape is not None:
                 tape.clear_tape()
+            if not pyadjoint.annotate_tape():
+                pyadjoint.continue_annotation()
 
             # Initialise the solver generator
             solver_gen = wrapped_solver(i, checkpoints[i], **solver_kwargs)
@@ -555,10 +555,19 @@ class AdjointMeshSeq(MeshSeq):
 
                 # Compute the gradient on the first subinterval
                 if i == 0 and compute_gradient:
-                    self._gradient = {
-                        field: control.get_derivative()
-                        for field, control in zip(self._controls.keys(), controls)
-                    }
+                    all_true = True
+                    self._gradient = {}
+                    for field, control in zip(self._controls.keys(), controls):
+                        self._gradient[field] = control.get_derivative()
+                        if norm(self._gradient[field]) < 1e-12:
+                            self.warning(
+                                f"Gradient with respect to '{field}' is vanishingly"
+                                " small."
+                            )
+                        else:
+                            all_true = False
+                    if all_true:
+                        raise ValueError("All gradients are vanishingly small.")
 
             # Loop over prognostic variables
             for fieldname in self.solution_names:
