@@ -62,6 +62,9 @@ ignore = [
 "demos/burgers-hessian.py" = [
   "E501",  # line too long
 ]
+"demos/optimisation/ode.py" = [
+  "E501",  # line too long
+]
 "demos/*.py" = [
   "E402",  # module level import not at top of file
   "F403",  # unable to detect undefined names
