@@ -12,7 +12,6 @@ from firedrake.adjoint_utils.solving import get_solve_blocks
 from firedrake.exceptions import ConvergenceError
 from firedrake.function import Function
 from firedrake.petsc import PETSc
-from pyadjoint.control import Control
 from pyadjoint.reduced_functional import ReducedFunctional
 from pyadjoint.verification import taylor_test
 
