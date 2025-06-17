@@ -148,7 +148,7 @@ class QoIOptimiser_Base(abc.ABC):
                 f"dJ={float(dJ):11.4e}, "
                 f"lr={self.params.lr:10.4e}"
             )
-            self.progress.append(it)
+            self.progress["contol"].append(it)
             self.progress["control"].append(u)
             self.progress["qoi"].append(J)
             self.progress["gradient"].append(dJ)
