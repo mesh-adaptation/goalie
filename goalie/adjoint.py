@@ -115,6 +115,14 @@ class AdjointMeshSeq(MeshSeq):
         return super().initial_condition
 
     @property
+    def controls(self):
+        if self._controls is None:
+            raise AttributeError(
+                "To determine controls, call the solve_adjoint method."
+            )
+        return self._controls
+
+    @property
     def gradient(self):
         if self._gradient is None:
             raise AttributeError(
@@ -428,7 +436,7 @@ class AdjointMeshSeq(MeshSeq):
             run_final_subinterval=test_checkpoint_qoi,
         )
         J_chk = float(self.J)
-        if test_checkpoint_qoi and np.isclose(J_chk, 0.0):
+        if test_checkpoint_qoi and abs(J_chk) < 1e-12:
             self.warning("Zero QoI. Is it implemented as intended?")
 
         # Reset the QoI to zero
@@ -483,11 +491,11 @@ class AdjointMeshSeq(MeshSeq):
             num_exports = tp.num_exports_per_subinterval[i]
 
             # Clear tape and start annotation
-            if not pyadjoint.annotate_tape():
-                pyadjoint.continue_annotation()
             tape = pyadjoint.get_working_tape()
             if tape is not None:
                 tape.clear_tape()
+            if not pyadjoint.annotate_tape():
+                pyadjoint.continue_annotation()
 
             # Initialise the solver generator
             solver_gen = wrapped_solver(i, checkpoints[i], **solver_kwargs)
@@ -522,7 +530,7 @@ class AdjointMeshSeq(MeshSeq):
                     pyadjoint.continue_annotation()
                     qoi = self.get_qoi(i)
                     self.J = qoi(**qoi_kwargs)
-                    if np.isclose(float(self.J), 0.0):
+                    if abs(self.J) < 1e-12:
                         self.warning("Zero QoI. Is it implemented as intended?")
                     pyadjoint.pause_annotation()
             else:
@@ -546,10 +554,19 @@ class AdjointMeshSeq(MeshSeq):
 
                 # Compute the gradient on the first subinterval
                 if i == 0 and compute_gradient:
-                    self._gradient = {
-                        field: control.get_derivative()
-                        for field, control in zip(self._controls.keys(), controls)
-                    }
+                    all_true = True
+                    self._gradient = {}
+                    for field, control in zip(self._controls.keys(), controls):
+                        self._gradient[field] = control.get_derivative()
+                        if norm(self._gradient[field]) < 1e-12:
+                            self.warning(
+                                f"Gradient with respect to '{field}' is vanishingly"
+                                " small."
+                            )
+                        else:
+                            all_true = False
+                    if all_true:
+                        raise ValueError("All gradients are vanishingly small.")
 
             # Loop over prognostic variables
             for fieldname in self.solution_names:

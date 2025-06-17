@@ -24,15 +24,23 @@ class TestExceptions(unittest.TestCase):
     Unit tests for exceptions raised during gradient computation.
     """
 
-    def test_attribute_error(self):
+    def setUp(self):
         field = Field("field", family="Real", degree=0, unsteady=False)
-        mesh_seq = AdjointMeshSeq(
+        self.mesh_seq = AdjointMeshSeq(
             TimeInterval(1.0, 1.0, field),
             UnitIntervalMesh(1),
             qoi_type="steady",
         )
+
+    def test_controls_attribute_error(self):
         with self.assertRaises(AttributeError) as cm:
-            _ = mesh_seq.gradient
+            _ = self.mesh_seq.controls
+        msg = "To determine controls, call the solve_adjoint method."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_gradient_attribute_error(self):
+        with self.assertRaises(AttributeError) as cm:
+            _ = self.mesh_seq.gradient
         msg = (
             "To compute the gradient, pass compute_gradient=True to the solve_adjoint"
             " method."
@@ -153,13 +161,25 @@ class TestGradientComputation(unittest.TestCase):
         field = Field("field", family="Real", degree=0, unsteady=unsteady)
         return TimePartition(1.0, num_subintervals, dt, field)
 
+    @parameterized.expand([2, 3])
+    def test_zero_value_zero_gradient_error(self, qoi_degree):
+        mesh_seq = GradientTestMeshSeq(
+            {"qoi_degree": qoi_degree, "initial_value": 0.0},
+            self.time_partition(1, 1.0, unsteady=False),
+            UnitIntervalMesh(1),
+            qoi_type="steady",
+        )
+        with self.assertRaises(ValueError) as cm:
+            mesh_seq.solve_adjoint(compute_gradient=True)
+        self.assertEqual(str(cm.exception), "All gradients are vanishingly small.")
+
     @parameterized.expand(
         [
             (1, 2.3),
             (1, 0.004),
             (2, 7.8),
-            (2, -3),
-            (3, 0.0),
+            (2, -np.pi),
+            (3, 3),
             (3, np.exp(1)),
             (0.5, 1.0),
             (0.5, 4.2),
@@ -185,8 +205,8 @@ class TestGradientComputation(unittest.TestCase):
             (1, 2.3),
             (1, 0.004),
             (2, 7.8),
-            (2, -3),
-            (3, 0.0),
+            (2, -np.pi),
+            (3, 3),
             (3, np.exp(1)),
             (0.5, 1.0),
             (0.5, 4.2),
@@ -212,8 +232,8 @@ class TestGradientComputation(unittest.TestCase):
             (1, 2.3),
             (1, 0.004),
             (2, 7.8),
-            (2, -3),
-            (3, 0.0),
+            (2, -np.pi),
+            (3, 3),
             (3, np.exp(1)),
             (0.5, 1.0),
             (0.5, 4.2),
@@ -239,8 +259,8 @@ class TestGradientComputation(unittest.TestCase):
             (1, 2.3),
             (1, 0.004),
             (2, 7.8),
-            (2, -3),
-            (3, 0.0),
+            (2, -np.pi),
+            (3, 3),
             (3, np.exp(1)),
             (0.5, 1.0),
             (0.5, 4.2),
