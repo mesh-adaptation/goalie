@@ -36,6 +36,7 @@ class OptimisationProgress(AttrDict):
         """
         Reset the progress tracks to their initial state as empty lists.
         """
+        self["count"] = []
         self["qoi"] = []
         self["control"] = []
         self["gradient"] = []
@@ -126,7 +127,7 @@ class QoIOptimiser_Base(abc.ABC):
         :raises: :class:`~.ConvergenceError` if the maximum number of iterations are
             reached.
         """
-        for it in range(self.params.maxiter):
+        for it in range(1, self.params.maxiter + 1):
             tape = pyadjoint.get_working_tape()
             tape.clear_tape()
 
@@ -141,12 +142,13 @@ class QoIOptimiser_Base(abc.ABC):
             # Take a step with the specified optimisation method and track progress
             self.step(u, J, dJ)
             pyrint(
-                f"it={it + 1:2d}, "
+                f"it={it:2d}, "
                 f"control={float(u):11.4e}, "
                 f"J={J:11.4e}, "
                 f"dJ={float(dJ):11.4e}, "
                 f"lr={self.params.lr:10.4e}"
             )
+            self.progress.append(it)
             self.progress["control"].append(u)
             self.progress["qoi"].append(J)
             self.progress["gradient"].append(dJ)
@@ -166,7 +168,7 @@ class QoIOptimiser_Base(abc.ABC):
                 self.mesh_seq._get_initial_condition = lambda mesh_seq: ics  # noqa: B023
 
             # Check for convergence and divergence
-            if it == 0:
+            if it == 1:
                 continue
             if self.converged:
                 self.progress.convert_to_float()
