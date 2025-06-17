@@ -9,7 +9,11 @@ import numpy as np
 from animate.utility import norm
 from firedrake.adjoint import pyadjoint
 from firedrake.adjoint_utils.solving import get_solve_blocks
+from firedrake.exceptions import ConvergenceError
+from firedrake.function import Function
 from firedrake.petsc import PETSc
+from pyadjoint.reduced_functional import ReducedFunctional
+from pyadjoint.verification import taylor_test
 
 from .function_data import AdjointSolutionData
 from .log import pyrint
@@ -778,3 +782,32 @@ class AdjointMeshSeq(MeshSeq):
                 )
                 return True
         return False
+
+    def taylor_test(self, fieldname, perturbation=None, atol=0.1):
+        """
+        Run a Taylor test, checking that finite difference approximations to the
+        gradient w.r.t. a given control converge quadratically.
+
+        :arg fieldname: name of the control to be tested
+        :type fieldname: :class:`str`
+        :arg perturbation: direction in which to test the gradient
+        :type perturbation: :class:`firedrake.function.Function`
+        :arg atol: absolute tolerance to allow convergence within (default 0.1)
+        :type atol: :class:`float`
+        :return: convergence rate calculated with the Taylor test
+        :rtype: :class:`float`
+
+        :raises: :class:`firedrake.exceptions.ConvergenceError` if the convergence rate
+            does not exceed quadratic (to within the tolerance)
+        """
+        if self._controls is None:
+            self.solve_adjoint(compute_gradient=True)
+        control = self.controls[fieldname]
+        Jhat = ReducedFunctional(self.J, control)
+        if perturbation is None:
+            perturbation = Function(control.function_space())
+            perturbation.assign(1.0)
+        rate = taylor_test(Jhat, control.control, perturbation)
+        if rate < 2.0 - atol:
+            raise ConvergenceError(f"Taylor test convergence rate {rate:.4f} < 2.")
+        return rate
