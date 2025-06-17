@@ -123,6 +123,19 @@ for fieldname, field in ics.items():
 
 solutions = mesh_seq.solve_adjoint(compute_gradient=True)
 
+# Run a Taylor test to check that the gradient calculation for the control parameter is
+# correct to second order. ::
+
+mesh_seq.taylor_test("theta")
+
+# This should give something like:
+#
+# .. code-block:: none
+#
+#     Running Taylor test
+#     Computed residuals: [1.2191797019830714e-05, 3.038064152133821e-06, 7.582842461727234e-07, 1.8941732690035346e-07]
+#     Computed convergence rates: [np.float64(2.004686549440403), np.float64(2.0023416788328894), np.float64(2.0011704433473327)]
+#
 # Print QoI value and the initial gradient values. ::
 
 J = mesh_seq.J
