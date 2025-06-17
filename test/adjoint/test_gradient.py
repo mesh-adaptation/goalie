@@ -161,6 +161,18 @@ class TestGradientComputation(unittest.TestCase):
         field = Field("field", family="Real", degree=0, unsteady=unsteady)
         return TimePartition(1.0, num_subintervals, dt, field)
 
+    @parameterized.expand([2, 3])
+    def test_zero_value_zero_gradient_error(self, qoi_degree):
+        mesh_seq = GradientTestMeshSeq(
+            {"qoi_degree": qoi_degree, "initial_value": 0.0},
+            self.time_partition(1, 1.0, unsteady=False),
+            UnitIntervalMesh(1),
+            qoi_type="steady",
+        )
+        with self.assertRaises(ValueError) as cm:
+            mesh_seq.solve_adjoint(compute_gradient=True)
+        self.assertEqual(str(cm.exception), "All gradients are vanishingly small.")
+
     @parameterized.expand(
         [
             (1, 2.3),
