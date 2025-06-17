@@ -198,6 +198,8 @@ def get_qoi(mesh_seq, index):
 
         # Power output contribution
         J_power = farm.turbine.power(u, eta) * farm.turbine_density * ufl.dx
+        # TODO: Why does the above not depend on solution_2d?
+        # # return yc * eta * ufl.dx
 
         # Add a regularisation term for constraining the control
         area = assemble(domain_constant(1.0, mesh) * ufl.dx)
@@ -219,6 +221,11 @@ def get_qoi(mesh_seq, index):
         #       maximise power (maximize is also available from pyadjoint but currently
         #       broken)
         scaling = 10000
-        return scaling * (-J_power + J_reg)
+        J_overall = scaling * (-J_power + J_reg)
+        # print(
+        #     f"DEBUG: power={assemble(J_power)}, reg={assemble(J_reg)},"
+        #     f" overall={assemble(J_overall)}"
+        # )
+        return J_overall
 
     return steady_qoi
