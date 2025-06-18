@@ -158,8 +158,11 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         if enrichment_method == "p":
             field_metadata = {}
             for fieldname, field in self.field_metadata.items():
-                element = field.get_element(meshes[0])
-                element = element.reconstruct(degree=element.degree() + num_enrichments)
+                if field.solved_for:
+                    element = field.get_element(meshes[0])
+                    element = element.reconstruct(
+                        degree=element.degree() + num_enrichments
+                    )
                 field_metadata[fieldname] = Field(
                     fieldname,
                     finite_element=element,
