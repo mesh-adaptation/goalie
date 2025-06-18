@@ -103,7 +103,9 @@ class MeshSeqBaseClass:
         self.assertTrue(np.allclose(mesh_seq.converged, False))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
-    def test_no_late_convergence(self, kwargs={}):
+    def test_no_late_convergence(self, kwargs=None):
+        if kwargs is None:
+            kwargs = {}
         self.parameters.drop_out_converged = True
         mesh_seq = self.mesh_seq(time_partition=TimePartition(1.0, 2, [0.5, 0.5], []))
         with patch("goalie.go_mesh_seq.GoalOrientedMeshSeq.forms") as mock_forms:
