@@ -71,6 +71,11 @@ def get_solver(mesh_seq):
         if isinstance(mesh_seq, GoalOrientedMeshSeq):
             mesh_seq.read_forms({"c": F})
 
+        # FIXME: Solution is on the wrong mesh in the second enriched solve
+        print(f"DEBUG: c mesh: {c.function_space().mesh()}")
+        print(f"DEBUG: bc mesh: {bc.function_space().mesh()}")
+        print(f"DEBUG: F mesh: {F.ufl_domain()}")
+
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
         yield
 
