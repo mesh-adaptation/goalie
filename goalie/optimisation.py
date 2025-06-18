@@ -9,8 +9,11 @@ import pyadjoint
 import ufl
 from firedrake.assemble import assemble
 from firedrake.exceptions import ConvergenceError
+from firedrake.function import Function
 
+from .go_mesh_seq import GoalOrientedMeshSeq
 from .log import pyrint, warning
+from .options import GoalOrientedAdaptParameters
 from .utility import AttrDict
 
 __all__ = ["OptimisationProgress", "QoIOptimiser"]
@@ -59,7 +62,7 @@ class QoIOptimiser_Base(abc.ABC):
     """
 
     # TODO: Use Goalie Solver rather than MeshSeq (#239)
-    def __init__(self, mesh_seq, control, params):
+    def __init__(self, mesh_seq, control, params, adaptor=None, adaptor_kwargs=None):
         """
         :arg mesh_seq: a mesh sequence that implements the forward model and
             computes the objective functional
@@ -68,6 +71,14 @@ class QoIOptimiser_Base(abc.ABC):
         :type control: :class:`str`
         :kwarg params: Class holding parameters for optimisation routine
         :type params: :class:`~.OptimisationParameters`
+        :kwarg adaptor: function for adapting the mesh sequence. Its arguments are the
+            mesh sequence and the solution and indicator data objects. It should return
+            ``True`` if the convergence criteria checks are to be skipped for this
+            iteration. Otherwise, it should return ``False``.
+        :kwarg adaptor: :class:`function`
+        :kwarg adaptor_kwargs: parameters to pass to the adaptor
+        :type adaptor_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
         """
         self.mesh_seq = mesh_seq
         self.control = control
@@ -79,6 +90,10 @@ class QoIOptimiser_Base(abc.ABC):
             )
         self.params = params
         self.progress = OptimisationProgress()
+        self.adaptor = adaptor
+        self.adaptive = adaptor is not None
+        self.adaptor_kwargs = adaptor_kwargs
+        self.goal_oriented = isinstance(self.mesh_seq, GoalOrientedMeshSeq)
 
     @abc.abstractmethod
     def step(self):
@@ -89,13 +104,12 @@ class QoIOptimiser_Base(abc.ABC):
         """
         pass
 
-    @property
-    def converged(self):
+    def check_gradient_convergence(self):
         """
-        Check for convergence of the optimiser.
+        Check for convergence of the optimisation routine due to the relative
+        difference in gradient norm value being smaller than the specified tolerance.
 
-        :return: `True` if the gradients have converged according to the gradient
-            convergence tolerance, else `False`
+        :return: ``True`` if gradient convergence is detected, else ``False``
         :rtype: :class:`bool`
         """
         dJ = float(self.mesh_seq.gradient[self.control])
@@ -104,9 +118,9 @@ class QoIOptimiser_Base(abc.ABC):
             return True
         return False
 
-    def check_divergence(self):
+    def check_qoi_divergence(self):
         """
-        Check for divergence of the optimiser.
+        Check for divergence of the optimisation routine due to diverging QoI values.
 
         :raises: :class:`~.ConvergenceError` if the QoI values have diverged according
             to the divergence tolerance
@@ -114,7 +128,7 @@ class QoIOptimiser_Base(abc.ABC):
         if np.abs(self.mesh_seq.J / np.min(self.progress["qoi"])) > self.params.dtol:
             raise ConvergenceError("QoI divergence detected.")
 
-    def minimise(self):
+    def minimise(self, adaptation_parameters=None):
         """
         Custom minimisation routine, where the tape is re-annotated each iteration to
         support mesh adaptation.
@@ -124,20 +138,28 @@ class QoIOptimiser_Base(abc.ABC):
         :class:`goalie.optimisation.QoIOptimiser`
         as :meth:`goalie.optimisation.QoIOptimiser.progress`.
 
+        :kwarg adaptation_parameters: parameters to apply to the mesh adaptation process
+        :type adaptation_parameters: :class:`~.GoalOrientedAdaptParameters`
+
         :raises: :class:`~.ConvergenceError` if the maximum number of iterations are
             reached.
         """
+        mesh_seq = self.mesh_seq
+        mesh_seq.params = adaptation_parameters or GoalOrientedAdaptParameters()
         for it in range(1, self.params.maxiter + 1):
             tape = pyadjoint.get_working_tape()
             tape.clear_tape()
 
             # Solve the forward and adjoint problems for the current control values
             pyadjoint.continue_annotation()
-            self.mesh_seq.solve_adjoint(compute_gradient=True)
+            if self.adaptive and self.goal_oriented:
+                mesh_seq.indicate_errors(compute_gradient=True)
+            else:
+                mesh_seq.solve_adjoint(compute_gradient=True)
             pyadjoint.pause_annotation()
-            J = self.mesh_seq.J
-            u = self.mesh_seq.controls[self.control].tape_value()
-            dJ = self.mesh_seq.gradient[self.control]
+            J = mesh_seq.J
+            u = mesh_seq.controls[self.control].tape_value()
+            dJ = mesh_seq.gradient[self.control]
 
             # Take a step with the specified optimisation method and track progress
             self.step(u, J, dJ)
@@ -153,27 +175,37 @@ class QoIOptimiser_Base(abc.ABC):
             self.progress["qoi"].append(J)
             self.progress["gradient"].append(dJ)
 
+            # Apply mesh adaptation, if enabled
+            if self.adaptive:
+                mesh_converged = mesh_seq._adapt_and_check(
+                    self.adaptor, adaptor_kwargs=self.adaptor_kwargs
+                )
+                if mesh_converged:
+                    self.adaptive = False
+
             # Update initial condition getter for the next iteration
-            ics = self.mesh_seq.get_initial_condition()
-            ics[self.control] = u
-            if self.mesh_seq._get_initial_condition is None:
+            ics = mesh_seq.get_initial_condition()
+            ics[self.control] = Function(
+                mesh_seq.function_spaces[self.control][0], val=float(u)
+            )
+            if mesh_seq._get_initial_condition is None:
                 # NOTE:
                 # * mesh_seq.get_initial_condition may have been defined directly in the
                 #   'object-oriented' approach (for example, see
                 #   https://mesh-adaptation.github.io/docs/demos/burgers_oo.py.html)
                 # * Ruff raises 'B023 Function definition does not bind loop variable
                 #   `ics`' but this is intentional so we suppress the error.
-                self.mesh_seq.get_initial_condition = lambda: ics  # noqa: B023
+                mesh_seq.get_initial_condition = lambda: ics  # noqa: B023
             else:
-                self.mesh_seq._get_initial_condition = lambda mesh_seq: ics  # noqa: B023
+                mesh_seq._get_initial_condition = lambda mesh_seq: ics  # noqa: B023
 
             # Check for convergence and divergence
             if it == 1:
                 continue
-            if self.converged:
+            if self.check_gradient_convergence():
                 self.progress.convert_to_float()
                 return
-            self.check_divergence()
+            self.check_qoi_divergence()
         raise ConvergenceError("Reached maximum number of iterations.")
 
 
@@ -223,16 +255,31 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
         u.dat.data[:] += self.params.lr * P.dat.data
 
 
-def QoIOptimiser(mesh_seq, control, params, method="gradient_descent"):
+def QoIOptimiser(mesh_seq, control, params, method="gradient_descent", **kwargs):
     """
     Factory method for constructing handlers for PDE-constrained optimisation.
 
+    :arg mesh_seq: a mesh sequence that implements the forward model and computes the
+        objective functional
+    :type mesh_seq: :class:`~.AdjointMeshSeq`
+    :arg control: name of the field to use as the control
+    :type control: :class:`str`
+    :kwarg params: Class holding parameters for optimisation routine
+    :type params: :class:`~.OptimisationParameters`
+    :kwarg adaptor: function for adapting the mesh sequence. Its arguments are the mesh
+        sequence and the solution and indicator data objects. It should return ``True``
+        if the convergence criteria checks are to be skipped for this iteration.
+        Otherwise, it should return ``False``.
+    :kwarg adaptor: :class:`function`
+    :kwarg adaptor_kwargs: parameters to pass to the adaptor
+    :type adaptor_kwargs: :class:`dict` with :class:`str` keys and values which may take
+        various types
     :return: Instance of the subclass corresponding to the requested implementation
     :rtype: Subclass of :class:`goalie.optimisation.QoIOptimiser_Base`
     """
     try:
         return {
             "gradient_descent": QoIOptimiser_GradientDescent,
-        }[method](mesh_seq, control, params)
+        }[method](mesh_seq, control, params, **kwargs)
     except KeyError as ke:
         raise ValueError(f"Method '{method}' not supported.") from ke
