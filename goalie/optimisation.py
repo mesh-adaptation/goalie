@@ -11,9 +11,9 @@ from firedrake.assemble import assemble
 from firedrake.exceptions import ConvergenceError
 from firedrake.function import Function
 
-from .options import GoalOrientedAdaptParameters
 from .go_mesh_seq import GoalOrientedMeshSeq
 from .log import pyrint, warning
+from .options import GoalOrientedAdaptParameters
 from .utility import AttrDict
 
 __all__ = ["OptimisationProgress", "QoIOptimiser"]
