@@ -103,14 +103,13 @@ class MeshSeqBaseClass:
         self.assertTrue(np.allclose(mesh_seq.converged, False))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
-    def test_no_late_convergence(self):
+    def test_no_late_convergence(self, kwargs={}):
         self.parameters.drop_out_converged = True
         mesh_seq = self.mesh_seq(time_partition=TimePartition(1.0, 2, [0.5, 0.5], []))
         with patch("goalie.go_mesh_seq.GoalOrientedMeshSeq.forms") as mock_forms:
             mock_forms.return_value = MagicMock()
             mesh_seq.fixed_point_iteration(
-                oscillating_adaptor0,
-                parameters=self.parameters,
+                oscillating_adaptor0, parameters=self.parameters, **kwargs
             )
         expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
         self.assertEqual(mesh_seq.element_counts, expected)
@@ -299,3 +298,25 @@ class TestGoalOrientedMeshSeq(TestAdjointMeshSeq):
                 parameters=self.parameters,
             )
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
+
+    def test_no_late_convergence(self):
+        kwargs = {"enrichment_kwargs": {"enrichment_method": "p"}}
+        super().test_no_late_convergence(kwargs=kwargs)
+
+    @parameterized.expand([[True], [False]])
+    def test_dropout(self, drop_out_converged):
+        self.parameters.drop_out_converged = drop_out_converged
+        mesh_seq = self.mesh_seq(time_partition=TimePartition(1.0, 2, [0.5, 0.5], []))
+        with patch("goalie.go_mesh_seq.GoalOrientedMeshSeq.forms") as mock_forms:
+            mock_forms.return_value = MagicMock()
+            mesh_seq.fixed_point_iteration(
+                oscillating_adaptor1,
+                parameters=self.parameters,
+                enrichment_kwargs={"enrichment_method": "p"},
+            )
+        expected = [[1, 1], [1, 2], [1, 1], [1, 2], [1, 1], [1, 2]]
+        self.assertEqual(mesh_seq.element_counts, expected)
+        self.assertTrue(np.allclose(mesh_seq.converged, [True, False]))
+        self.assertTrue(
+            np.allclose(mesh_seq.check_convergence, [not drop_out_converged, True])
+        )
