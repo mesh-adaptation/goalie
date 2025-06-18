@@ -215,16 +215,31 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
         u.dat.data[:] += self.params.lr * P.dat.data
 
 
-def QoIOptimiser(mesh_seq, control, params, method="gradient_descent"):
+def QoIOptimiser(mesh_seq, control, params, method="gradient_descent", **kwargs):
     """
     Factory method for constructing handlers for PDE-constrained optimisation.
 
+    :arg mesh_seq: a mesh sequence that implements the forward model and computes the
+        objective functional
+    :type mesh_seq: :class:`~.AdjointMeshSeq`
+    :arg control: name of the field to use as the control
+    :type control: :class:`str`
+    :kwarg params: Class holding parameters for optimisation routine
+    :type params: :class:`~.OptimisationParameters`
+    :kwarg adaptor: function for adapting the mesh sequence. Its arguments are the mesh
+        sequence and the solution and indicator data objects. It should return ``True``
+        if the convergence criteria checks are to be skipped for this iteration.
+        Otherwise, it should return ``False``.
+    :kwarg adaptor: :class:`function`
+    :kwarg adaptor_kwargs: parameters to pass to the adaptor
+    :type adaptor_kwargs: :class:`dict` with :class:`str` keys and values which may take
+        various types
     :return: Instance of the subclass corresponding to the requested implementation
     :rtype: Subclass of :class:`goalie.optimisation.QoIOptimiser_Base`
     """
     try:
         return {
             "gradient_descent": QoIOptimiser_GradientDescent,
-        }[method](mesh_seq, control, params)
+        }[method](mesh_seq, control, params, **kwargs)
     except KeyError as ke:
         raise ValueError(f"Method '{method}' not supported.") from ke
