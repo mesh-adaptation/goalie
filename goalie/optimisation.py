@@ -11,6 +11,7 @@ from firedrake.assemble import assemble
 from firedrake.exceptions import ConvergenceError
 from firedrake.function import Function
 
+from .options import GoalOrientedAdaptParameters
 from .go_mesh_seq import GoalOrientedMeshSeq
 from .log import pyrint, warning
 from .utility import AttrDict
@@ -127,7 +128,7 @@ class QoIOptimiser_Base(abc.ABC):
         if np.abs(self.mesh_seq.J / np.min(self.progress["qoi"])) > self.params.dtol:
             raise ConvergenceError("QoI divergence detected.")
 
-    def minimise(self):
+    def minimise(self, adaptation_parameters=None):
         """
         Custom minimisation routine, where the tape is re-annotated each iteration to
         support mesh adaptation.
@@ -137,10 +138,14 @@ class QoIOptimiser_Base(abc.ABC):
         :class:`goalie.optimisation.QoIOptimiser`
         as :meth:`goalie.optimisation.QoIOptimiser.progress`.
 
+        :kwarg adaptation_parameters: parameters to apply to the mesh adaptation process
+        :type adaptation_parameters: :class:`~.GoalOrientedAdaptParameters`
+
         :raises: :class:`~.ConvergenceError` if the maximum number of iterations are
             reached.
         """
         mesh_seq = self.mesh_seq
+        mesh_seq.params = adaptation_parameters or GoalOrientedAdaptParameters()
         for it in range(1, self.params.maxiter + 1):
             tape = pyadjoint.get_working_tape()
             tape.clear_tape()
