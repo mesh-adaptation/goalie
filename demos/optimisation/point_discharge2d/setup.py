@@ -34,6 +34,7 @@ def point_source(mesh_seq, index, xloc, yloc):
 
 def get_solver(mesh_seq):
     def solver(index):
+        mesh = mesh_seq[index]
         function_space = mesh_seq.function_spaces["c"][index]
 
         # Define constants
@@ -60,11 +61,15 @@ def get_solver(mesh_seq):
         psi = TestFunction(function_space)
         psi = psi + tau * dot(u, grad(psi))
         F = (
-            dot(u, grad(c)) * psi * dx
-            + inner(D * grad(c), grad(psi)) * dx
-            - S * psi * dx
+            dot(u, grad(c)) * psi * dx(domain=mesh)
+            + inner(D * grad(c), grad(psi)) * dx(domain=mesh)
+            - S * psi * dx(domain=mesh)
         )
         bc = DirichletBC(function_space, 0, 1)
+
+        # Communicate variational form to mesh_seq
+        if isinstance(mesh_seq, GoalOrientedMeshSeq):
+            mesh_seq.read_forms({"c": F})
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
         yield
