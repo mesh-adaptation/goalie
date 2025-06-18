@@ -459,6 +459,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :return: `True` if convergence is reached, else `False`
         :rtype: :class:`bool`
         """
+        adaptor_kwargs = adaptor_kwargs or {}
+
         # Check for QoI convergence
         # TODO #23: Put this check inside the adjoint solve as an optional return
         #           condition so that we can avoid unnecessary extra solves
@@ -546,7 +548,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         #            explicitly
         self.params = parameters or GoalOrientedAdaptParameters()
         enrichment_kwargs = enrichment_kwargs or {}
-        adaptor_kwargs = adaptor_kwargs or {}
         solver_kwargs = solver_kwargs or {}
         self._reset_counts()
         self.qoi_values = []
