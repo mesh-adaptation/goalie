@@ -35,11 +35,3 @@ for control in controls:
 # Save the trajectory to file
 np.save(f"controls_{n}.npy", controls)
 np.save(f"qois_{n}.npy", qois)
-
-# Plot the trajectory
-fig, axes = plt.subplots()
-axes.plot(controls, qois, "--x")
-axes.set_xlabel(r"Control, $y_c$")
-axes.set_ylabel(r"Cost, $\int_{\Gamma}c\;\mathrm{d}s$")
-axes.grid(True)
-plt.savefig(f"parameter_space_{n}.png", bbox_inches="tight")
