@@ -87,6 +87,8 @@ def get_solver(mesh_seq):
 def get_qoi(mesh_seq, index):
     def qoi():
         c = mesh_seq.field_functions["c"]
-        return -c * ds(2)
+        _, y = SpatialCoordinate(mesh_seq[index])
+        kernel = conditional(And(y > 6, y < 8), 1, 0)
+        return -kernel * c * ds(2)
 
     return qoi
