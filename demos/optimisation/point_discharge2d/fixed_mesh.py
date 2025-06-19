@@ -58,7 +58,7 @@ fig.savefig(f"fixed_mesh_{n}_adjoint.jpg")
 J = mesh_seq.J
 print(f"Initial control: {float(mesh_seq.field_functions['yc']):.8f}")
 print(f"Initial QoI: {J:.4e}")
-print(f"Initial gradient: {float(mesh_seq.gradient['r']):.4e}")
+print(f"Initial gradient: {float(mesh_seq.gradient['yc']):.4e}")
 
 # TODO: text
 
@@ -69,7 +69,7 @@ print(f"Initial gradient: {float(mesh_seq.gradient['r']):.4e}")
 
 # Now run the optimisation routine and plot the results. ::
 
-parameters = OptimisationParameters({"lr": 0.001, "maxiter": 100})
+parameters = OptimisationParameters({"lr": 1.0, "maxiter": 100})
 optimiser = QoIOptimiser(mesh_seq, "yc", parameters, method="gradient_descent")
 optimiser.minimise()
 
