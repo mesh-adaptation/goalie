@@ -14,11 +14,13 @@ mesh = RectangleMesh(100 * n, 20 * n, 50, 10)
 
 # TODO: text
 
+get_ic = lambda *args: get_initial_condition(*args, initial_control=5.0)
+
 time_partition = TimeInstant(fields)
 mesh_seq = AdjointMeshSeq(
     time_partition,
     mesh,
-    get_initial_condition=get_initial_condition,
+    get_initial_condition=get_ic,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="steady",
@@ -29,7 +31,8 @@ solutions = mesh_seq.solve_adjoint(compute_gradient=True)
 # Plot the solution fields and check the initial QoI and gradient. ::
 
 plot_kwargs = {
-    "levels": np.linspace(0, 1.65, 33),
+    # "levels": np.linspace(0, 1.65, 33),
+    "levels": np.linspace(0, 2.0, 33),
     "figsize": (10, 3),
     "cmap": "coolwarm",
 }
@@ -37,7 +40,9 @@ fig, axes, tcs = plot_snapshots(
     solutions, time_partition, "c", "forward", **plot_kwargs
 )
 fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
-axes.set_title("Unoptimised forward solution")
+axes.plot([50, 50], [6, 8], "C1", linewidth=5)
+# axes.set_title("Unoptimised forward solution")
+axes.set_title("")
 fig.savefig(f"fixed_mesh_{n}_forward_unoptimised.jpg")
 
 # Plot the adjoint solution, too, which has a different scale. ::
