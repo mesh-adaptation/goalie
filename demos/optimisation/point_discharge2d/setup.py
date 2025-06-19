@@ -13,7 +13,7 @@ fields = [
 ]
 
 
-def get_initial_condition(mesh_seq):
+def get_initial_condition(mesh_seq, initial_control=5.1):
     P1 = mesh_seq.function_spaces["c"][0]
     R = mesh_seq.function_spaces["r"][0]
     return {
@@ -22,7 +22,9 @@ def get_initial_condition(mesh_seq):
         "u_y": Function(R).assign(0.0),
         "D": Function(R).assign(0.1),
         "r": Function(R).assign(0.05211427),  # Calibrated radius parameter
-        "yc": Function(R).assign(5.1),  # y-location parameter, to be optimised
+        "yc": Function(R).assign(
+            initial_control
+        ),  # y-location parameter, to be optimised
     }
 
 
