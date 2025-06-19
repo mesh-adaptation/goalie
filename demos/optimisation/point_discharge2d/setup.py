@@ -13,7 +13,7 @@ fields = [
 ]
 
 
-def get_initial_condition(mesh_seq, initial_control=5.1):
+def get_initial_condition(mesh_seq, initial_control=5.0):
     P1 = mesh_seq.function_spaces["c"][0]
     R = mesh_seq.function_spaces["r"][0]
     return {
