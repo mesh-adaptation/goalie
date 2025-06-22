@@ -19,10 +19,11 @@ from firedrake.utility_meshes import UnitSquareMesh, UnitTriangleMesh
 from parameterized import parameterized
 from pyadjoint.block_variable import BlockVariable
 
-from goalie.adjoint import AdjointMeshSeq
+from goalie.adjoint import AdjointSolver, annotate_qoi
 from goalie.field import Field
-from goalie.go_mesh_seq import GoalOrientedMeshSeq
+from goalie.go_solver import GoalOrientedSolver
 from goalie.log import WARNING
+from goalie.mesh_seq import MeshSeq
 from goalie.time_partition import TimeInterval, TimePartition
 
 
@@ -38,7 +39,7 @@ class BaseClasses:
 
         def setUp(self):
             mesh = UnitSquareMesh(1, 1)
-            self.meshes = [mesh]
+            self.mesh_seq = MeshSeq([mesh])
             self.field = Field("field", family="Real", degree=0)
             self.function_space = FunctionSpace(mesh, self.field.get_element(mesh))
 
@@ -49,19 +50,20 @@ class BaseClasses:
 
         def setUp(self):
             self.meshes = [UnitSquareMesh(1, 1)]
+            self.mesh_seq = MeshSeq(self.meshes)
 
         @staticmethod
         def constant_qoi(mesh_seq, solutions, index):
             R = FunctionSpace(mesh_seq[index], "R", 0)
             return lambda: Function(R).assign(1) * ufl.dx
 
-        def go_mesh_seq(self, element=None, parameters=None):
+        def go_solver(self, element=None, parameters=None):
             if element is None:
                 element = FiniteElement("Real", ufl.triangle, 0)
             field = Field("field", finite_element=element)
-            return GoalOrientedMeshSeq(
+            return GoalOrientedSolver(
                 TimeInterval(1.0, [1.0], field),
-                self.meshes,
+                self.mesh_seq,
                 qoi_type="steady",
                 parameters=parameters,
             )
@@ -73,53 +75,50 @@ class BaseClasses:
 
         def setUp(self):
             mesh = UnitSquareMesh(1, 1)
-            self.meshes = [mesh]
+            self.mesh_seq = MeshSeq([mesh])
             self.field = Field("field", family="Real", degree=0)
 
-        def go_mesh_seq(self, coeff_diff=0.0):
+        def go_solver(self, coeff_diff=0.0):
             self.time_partition = TimePartition(1.0, 1, 0.5, [self.field])
+            outer_self = self
 
-            def get_initial_condition(mesh_seq):
-                return {
-                    self.field.name: Function(
-                        mesh_seq.function_spaces[self.field.name][0]
-                    )
-                }
+            class MySolver(GoalOrientedSolver):
+                def get_initial_condition(self):
+                    return {
+                        outer_self.field.name: Function(
+                            self.function_spaces[outer_self.field.name][0]
+                        )
+                    }
 
-            def get_solver(mesh_seq):
-                def solver(index):
-                    tp = mesh_seq.time_partition
-                    R = FunctionSpace(mesh_seq[index], "R", 0)
+                def get_solver(self, index):
+                    tp = outer_self.time_partition
+                    R = FunctionSpace(outer_self.mesh_seq[index], "R", 0)
                     dt = Function(R).assign(tp.timesteps[index])
 
-                    u, u_ = mesh_seq.field_functions[self.field.name]
+                    u, u_ = self.field_functions[outer_self.field.name]
                     f = Function(R).assign(1.0001)
                     v = TestFunction(u.function_space())
                     F = (u - u_) / dt * v * ufl.dx - f * v * ufl.dx
-                    mesh_seq.read_forms({self.field.name: F})
+                    self.read_forms({outer_self.field.name: F})
 
                     for _ in range(tp.num_timesteps_per_subinterval[index]):
-                        solve(F == 0, u, ad_block_tag=self.field.name)
+                        solve(F == 0, u, ad_block_tag=outer_self.field.name)
                         yield
 
                         u_.assign(u)
                         f += coeff_diff
 
-                return solver
+                @annotate_qoi
+                def get_qoi(mesh_seq, i):
+                    def end_time_qoi():
+                        u = mesh_seq.field_functions[outer_self.field.name][0]
+                        return ufl.inner(u, u) * ufl.dx
 
-            def get_qoi(mesh_seq, i):
-                def end_time_qoi():
-                    u = mesh_seq.field_functions[self.field.name][0]
-                    return ufl.inner(u, u) * ufl.dx
+                    return end_time_qoi
 
-                return end_time_qoi
-
-            return GoalOrientedMeshSeq(
+            return MySolver(
                 self.time_partition,
-                self.meshes,
-                get_initial_condition=get_initial_condition,
-                get_solver=get_solver,
-                get_qoi=get_qoi,
+                self.mesh_seq,
                 qoi_type="end_time",
             )
 
@@ -131,19 +130,19 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
 
     def setUp(self):
         super().setUp()
-        self.mesh_seq = AdjointMeshSeq(
+        self.solver = AdjointSolver(
             TimeInterval(1.0, 0.5, self.field),
-            self.meshes,
+            self.mesh_seq,
             qoi_type="end_time",
         )
-        assert len(self.meshes) == 1
-        self.mesh = self.meshes[0]
+        assert len(self.solver.meshes) == 1
+        self.mesh = self.mesh_seq[0]
 
     def test_field_not_solved_for(self):
         field_not_solved_for = Field("field", family="Real", degree=0, solved_for=False)
-        mesh_seq = AdjointMeshSeq(
+        mesh_seq = AdjointSolver(
             TimeInterval(1.0, 0.5, field_not_solved_for),
-            self.mesh,
+            self.mesh_seq,
             qoi_type="end_time",
         )
         with self.assertRaises(ValueError) as cm:
@@ -160,7 +159,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         block_variable = BlockVariable(1)
         solve_block.get_outputs = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
-            self.mesh_seq._output("field", 0, solve_block)
+            self.solver._output("field", 0, solve_block)
         msg = "Solve block for field 'field' on subinterval 0 has no outputs."
         self.assertEqual(str(cm.exception), msg)
 
@@ -172,7 +171,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         )
         solve_block.get_outputs = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
-            self.mesh_seq._output("field", 0, solve_block)
+            self.solver._output("field", 0, solve_block)
         msg = "Solve block for field 'field' on subinterval 0 has no outputs."
         self.assertEqual(str(cm.exception), msg)
 
@@ -182,7 +181,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         block_variable = BlockVariable(Function(self.function_space, name="field2"))
         solve_block.get_outputs = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
-            self.mesh_seq._output("field", 0, solve_block)
+            self.solver._output("field", 0, solve_block)
         msg = "Solve block for field 'field' on subinterval 0 has no outputs."
         self.assertEqual(str(cm.exception), msg)
 
@@ -191,7 +190,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(Function(self.function_space, name="field"))
         solve_block.get_outputs = lambda: [block_variable]
-        self.assertIsNotNone(self.mesh_seq._output("field", 0, solve_block))
+        self.assertIsNotNone(self.solver._output("field", 0, solve_block))
 
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_multiple_valid_error(self, MockSolveBlock):
@@ -199,7 +198,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         block_variable = BlockVariable(Function(self.function_space, name="field"))
         solve_block.get_outputs = lambda: [block_variable, block_variable]
         with self.assertRaises(AttributeError) as cm:
-            self.mesh_seq._output("field", 0, solve_block)
+            self.solver._output("field", 0, solve_block)
         msg = (
             "Cannot determine a unique output index for the solution associated with"
             " field 'field' out of 2 candidates."
@@ -212,7 +211,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         block_variable = BlockVariable(1)
         solve_block.get_dependencies = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
-            self.mesh_seq._dependency("field", 0, solve_block)
+            self.solver._dependency("field", 0, solve_block)
         msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
         self.assertEqual(str(cm.exception), msg)
 
@@ -224,7 +223,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         )
         solve_block.get_dependencies = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
-            self.mesh_seq._dependency("field", 0, solve_block)
+            self.solver._dependency("field", 0, solve_block)
         msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
         self.assertEqual(str(cm.exception), msg)
 
@@ -235,7 +234,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         block_variable = BlockVariable(Function(function_space, name="field_new"))
         solve_block.get_dependencies = lambda: [block_variable]
         with self.assertRaises(AttributeError) as cm:
-            self.mesh_seq._dependency("field", 0, solve_block)
+            self.solver._dependency("field", 0, solve_block)
         msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
         self.assertEqual(str(cm.exception), msg)
 
@@ -244,7 +243,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(Function(self.function_space, name="field_old"))
         solve_block.get_dependencies = lambda: [block_variable]
-        self.assertIsNotNone(self.mesh_seq._dependency("field", 0, solve_block))
+        self.assertIsNotNone(self.solver._dependency("field", 0, solve_block))
 
     @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_multiple_valid_error(self, MockSolveBlock):
@@ -252,7 +251,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
         block_variable = BlockVariable(Function(self.function_space, name="field_old"))
         solve_block.get_dependencies = lambda: [block_variable, block_variable]
         with self.assertRaises(AttributeError) as cm:
-            self.mesh_seq._dependency("field", 0, solve_block)
+            self.solver._dependency("field", 0, solve_block)
         msg = (
             "Cannot determine a unique dependency index for the lagged solution"
             " associated with field 'field' out of 2 candidates."
@@ -263,13 +262,13 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
     def test_dependency_steady(self, MockSolveBlock):
         field = Field("field", family="Real", unsteady=False)
         self.time_interval = TimeInterval(1.0, 0.5, field)
-        mesh_seq = AdjointMeshSeq(
+        solver = AdjointSolver(
             self.time_interval,
-            self.mesh,
+            self.mesh_seq,
             qoi_type="end_time",
         )
         solve_block = MockSolveBlock()
-        self.assertIsNone(mesh_seq._dependency("field", 0, solve_block))
+        self.assertIsNone(solver._dependency("field", 0, solve_block))
 
 
 class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
@@ -280,9 +279,9 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
     def setUp(self):
         super().setUp()
         time_interval = TimeInterval(1.0, [1.0], self.field)
-        self.mesh_seq = AdjointMeshSeq(
+        self.solver = AdjointSolver(
             time_interval,
-            self.meshes,
+            self.mesh_seq,
             qoi_type="steady",
         )
         if not pyadjoint.annotate_tape():
@@ -305,28 +304,28 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
 
     def test_no_blocks(self):
         with self._caplog.at_level(logging.WARNING):
-            blocks = self.mesh_seq.get_solve_blocks("field", 0)
+            blocks = self.solver.get_solve_blocks("field", 0)
         self.assertEqual(len(blocks), 0)
         self.assertEqual(len(self._caplog.records), 1)
         msg = "Tape has no blocks!"
         self.assertTrue(msg in str(self._caplog.records[0]))
 
     def test_no_solve_blocks(self):
-        fs = self.mesh_seq.function_spaces["field"][0]
+        fs = self.solver.function_spaces["field"][0]
         Function(fs).assign(1.0)
         with self._caplog.at_level(WARNING):
-            blocks = self.mesh_seq.get_solve_blocks("field", 0)
+            blocks = self.solver.get_solve_blocks("field", 0)
         self.assertEqual(len(blocks), 0)
         self.assertEqual(len(self._caplog.records), 1)
         msg = "Tape has no solve blocks!"
         self.assertTrue(msg in str(self._caplog.records[0]))
 
     def test_wrong_solve_block(self):
-        fs = self.mesh_seq.function_spaces["field"][0]
+        fs = self.solver.function_spaces["field"][0]
         u = Function(fs, name="u")
         self.arbitrary_solve(u)
         with self._caplog.at_level(WARNING):
-            blocks = self.mesh_seq.get_solve_blocks("field", 0)
+            blocks = self.solver.get_solve_blocks("field", 0)
         self.assertEqual(len(blocks), 0)
         self.assertEqual(len(self._caplog.records), 1)
         msg = (
@@ -344,17 +343,17 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
             " <R0 on a triangle> vs. <CG1 on a triangle>."
         )
         with self.assertRaises(ValueError) as cm:
-            self.mesh_seq.get_solve_blocks("field", 0)
+            self.solver.get_solve_blocks("field", 0)
         self.assertEqual(str(cm.exception), msg)
 
     def test_too_many_timesteps(self):
         time_interval = TimeInterval(1.0, [0.5], self.field)
-        mesh_seq = AdjointMeshSeq(
+        solver = AdjointSolver(
             time_interval,
-            [UnitSquareMesh(1, 1)],
+            MeshSeq([UnitSquareMesh(1, 1)]),
             qoi_type="end_time",
         )
-        fs = mesh_seq.function_spaces["field"][0]
+        fs = solver.function_spaces["field"][0]
         u = Function(fs, name="field")
         self.arbitrary_solve(u)
         msg = (
@@ -362,17 +361,17 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
             " subinterval 0: 2 > 1."
         )
         with self.assertRaises(ValueError) as cm:
-            mesh_seq.get_solve_blocks("field", 0)
+            solver.get_solve_blocks("field", 0)
         self.assertEqual(str(cm.exception), msg)
 
     def test_incompatible_timesteps(self):
         time_interval = TimeInterval(1.0, [0.5], self.field)
-        mesh_seq = AdjointMeshSeq(
+        solver = AdjointSolver(
             time_interval,
-            [UnitSquareMesh(1, 1)],
+            MeshSeq([UnitSquareMesh(1, 1)]),
             qoi_type="end_time",
         )
-        fs = mesh_seq.function_spaces["field"][0]
+        fs = solver.function_spaces["field"][0]
         u = Function(fs, name="field")
         self.arbitrary_solve(u)
         self.arbitrary_solve(u)
@@ -382,7 +381,7 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
             " 'field' on subinterval 0: 2 vs. 3."
         )
         with self.assertRaises(ValueError) as cm:
-            mesh_seq.get_solve_blocks("field", 0)
+            solver.get_solve_blocks("field", 0)
         self.assertEqual(str(cm.exception), msg)
 
 
@@ -396,21 +395,21 @@ class TestGoalOrientedMeshSeq(BaseClasses.TrivialGoalOrientedBaseClass):
             Field("field", family="R"),
             Field("field2", family="R", solved_for=False),
         ]
-        go_mesh_seq = GoalOrientedMeshSeq(
+        go_solver = GoalOrientedSolver(
             TimeInterval(1.0, [1.0], fields),
-            self.meshes,
+            self.mesh_seq,
             qoi_type="steady",
         )
 
         with self.assertRaises(ValueError) as cm:
-            go_mesh_seq.read_forms({"field2": None})
+            go_solver.read_forms({"field2": None})
         msg = (
             "Unexpected field 'field2' in forms dictionary. Expected one of ['field']."
         )
         self.assertEqual(str(cm.exception), msg)
 
         with self.assertRaises(ValueError) as cm:
-            go_mesh_seq.read_forms({"field3": None})
+            go_solver.read_forms({"field3": None})
         msg = (
             "Unexpected field 'field3' in forms dictionary. Expected one of ['field']."
         )
@@ -418,7 +417,7 @@ class TestGoalOrientedMeshSeq(BaseClasses.TrivialGoalOrientedBaseClass):
 
     def test_read_forms_error_form(self):
         with self.assertRaises(TypeError) as cm:
-            self.go_mesh_seq().read_forms({"field": None})
+            self.go_solver().read_forms({"field": None})
         msg = "Expected a UFL form for field 'field', not '<class 'NoneType'>'."
         self.assertEqual(str(cm.exception), msg)
 
@@ -438,18 +437,18 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
 
     def test_enrichment_error(self):
         with self.assertRaises(ValueError) as cm:
-            self.go_mesh_seq().get_enriched_mesh_seq(enrichment_method="q")
+            self.go_solver().get_enriched_solver(enrichment_method="q")
         self.assertEqual(str(cm.exception), "Enrichment method 'q' not supported.")
 
     def test_num_enrichments_error(self):
         with self.assertRaises(ValueError) as cm:
-            self.go_mesh_seq().get_enriched_mesh_seq(num_enrichments=0)
+            self.go_solver().get_enriched_solver(num_enrichments=0)
         msg = "A positive number of enrichments is required."
         self.assertEqual(str(cm.exception), msg)
 
     def test_form_error(self):
         with self.assertRaises(AttributeError) as cm:
-            self.go_mesh_seq().forms()
+            self.go_solver().forms()
         msg = (
             "Forms have not been read in. Use read_forms({'field_name': F}) in"
             " get_solver to read in the forms."
@@ -461,14 +460,14 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
         num_subintervals = 2
         dt = end_time / num_subintervals
         field = Field("field", family="Real")
-        mesh_seq = GoalOrientedMeshSeq(
+        mesh_seq = GoalOrientedSolver(
             TimePartition(end_time, num_subintervals, dt, field),
-            [UnitTriangleMesh()] * num_subintervals,
+            MeshSeq([UnitTriangleMesh()] * num_subintervals),
             get_qoi=self.constant_qoi,
             qoi_type="end_time",
         )
         with self.assertRaises(ValueError) as cm:
-            mesh_seq.get_enriched_mesh_seq(enrichment_method="h")
+            mesh_seq.get_enriched_solver(enrichment_method="h")
         msg = "h-enrichment is not supported for shallow-copied meshes."
         self.assertEqual(str(cm.exception), msg)
 
@@ -487,18 +486,18 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
          |/      |     |/  |/  |      |/|/|/|/|
          o-------o     o---o---o      o-o-o-o-o
         """
-        mesh_seq = self.go_mesh_seq()
-        mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
+        solver = self.go_solver()
+        solver_e = solver.get_enriched_solver(
             enrichment_method="h", num_enrichments=num_enrichments
         )
-        self.assertEqual(mesh_seq[0].num_cells(), 2)
-        self.assertEqual(mesh_seq[0].num_vertices(), 4)
-        self.assertEqual(mesh_seq[0].num_edges(), 5)
+        self.assertEqual(solver.meshes[0].num_cells(), 2)
+        self.assertEqual(solver.meshes[0].num_vertices(), 4)
+        self.assertEqual(solver.meshes[0].num_edges(), 5)
         n = num_enrichments
-        self.assertEqual(mesh_seq_e[0].num_cells(), 2 * 4**n)
-        self.assertEqual(mesh_seq_e[0].num_vertices(), (2 * n + 1) ** 2)
+        self.assertEqual(solver_e.meshes[0].num_cells(), 2 * 4**n)
+        self.assertEqual(solver_e.meshes[0].num_vertices(), (2 * n + 1) ** 2)
         self.assertEqual(
-            mesh_seq_e[0].num_edges(),
+            solver_e.meshes[0].num_edges(),
             (2**n + 1) * (2 ** (n + 1)) + (2 ** (2 * n)),
         )
 
@@ -513,26 +512,22 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
         ]
     )
     def test_h_enrichment_space(self, family, degree, rank):
-        mesh_seq = self.go_mesh_seq(element=self.element(family, degree, rank))
-        mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
-            enrichment_method="h", num_enrichments=1
-        )
-        field_name0 = mesh_seq.field_names[0]
-        fspace = mesh_seq.function_spaces[field_name0][0]
+        solver = self.go_solver(element=self.element(family, degree, rank))
+        solver_e = solver.get_enriched_solver(enrichment_method="h", num_enrichments=1)
+        field_name0 = solver.field_names[0]
+        fspace = solver.function_spaces[field_name0][0]
         element = fspace.ufl_element()
-        enriched_fspace = mesh_seq_e.function_spaces[field_name0][0]
+        enriched_fspace = solver_e.function_spaces[field_name0][0]
         enriched_element = enriched_fspace.ufl_element()
         self.assertEqual(element.family(), enriched_element.family())
         self.assertEqual(element.degree(), enriched_element.degree())
         self.assertEqual(fspace.value_shape, enriched_fspace.value_shape)
 
     def test_p_enrichment_mesh(self):
-        mesh_seq = self.go_mesh_seq(self.element("Lagrange", 1, 0))
-        mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
-            enrichment_method="p", num_enrichments=1
-        )
-        self.assertEqual(self.meshes[0], mesh_seq[0])
-        self.assertEqual(self.meshes[0], mesh_seq_e[0])
+        solver = self.go_solver(self.element("Lagrange", 1, 0))
+        solver_e = solver.get_enriched_solver(enrichment_method="p", num_enrichments=1)
+        self.assertEqual(self.meshes[0], solver.meshes[0])
+        self.assertEqual(self.meshes[0], solver_e.meshes[0])
 
     @parameterized.expand(
         [
@@ -551,14 +546,14 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
         ]
     )
     def test_p_enrichment_space(self, family, degree, rank, num_enrichments):
-        mesh_seq = self.go_mesh_seq(element=self.element(family, degree, rank))
-        mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
+        solver = self.go_solver(element=self.element(family, degree, rank))
+        solver_e = solver.get_enriched_solver(
             enrichment_method="p", num_enrichments=num_enrichments
         )
-        field_name0 = mesh_seq.field_names[0]
-        fspace = mesh_seq.function_spaces[field_name0][0]
+        field_name0 = solver.field_names[0]
+        fspace = solver.function_spaces[field_name0][0]
         element = fspace.ufl_element()
-        enriched_fspace = mesh_seq_e.function_spaces[field_name0][0]
+        enriched_fspace = solver_e.function_spaces[field_name0][0]
         enriched_element = enriched_fspace.ufl_element()
         self.assertEqual(element.family(), enriched_element.family())
         self.assertEqual(element.degree() + num_enrichments, enriched_element.degree())
@@ -595,15 +590,15 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
     def test_enrichment_transfer(
         self, family, degree, rank, enrichment_method, num_enrichments
     ):
-        mesh_seq = self.go_mesh_seq(element=self.element(family, degree, rank))
-        mesh_seq_e = mesh_seq.get_enriched_mesh_seq(
+        solver = self.go_solver(element=self.element(family, degree, rank))
+        solver_e = solver.get_enriched_solver(
             enrichment_method=enrichment_method, num_enrichments=num_enrichments
         )
-        transfer = mesh_seq._get_transfer_function(enrichment_method)
-        source = Function(mesh_seq.function_spaces["field"][0])
-        x = ufl.SpatialCoordinate(mesh_seq[0])
+        transfer = solver._get_transfer_function(enrichment_method)
+        source = Function(solver.function_spaces["field"][0])
+        x = ufl.SpatialCoordinate(solver.meshes[0])
         source.project(x if rank == 1 else sum(x))
-        target = Function(mesh_seq_e.function_spaces["field"][0])
+        target = Function(solver_e.function_spaces["field"][0])
         transfer(source, target)
         self.assertAlmostEqual(norm(source), norm(target))
 
@@ -615,19 +610,19 @@ class TestDetectChangedCoefficients(BaseClasses.GoalOrientedBaseClass):
     """
 
     def test_constant_coefficients(self):
-        mesh_seq = self.go_mesh_seq()
+        solver = self.go_solver()
         # Solve over the first (only) subinterval
-        next(mesh_seq._solve_adjoint(track_coefficients=True))
+        next(solver._solve_adjoint(track_coefficients=True))
         # Check no coefficients have changed
-        self.assertEqual(mesh_seq._changed_form_coeffs, {self.field.name: {}})
+        self.assertEqual(solver._changed_form_coeffs, {self.field.name: {}})
 
     def test_changed_coefficients(self):
         # Change coefficient f by coeff_diff every timestep
         coeff_diff = 1.1
-        mesh_seq = self.go_mesh_seq(coeff_diff=coeff_diff)
+        solver = self.go_solver(coeff_diff=coeff_diff)
         # Solve over the first (only) subinterval
-        next(mesh_seq._solve_adjoint(track_coefficients=True))
-        changed_coeffs_dict = mesh_seq._changed_form_coeffs[self.field.name]
+        next(solver._solve_adjoint(track_coefficients=True))
+        changed_coeffs_dict = solver._changed_form_coeffs[self.field.name]
         coeff_idx = next(iter(changed_coeffs_dict))
         for export_idx, f in changed_coeffs_dict[coeff_idx].items():
             self.assertTrue(f.vector().gather() == [1.0001 + export_idx * coeff_diff])
