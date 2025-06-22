@@ -15,6 +15,7 @@ from firedrake.solving import solve
 from firedrake.ufl_expr import TestFunction
 from firedrake.utility_meshes import UnitSquareMesh
 
+from goalie.adjoint import AdjointSolver, annotate_qoi
 from goalie.field import Field
 
 # Problem setup
@@ -29,12 +30,12 @@ steady = False
 get_bcs = None
 
 
-def get_solver(self):
-    """
-    Burgers equation solved using a direct method and backward Euler timestepping.
-    """
+class ProblemSolver(AdjointSolver):
+    def get_solver(self, i):
+        """
+        Burgers equation solved using a direct method and backward Euler timestepping.
+        """
 
-    def solver(i):
         t_start, t_end = self.time_partition.subintervals[i]
         dt = self.time_partition.timesteps[i]
 
@@ -43,7 +44,7 @@ def get_solver(self):
         # Setup variational problem
         dt = self.time_partition.timesteps[i]
         fs = self.function_spaces["uv_2d"][i]
-        R = FunctionSpace(self[i], "R", 0)
+        R = FunctionSpace(self.meshes[i], "R", 0)
         dtc = Function(R).assign(dt)
         nu = Function(R).assign(0.0001)
         v = TestFunction(fs)
@@ -65,37 +66,36 @@ def get_solver(self):
             u_.assign(u)
             t += dt
 
-    return solver
+    def get_initial_condition(self):
+        """
+        Initial condition which is sinusoidal in the x-direction.
+        """
+        init_fs = self.function_spaces["uv_2d"][0]
+        x, y = ufl.SpatialCoordinate(self.meshes[0])
+        return {
+            "uv_2d": Function(init_fs).interpolate(
+                ufl.as_vector([ufl.sin(ufl.pi * x), 0])
+            )
+        }
 
+    @annotate_qoi
+    def get_qoi(self, i):
+        """
+        Quantity of interest which computes the square :math:`L^2` norm over the right
+        hand boundary.
+        """
+        R = FunctionSpace(self.meshes[i], "R", 0)
+        dtc = Function(R).assign(self.time_partition.timesteps[i])
 
-def get_initial_condition(self):
-    """
-    Initial condition which is sinusoidal in the x-direction.
-    """
-    init_fs = self.function_spaces["uv_2d"][0]
-    x, y = ufl.SpatialCoordinate(self.meshes[0])
-    return {
-        "uv_2d": Function(init_fs).interpolate(ufl.as_vector([ufl.sin(ufl.pi * x), 0]))
-    }
+        def time_integrated_qoi(t):
+            u = self.field_functions["uv_2d"][0]
+            return dtc * ufl.inner(u, u) * ufl.ds(2)
 
+        def end_time_qoi():
+            return time_integrated_qoi(end_time)
 
-def get_qoi(self, i):
-    """
-    Quantity of interest which computes the square :math:`L^2` norm over the right hand
-    boundary.
-    """
-    R = FunctionSpace(self[i], "R", 0)
-    dtc = Function(R).assign(self.time_partition.timesteps[i])
-
-    def time_integrated_qoi(t):
-        u = self.field_functions["uv_2d"][0]
-        return dtc * ufl.inner(u, u) * ufl.ds(2)
-
-    def end_time_qoi():
-        return time_integrated_qoi(end_time)
-
-    if self.qoi_type == "end_time":
-        dtc.assign(1.0)
-        return end_time_qoi
-    else:
-        return time_integrated_qoi
+        if self.qoi_type == "end_time":
+            dtc.assign(1.0)
+            return end_time_qoi
+        else:
+            return time_integrated_qoi

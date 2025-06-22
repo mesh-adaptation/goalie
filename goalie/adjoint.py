@@ -117,12 +117,6 @@ class AdjointSolver(Solver):
             )
         return self._gradient
 
-    # TODO: This is a temporary wrapper since we need the @annotate_qoi decorator
-    # to be applied to the get_qoi method. Need to think how to refactor this
-    @annotate_qoi
-    def my_qoi(self, subinterval):
-        return self.get_qoi(subinterval)
-
     @pyadjoint.no_annotations
     @PETSc.Log.EventDecorator()
     def get_checkpoints(self, solver_kwargs=None, run_final_subinterval=False):
@@ -155,8 +149,7 @@ class AdjointSolver(Solver):
         # Account for end time QoI
         if self.qoi_type in ["end_time", "steady"] and run_final_subinterval:
             self._reinitialise_fields(checkpoints[-1])
-            # qoi = self.get_qoi(len(self) - 1)
-            qoi = self.my_qoi(len(self.meshes) - 1)
+            qoi = self.get_qoi(len(self.meshes) - 1)
             self.J = qoi(**solver_kwargs.get("qoi_kwargs", {}))
         return checkpoints
 
@@ -492,8 +485,7 @@ class AdjointSolver(Solver):
             if i == self.num_subintervals - 1:
                 if self.qoi_type in ["end_time", "steady"]:
                     pyadjoint.continue_annotation()
-                    # qoi = self.get_qoi(i)
-                    qoi = self.my_qoi(i)
+                    qoi = self.get_qoi(i)
                     self.J = qoi(**qoi_kwargs)
                     if np.isclose(float(self.J), 0.0):
                         self.warning("Zero QoI. Is it implemented as intended?")

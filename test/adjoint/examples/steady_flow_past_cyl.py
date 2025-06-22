@@ -19,6 +19,7 @@ from firedrake.mesh import Mesh
 from firedrake.solving import solve
 from firedrake.ufl_expr import TestFunctions
 
+from goalie.adjoint import AdjointSolver, annotate_qoi
 from goalie.field import Field
 
 mesh = Mesh(os.path.join(os.path.dirname(__file__), "mesh-with-hole.msh"))
@@ -34,15 +35,15 @@ num_subintervals = 1
 steady = True
 
 
-def get_solver(self):
-    """Stokes problem solved using a direct method."""
+class ProblemSolver(AdjointSolver):
+    def get_solver(self, i):
+        """Stokes problem solved using a direct method."""
 
-    def solver(i):
         W = self.function_spaces["up"][i]
         up = self.field_functions["up"]
 
         # Define variational problem
-        R = FunctionSpace(self[i], "R", 0)
+        R = FunctionSpace(self.meshes[i], "R", 0)
         nu = Function(R).assign(1.0)
         u, p = ufl.split(up)
         v, q = TestFunctions(W)
@@ -54,7 +55,7 @@ def get_solver(self):
         )
 
         # Define inflow and no-slip boundary conditions
-        y = ufl.SpatialCoordinate(self[i])[1]
+        y = ufl.SpatialCoordinate(self.meshes[i])[1]
         u_inflow = ufl.as_vector([y * (10 - y) / 25.0, 0])
         noslip = DirichletBC(W.sub(0), (0, 0), (3, 5))
         inflow = DirichletBC(W.sub(0), Function(W.sub(0)).interpolate(u_inflow), 1)
@@ -78,27 +79,25 @@ def get_solver(self):
         )
         yield
 
-    return solver
+    def get_initial_condition(self):
+        """
+        Dummy initial condition function which acts merely to pass over the
+        :class:`FunctionSpace`.
+        """
+        x, y = ufl.SpatialCoordinate(self.meshes[0])
+        u_inflow = ufl.as_vector([y * (10 - y) / 25.0, 0])
+        up = Function(self.function_spaces["up"][0])
+        u, p = up.subfunctions
+        u.interpolate(u_inflow)
+        return {"up": up}
 
+    @annotate_qoi
+    def get_qoi(self, i):
+        """Quantity of interest which integrates pressure over the boundary of the
+        hole."""
 
-def get_initial_condition(self):
-    """
-    Dummy initial condition function which acts merely to pass over the
-    :class:`FunctionSpace`.
-    """
-    x, y = ufl.SpatialCoordinate(self[0])
-    u_inflow = ufl.as_vector([y * (10 - y) / 25.0, 0])
-    up = Function(self.function_spaces["up"][0])
-    u, p = up.subfunctions
-    u.interpolate(u_inflow)
-    return {"up": up}
+        def steady_qoi():
+            u, p = ufl.split(self.field_functions["up"])
+            return p * ufl.ds(4)
 
-
-def get_qoi(self, i):
-    """Quantity of interest which integrates pressure over the boundary of the hole."""
-
-    def steady_qoi():
-        u, p = ufl.split(self.field_functions["up"])
-        return p * ufl.ds(4)
-
-    return steady_qoi
+        return steady_qoi
