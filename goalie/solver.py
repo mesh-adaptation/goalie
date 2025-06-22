@@ -5,7 +5,7 @@ from firedrake.adjoint import pyadjoint
 from firedrake.petsc import PETSc
 
 from .function_data import ForwardSolutionData
-from .log import debug, pyrint
+from .log import debug, pyrint, warning
 from .options import AdaptParameters
 from .utility import AttrDict
 
@@ -63,6 +63,15 @@ class Solver:
         :type msg: :class:`str`
         """
         debug(f"{type(self).__name__}: {msg}")
+
+    def warning(self, msg):
+        """
+        Print a ``warning`` message.
+
+        :arg msg: the message to print
+        :type msg: :class:`str`
+        """
+        warning(f"{type(self).__name__}: {msg}")
 
     def get_initial_condition(self):
         """

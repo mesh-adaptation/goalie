@@ -14,7 +14,7 @@ from goalie.error_estimation import (
 )
 from goalie.field import Field
 from goalie.function_data import IndicatorData
-from goalie.go_mesh_seq import GoalOrientedSolver
+from goalie.go_solver import GoalOrientedSolver
 from goalie.mesh_seq import MeshSeq
 from goalie.time_partition import TimeInstant, TimePartition
 

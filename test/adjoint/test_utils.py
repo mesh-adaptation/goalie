@@ -8,7 +8,7 @@ from firedrake.utility_meshes import UnitSquareMesh
 
 from goalie.adjoint import AdjointSolver, annotate_qoi
 from goalie.field import Field
-from goalie.go_mesh_seq import GoalOrientedAdaptParameters
+from goalie.go_solver import GoalOrientedAdaptParameters
 from goalie.mesh_seq import MeshSeq
 from goalie.time_partition import TimeInterval
 

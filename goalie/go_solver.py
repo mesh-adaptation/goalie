@@ -188,18 +188,6 @@ class GoalOrientedSolver(AdjointSolver):
             self.time_partition, meshes, qoi_type=self.qoi_type
         )
 
-        # Apply p-refinement
-        if enrichment_method == "p":
-            for label, fs in enriched_solver.function_spaces.items():
-                for n, _space in enumerate(fs):
-                    element = _space.ufl_element()
-                    element = element.reconstruct(
-                        degree=element.degree() + num_enrichments
-                    )
-                    enriched_solver._fs[label][n] = FunctionSpace(
-                        enriched_solver.meshes[n], element
-                    )
-
         return enriched_solver
 
     @staticmethod
