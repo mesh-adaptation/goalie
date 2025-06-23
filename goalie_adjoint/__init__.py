@@ -5,3 +5,4 @@ from pyadjoint import no_annotations  # noqa
 from goalie import *  # noqa
 from goalie.adjoint import *  # noqa
 from goalie.go_mesh_seq import *  # noqa
+from goalie.thetis_mesh_seq import *  # noqa
