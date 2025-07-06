@@ -146,7 +146,7 @@ class QoIOptimiser_Base(abc.ABC):
         """
         mesh_seq = self.mesh_seq
         mesh_seq.params = adaptation_parameters or GoalOrientedAdaptParameters()
-        for it in range(1, self.params.maxiter + 1):
+        for mesh_seq.fp_iteration in range(1, self.params.maxiter + 1):
             tape = pyadjoint.get_working_tape()
             tape.clear_tape()
 
@@ -164,13 +164,13 @@ class QoIOptimiser_Base(abc.ABC):
             # Take a step with the specified optimisation method and track progress
             self.step(u, J, dJ)
             pyrint(
-                f"it={it:2d}, "
+                f"it={mesh_seq.fp_iteration:2d}, "
                 f"control={float(u):11.4e}, "
                 f"J={J:11.4e}, "
                 f"dJ={float(dJ):11.4e}, "
                 f"lr={self.params.lr:10.4e}"
             )
-            self.progress["count"].append(it)
+            self.progress["count"].append(mesh_seq.fp_iteration)
             self.progress["control"].append(u)
             self.progress["qoi"].append(J)
             self.progress["gradient"].append(dJ)
@@ -187,7 +187,7 @@ class QoIOptimiser_Base(abc.ABC):
             mesh_seq.controls[self.control].assign(float(u))
 
             # Check for convergence and divergence
-            if it == 1:
+            if mesh_seq.fp_iteration == 1:
                 continue
             if self.check_gradient_convergence():
                 self.progress.convert_to_float()
