@@ -128,7 +128,7 @@ class QoIOptimiser_Base(abc.ABC):
         if np.abs(self.mesh_seq.J / np.min(self.progress["qoi"])) > self.params.dtol:
             raise ConvergenceError("QoI divergence detected.")
 
-    def minimise(self, adaptation_parameters=None):
+    def minimise(self, adaptation_parameters=None, dropout=True):
         """
         Custom minimisation routine, where the tape is re-annotated each iteration to
         support mesh adaptation.
@@ -140,6 +140,8 @@ class QoIOptimiser_Base(abc.ABC):
 
         :kwarg adaptation_parameters: parameters to apply to the mesh adaptation process
         :type adaptation_parameters: :class:`~.GoalOrientedAdaptParameters`
+        :kwarg dropout: whether to stop adapting once the mesh has converged
+        :type dropout: :class:`bool`
 
         :raises: :class:`~.ConvergenceError` if the maximum number of iterations are
             reached.
@@ -180,7 +182,7 @@ class QoIOptimiser_Base(abc.ABC):
                 mesh_converged = mesh_seq._adapt_and_check(
                     self.adaptor, adaptor_kwargs=self.adaptor_kwargs
                 )
-                if mesh_converged:
+                if dropout and mesh_converged:
                     self.adaptive = False
 
             # Update the value of the control in the MeshSeq
