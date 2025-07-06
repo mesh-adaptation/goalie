@@ -135,6 +135,33 @@ class AdjointMeshSeq(MeshSeq):
             )
         return self._gradient
 
+    def get_initial_condition(self):
+        r"""
+        Get the initial conditions applied on the first mesh in the sequence.
+
+        In the case where controls are defined in Real space, their values are carried
+        over.
+
+        :returns: the dictionary, whose keys are field names and whose values are the
+            corresponding initial conditions applied
+        :rtype: :class:`dict` with :class:`str` keys and
+            :class:`firedrake.function.Function` values
+        """
+        if self._get_initial_condition is not None:
+            ics = self._get_initial_condition(self)
+        else:
+            ics = {
+                fieldname: firedrake.Function(fs[0])
+                for fieldname, fs in self.function_spaces.items()
+            }
+
+        # Update the values for all controls from Real space
+        if hasattr(self, "controls"):
+            for key, control in self.controls.items():
+                if control.function_space().ufl_element().family() == "Real":
+                    ics[key].assign(float(control.tape_value()))
+        return ics
+
     @annotate_qoi
     def get_qoi(self, subinterval):
         """
