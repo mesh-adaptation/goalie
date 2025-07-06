@@ -18,8 +18,16 @@ from .function_data import IndicatorData
 from .log import pyrint
 from .options import GoalOrientedAdaptParameters
 from .time_partition import TimePartition
+from .utility import AttrDict
 
 __all__ = ["GoalOrientedMeshSeq"]
+
+
+def prolong(*args):
+    """
+    Shortcut for prolongation between meshes in a hierarchy.
+    """
+    return TransferManager().prolong(*args)
 
 
 class GoalOrientedMeshSeq(AdjointMeshSeq):
@@ -33,6 +41,24 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self._forms = None
         self._prev_form_coeffs = None
         self._changed_form_coeffs = None
+
+    @property
+    def initial_condition(self):
+        """
+        Get the initial conditions associated with the first subinterval.
+
+        :returns: a dictionary whose keys are field names and whose values are the
+            corresponding initial conditions applied on the first subinterval
+        :rtype: :class:`~.AttrDict` with :class:`str` keys and
+            :class:`firedrake.function.Function` values
+        """
+        ics = AttrDict(self.get_initial_condition())
+        for key, ic in ics.items():
+            if ic.function_space().mesh() != self.meshes[0]:
+                prolonged = Function(self.function_spaces[key][0])
+                prolong(ic, prolonged)
+                ics[key] = prolonged
+        return ics
 
     def read_forms(self, forms_dictionary):
         """
@@ -201,10 +227,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :type enrichment_method: :class:`str`
         :returns: the function for mapping function data between mesh sequences
         """
-        if enrichment_method == "h":
-            return TransferManager().prolong
-        else:
-            return interpolate
+        return prolong if enrichment_method == "h" else interpolate
 
     def _create_indicators(self):
         """
