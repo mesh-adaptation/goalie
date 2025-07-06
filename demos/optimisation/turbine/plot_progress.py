@@ -4,10 +4,10 @@ import numpy as np
 
 # Add argparse for command-line arguments
 parser = argparse.ArgumentParser(description="Plot progress of controls and QoIs.")
-parser.add_argument("--n", type=int, default=4, help="Initial mesh resolution.")
+parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
 args = parser.parse_args()
-min_n = 4
-max_n = 8
+min_n = 0
+max_n = 4
 
 # Define approaches
 goal_oriented_approaches = ["goal_oriented_iso", "goal_oriented_aniso"]

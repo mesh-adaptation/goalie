@@ -19,11 +19,11 @@ from goalie.optimisation import QoIOptimiser
 from goalie.options import OptimisationParameters
 from goalie.time_partition import TimeInstant
 
-from setup import fields, get_initial_condition, get_solver, get_qoi
+from setup import *
 
 # Add argparse for command-line arguments
 parser = argparse.ArgumentParser(description="Plot progress of controls and QoIs.")
-parser.add_argument("--n", type=int, default=4, help="Initial mesh resolution.")
+parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
 args = parser.parse_args()
 
 # Use parsed arguments
@@ -35,7 +35,7 @@ aniso_str = "aniso" if anisotropic else "iso"
 # Set up the GoalOrientedMeshSeq
 mesh_seq = GoalOrientedMeshSeq(
     TimeInstant(fields),
-    RectangleMesh(12 * n, 5 * n, 1200, 500),
+    RectangleMesh(60 * 2**n, 25 * 2**n, 1200, 500),
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,
@@ -140,3 +140,5 @@ optimiser.minimise()
 
 np.save(f"goal_oriented_{aniso_str}_{n}_control.npy", optimiser.progress["control"])
 np.save(f"goal_oriented_{aniso_str}_{n}_qoi.npy", optimiser.progress["qoi"])
+
+plot_patches(mesh_seq, optimiser.progress["control"][-1], f"fixed_mesh_{n}_patches.jpg")
