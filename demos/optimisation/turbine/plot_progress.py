@@ -5,7 +5,9 @@ import numpy as np
 from setup import qoi_scaling
 
 # Add argparse for command-line arguments
-parser = argparse.ArgumentParser(description="Plot progress of controls and QoIs.")
+parser = argparse.ArgumentParser(
+    description="Plot progress of controls and QoIs on different axes."
+)
 parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
 args = parser.parse_args()
 min_n = 0
