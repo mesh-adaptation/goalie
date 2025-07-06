@@ -215,6 +215,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             qoi_type=self.qoi_type,
         )
         enriched_mesh_seq._update_function_spaces()
+        # TODO: Need to set field_functions up on the correct mesh
+        # enriched_mesh_seq._reinitialise_fields(
+        #     enriched_mesh_seq.get_initial_condition()
+        # )
 
         return enriched_mesh_seq
 
