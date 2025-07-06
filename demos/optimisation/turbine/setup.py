@@ -3,6 +3,7 @@ from thetis.options import DiscreteTidalTurbineFarmOptions
 from thetis.solver2d import FlowSolver2d
 
 from goalie.field import Field
+from goalie.go_mesh_seq import GoalOrientedMeshSeq
 
 __all__ = ["fields", "get_initial_condition", "get_solver", "get_qoi"]
 
@@ -177,6 +178,10 @@ def get_solver(mesh_seq):
         # Apply initial conditions and solve
         solver_obj.assign_initial_conditions(uv=u, elev=eta)
         solver_obj.iterate()
+
+        # Communicate variational form to mesh_seq
+        if isinstance(mesh_seq, GoalOrientedMeshSeq):
+            mesh_seq.read_forms({"solution_2d": solver_obj.timestepper.F})
 
         # Stash info related to tidal farms
         mesh_seq.tidal_farm_options = farm_options
