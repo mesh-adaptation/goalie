@@ -183,20 +183,8 @@ class QoIOptimiser_Base(abc.ABC):
                 if mesh_converged:
                     self.adaptive = False
 
-            # Update initial condition getter for the next iteration
-            ics = mesh_seq.get_initial_condition()
-            ics[self.control] = Function(mesh_seq.function_spaces[self.control][0])
-            ics[self.control].assign(float(u))
-            if mesh_seq._get_initial_condition is None:
-                # NOTE:
-                # * mesh_seq.get_initial_condition may have been defined directly in the
-                #   'object-oriented' approach (for example, see
-                #   https://mesh-adaptation.github.io/docs/demos/burgers_oo.py.html)
-                # * Ruff raises 'B023 Function definition does not bind loop variable
-                #   `ics`' but this is intentional so we suppress the error.
-                mesh_seq.get_initial_condition = lambda: ics  # noqa: B023
-            else:
-                mesh_seq._get_initial_condition = lambda mesh_seq: ics  # noqa: B023
+            # Update the value of the control in the MeshSeq
+            mesh_seq.controls[self.control].assign(float(u))
 
             # Check for convergence and divergence
             if it == 1:
