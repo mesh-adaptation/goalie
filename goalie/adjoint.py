@@ -528,20 +528,20 @@ class AdjointMeshSeq(MeshSeq):
                 for fieldname, solution_function in self.field_functions.items()
             }
 
-            # Get seed vector for reverse propagation
-            if i == num_subintervals - 1:
-                if self.qoi_type in ["end_time", "steady"]:
-                    pyadjoint.continue_annotation()
-                    qoi = self.get_qoi(i)
-                    self.J = qoi(**qoi_kwargs)
-                    if abs(self.J) < 1e-12:
-                        self.warning("Zero QoI. Is it implemented as intended?")
-                    pyadjoint.pause_annotation()
-            else:
+            if i < num_subintervals - 1:
+                # Get seed vector for reverse propagation
                 for fieldname in self.solution_names:
                     checkpoint[fieldname].block_variable.adj_value = self._transfer(
                         seeds[fieldname], self.function_spaces[fieldname][i]
                     )
+            elif self.qoi_type in ["end_time", "steady"]:
+                # Evaluate the QoI at the end of the final subinterval
+                pyadjoint.continue_annotation()
+                qoi = self.get_qoi(i)
+                self.J = qoi(**qoi_kwargs)
+                if abs(self.J) < 1e-12:
+                    self.warning("Zero QoI. Is it implemented as intended?")
+                pyadjoint.pause_annotation()
 
             # Update adjoint solver kwargs
             for fieldname in self.solution_names:
