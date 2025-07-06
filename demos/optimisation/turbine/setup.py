@@ -10,6 +10,7 @@ from goalie.go_mesh_seq import GoalOrientedMeshSeq
 
 __all__ = [
     "turbine_locations",
+    "qoi_scaling",
     "fields",
     "get_initial_condition",
     "get_solver",
@@ -23,6 +24,8 @@ turbine_locations = [
     (450.0, 190.0),
     (750.0, 260.0),
 ]
+
+qoi_scaling = 100.0
 
 # Set up P1DGv-P1DG element
 p1dg_element = FiniteElement(
@@ -234,17 +237,13 @@ def get_qoi(mesh_seq, index):
             * ufl.dx
         )
 
-        # FIXME: Large scaling factor breaks adjoint solve
-        # scaling = 10000
-        scaling = 1.0
-
         # Sum the two components
         # NOTE: We rescale the functional such that the gradients are ~ order magnitude
         #       1
         # NOTE: We also multiply by -1 so that if we minimise the functional, we
         #       maximise power (maximize is also available from pyadjoint but currently
         #       broken)
-        J_overall = scaling * (-J_power + J_reg)
+        J_overall = qoi_scaling * (-J_power + J_reg)
         # print(
         #     f"DEBUG: power={assemble(J_power)}, reg={assemble(J_reg)},"
         #     f" overall={assemble(J_overall)}"

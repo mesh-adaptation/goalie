@@ -2,12 +2,15 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 
+from setup import qoi_scaling
+
 # Add argparse for command-line arguments
 parser = argparse.ArgumentParser(description="Plot progress of controls and QoIs.")
 parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
 args = parser.parse_args()
 min_n = 0
 max_n = 4
+scaling = 1e-6 / qoi_scaling
 
 # Define approaches
 go_labels = {
@@ -43,7 +46,7 @@ fig, axes = plt.subplots()
 # Plot fixed mesh cases
 for n in range(min_n, max_n + 1):
     try:
-        qois = -np.load(f"fixed_mesh_{n}_qoi.npy") * 1e-6
+        qois = -np.load(f"fixed_mesh_{n}_qoi.npy") * scaling
         axes.plot(qois, "--x", label=f"Fixed mesh ({3000 * 2**n} elements)")
     except FileNotFoundError:
         print(f"QoI data for fixed_mesh with n={n} not found.")
@@ -51,7 +54,7 @@ for n in range(min_n, max_n + 1):
 n = args.n
 for approach, label in go_labels.items():
     try:
-        qois = -np.load(f"{approach}_{n}_qoi.npy") * 1e-6
+        qois = -np.load(f"{approach}_{n}_qoi.npy") * scaling
         axes.plot(qois, "--x", label=label)
     except FileNotFoundError:
         print(f"QoI data for {approach} with n={n} not found.")
