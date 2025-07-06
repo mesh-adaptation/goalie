@@ -226,8 +226,14 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
 
         # Barzilai-Borwein formula
         if len(self.progress["control"]) > 1:
-            u_prev = self.progress["control"][-2]
-            dJ_prev = self.progress["gradient"][-1]
+            R = u.function_space()
+
+            # Get all the quantities in the same space
+            assert R == dJ.function_space()
+            u_prev = Function(R, val=float(self.progress["control"][-2]))
+            dJ_prev = Function(R, val=float(self.progress["gradient"][-1]))
+
+            # Evaluate the formula
             dJ_diff = assemble(ufl.inner(dJ_prev - dJ, dJ_prev - dJ) * ufl.dx)
             if dJ_diff < 1e-12:
                 warning(
