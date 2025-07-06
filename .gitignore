@@ -14,6 +14,7 @@ goalie.egg-info/
 *.ipynb*
 *.jpg
 *.msh
+*.npy
 *.patch
 *.pdf
 *.png
