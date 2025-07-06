@@ -1,3 +1,6 @@
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+
 from thetis import *
 from thetis.options import DiscreteTidalTurbineFarmOptions
 from thetis.solver2d import FlowSolver2d
@@ -5,8 +8,21 @@ from thetis.solver2d import FlowSolver2d
 from goalie.field import Field
 from goalie.go_mesh_seq import GoalOrientedMeshSeq
 
-__all__ = ["fields", "get_initial_condition", "get_solver", "get_qoi"]
+__all__ = [
+    "turbine_locations",
+    "fields",
+    "get_initial_condition",
+    "get_solver",
+    "get_qoi",
+    "plot_patches",
+]
 
+turbine_locations = [
+    (450, 250),
+    (450, 310),
+    (450, 190),
+    (750, 260),
+]
 
 # Set up P1DGv-P1DG element
 p1dg_element = FiniteElement(
@@ -41,11 +57,13 @@ class TurbineSolver2d(FlowSolver2d):
         self.fields.uv_2d, self.fields.elev_2d = self.fields.solution_2d.subfunctions
 
 
-def get_initial_condition(mesh_seq, init_control=260.0):
+def get_initial_condition(mesh_seq, init_control=None):
     solution_2d = Function(mesh_seq.function_spaces["solution_2d"][0])
     u, eta = solution_2d.subfunctions
     u.interpolate(as_vector((1e-03, 0.0)))
     eta.assign(0.0)
+    if init_control is None:
+        init_control = turbine_locations[-1][1]
     yc = Function(mesh_seq.function_spaces["yc"][0]).assign(init_control)
     return {"solution_2d": solution_2d, "yc": yc}
 
@@ -163,16 +181,15 @@ def get_solver(mesh_seq):
         turbine_density = Function(solver_obj.function_spaces.P1_2d).assign(1.0)
         farm_options.turbine_type = "table"
         farm_options.turbine_density = turbine_density
-        farm_options.turbine_options.diameter = 18.0
+        farm_options.turbine_options.diameter = 20.0
         farm_options.turbine_options.thrust_speeds = speeds_AR2000
         farm_options.turbine_options.thrust_coefficients = thrusts_AR2000
         farm_options.upwind_correction = False
         farm_options.turbine_coordinates = [
-            [domain_constant(456, mesh), domain_constant(250, mesh)],
-            [domain_constant(456, mesh), domain_constant(310, mesh)],
-            [domain_constant(456, mesh), domain_constant(190, mesh)],
-            [domain_constant(744, mesh), yc],
+            [domain_constant(xloc, mesh), domain_constant(yloc, mesh)]
+            for (xloc, yloc) in turbine_locations
         ]
+        farm_options.turbine_coordinates[-1][1] = yc  # last turbine is controlled
         options.discrete_tidal_turbine_farms["everywhere"] = [farm_options]
 
         # Apply initial conditions and solve
@@ -237,3 +254,41 @@ def get_qoi(mesh_seq, index):
         return J_overall
 
     return steady_qoi
+
+
+def plot_patches(mesh_seq, optimised, filename):
+    """
+    Plot the initial and final turbine locations
+
+    :arg mesh_seq: mesh sequence holding the mesh
+    :type mesh_seq: :class:`goalie.mesh_seq.MeshSeq`
+    :arg optimised: y-coordinate of the optimised turbine location
+    :type optimised: :class:`float`
+    :arg filename: name of the file to save the plot
+    :type filename: :class:`str`
+    """
+    fig, axes = plt.subplots(figsize=(12, 5))
+
+    def add_patch(xloc, yloc, colour, label, diameter=20.0):
+        axes.add_patch(
+            patches.Rectangle(
+                (xloc - diameter / 2, yloc - diameter / 2),
+                diameter,
+                diameter,
+                edgecolor=colour,
+                facecolor=colour,
+                linewidth=0.1,
+                label=label,
+            )
+        )
+
+    mesh_seq.plot(fig=fig, axes=axes)
+    for i, (xloc, yloc) in enumerate(turbine_locations[:3]):
+        add_patch(xloc, yloc, "gray", "Fixed")
+    xc, yc = turbine_locations[3]
+    add_patch(xc, yc, "blue", "Initial")
+    add_patch(xc, optimised, "red", "Optimised")
+    axes.set_title("")
+    handles, labels = axes.get_legend_handles_labels()
+    axes.legend(handles[-3:], labels[-3:])
+    plt.savefig(filename, bbox_inches="tight")
