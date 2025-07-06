@@ -35,7 +35,7 @@ aniso_str = "aniso" if anisotropic else "iso"
 # Set up the GoalOrientedMeshSeq
 mesh_seq = GoalOrientedMeshSeq(
     TimeInstant(fields),
-    RectangleMesh(60 * 2**n, 25 * 2**n, 1200, 500),
+    RectangleMesh(int(np.round(60 * 2**n)), int(np.round(25 * 2**n)), 1200, 500),
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,
@@ -71,13 +71,16 @@ def adaptor(mesh_seq, solutions, indicators):
     P1_ten = TensorFunctionSpace(mesh_seq[0], "CG", 1)
     metric = RiemannianMetric(P1_ten)
 
-    # Ramp the target metric complexity from 400 to 1000 over the first few iterations
-    base, target, iteration, num_iterations = 400, 1000, mesh_seq.fp_iteration, 3
+    # Ramp the target metric complexity over the first few iterations
+    base = 1000
+    target = 1000  # FIXME: Avoid adjoint solver fail with larger values
+    iteration = mesh_seq.fp_iteration
+    num_iterations = 3
     mp = {
         "dm_plex_metric_target_complexity": ramp_complexity(
             base, target, iteration, num_iterations=num_iterations
         ),
-        # "dm_plex_metric_no_insert": True,
+        "dm_plex_metric_hausdorff_number": 0.01 * 1000,
     }
     metric.set_parameters(mp)
 
@@ -136,9 +139,13 @@ def adaptor(mesh_seq, solutions, indicators):
 optimiser = QoIOptimiser(
     mesh_seq, "yc", parameters, method="gradient_descent", adaptor=adaptor
 )
-optimiser.minimise()
+optimiser.minimise(dropout=False)
 
 np.save(f"goal_oriented_{aniso_str}_{n}_control.npy", optimiser.progress["control"])
 np.save(f"goal_oriented_{aniso_str}_{n}_qoi.npy", optimiser.progress["qoi"])
 
-plot_patches(mesh_seq, optimiser.progress["control"][-1], f"fixed_mesh_{n}_patches.jpg")
+plot_patches(
+    mesh_seq,
+    optimiser.progress["control"][-1],
+    f"goal_oriented_{aniso_str}_{n}_patches.jpg",
+)
