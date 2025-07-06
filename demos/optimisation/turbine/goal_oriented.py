@@ -24,12 +24,16 @@ from setup import *
 # Add argparse for command-line arguments
 parser = argparse.ArgumentParser(description="Plot progress of controls and QoIs.")
 parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
+parser.add_argument(
+    "--anisotropic",
+    action="store_true",
+    help="Use anisotropic adaptation (default: False).",
+)
 args = parser.parse_args()
 
 # Use parsed arguments
 n = args.n
-
-anisotropic = False
+anisotropic = args.anisotropic
 aniso_str = "aniso" if anisotropic else "iso"
 
 # Set up the GoalOrientedMeshSeq
@@ -87,13 +91,15 @@ def adaptor(mesh_seq, solutions, indicators):
     if anisotropic:
         # Recover the Hessian of the forward solution
         hessians = {key: RiemannianMetric(P1_ten) for key in ("u", "v", "eta")}
-        (u, v), eta = solutions["solution_2d"]["forward"][0][0].subfunctions
-        hessians["u"].compute_hessian(u)
-        hessians["v"].compute_hessian(v)
+        uv, eta = solutions["solution_2d"]["forward"][0][0].subfunctions
+        hessians["u"].compute_hessian(uv[0])
+        hessians["v"].compute_hessian(uv[1])
         hessians["eta"].compute_hessian(eta)
-        hessian = hessians["u"].intersect(hessians["v"], hessians["eta"])
+        # FIXME: Why doesn't intersection work here?
+        hessian = hessians["u"].average(hessians["v"], hessians["eta"])
 
         # Deduce an anisotropic metric from the error indicator field and the Hessian
+        # FIXME: Only seems to refine at the inflow
         metric.compute_anisotropic_dwr_metric(indicators["solution_2d"][0][0], hessian)
     else:
         # Deduce an isotropic metric from the error indicator field
