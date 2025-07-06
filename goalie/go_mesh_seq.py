@@ -297,8 +297,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         # Track form coefficient changes in the enriched problem if the problem is
         # unsteady
         adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(
-            track_coefficients=not self.steady,
-            **solver_kwargs,
+            solver_kwargs=solver_kwargs, track_coefficients=not self.steady
         )
 
         FWD, ADJ = "forward", "adjoint"
