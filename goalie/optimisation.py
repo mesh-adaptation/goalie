@@ -185,9 +185,8 @@ class QoIOptimiser_Base(abc.ABC):
 
             # Update initial condition getter for the next iteration
             ics = mesh_seq.get_initial_condition()
-            ics[self.control] = Function(
-                mesh_seq.function_spaces[self.control][0], val=float(u)
-            )
+            ics[self.control] = Function(mesh_seq.function_spaces[self.control][0])
+            ics[self.control].assign(float(u))
             if mesh_seq._get_initial_condition is None:
                 # NOTE:
                 # * mesh_seq.get_initial_condition may have been defined directly in the
