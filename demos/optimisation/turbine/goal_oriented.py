@@ -55,7 +55,7 @@ plt.savefig(f"goal_oriented_{n}_adjoint.jpg", bbox_inches="tight")
 J = mesh_seq.J
 print(f"J = {J:.4e}")
 
-parameters = OptimisationParameters()
+parameters = OptimisationParameters({"lr": 10.0})
 print(parameters)
 
 

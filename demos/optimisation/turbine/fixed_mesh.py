@@ -46,7 +46,7 @@ plt.savefig(f"fixed_mesh_{n}_adjoint.jpg", bbox_inches="tight")
 J = mesh_seq.J
 print(f"J = {J:.4e}")
 
-parameters = OptimisationParameters()
+parameters = OptimisationParameters({"lr": 10.0})
 print(parameters)
 
 optimiser = QoIOptimiser(mesh_seq, "yc", parameters, method="gradient_descent")
