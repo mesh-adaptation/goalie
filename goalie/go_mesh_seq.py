@@ -253,6 +253,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self,
         enrichment_kwargs=None,
         solver_kwargs=None,
+        adj_solver_kwargs=None,
         indicator_fn=get_dwr_indicator,
         compute_gradient=False,
     ):
@@ -270,6 +271,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             key 'qoi_kwargs'
         :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
             take various types
+        :kwarg adj_solver_kwargs: parameters for the adjoint solver
+        :type adj_solver_kwargs: :class:`dict` with :class:`str` keys and values which
+            may take various types
         :kwarg indicator_fn: function which maps the form, adjoint error and enriched
             space(s) as arguments to the error indicator
             :class:`firedrake.function.Function`
@@ -282,6 +286,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :rtype2: :class:`~.IndicatorData`
         """
         solver_kwargs = solver_kwargs or {}
+        adj_solver_kwargs = adj_solver_kwargs or {}
         default_enrichment_kwargs = {"enrichment_method": "h", "num_enrichments": 1}
         enrichment_kwargs = dict(default_enrichment_kwargs, **(enrichment_kwargs or {}))
         enriched_mesh_seq = self.get_enriched_mesh_seq(**enrichment_kwargs)
@@ -292,12 +297,16 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         # Initialise adjoint solver generators on the MeshSeq and its enriched version
         adj_sol_gen = self._solve_adjoint(
-            solver_kwargs=solver_kwargs, compute_gradient=compute_gradient
+            solver_kwargs=solver_kwargs,
+            adj_solver_kwargs=adj_solver_kwargs,
+            compute_gradient=compute_gradient,
         )
         # Track form coefficient changes in the enriched problem if the problem is
         # unsteady
         adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(
-            solver_kwargs=solver_kwargs, track_coefficients=not self.steady
+            solver_kwargs=solver_kwargs,
+            adj_solver_kwargs=adj_solver_kwargs,
+            track_coefficients=not self.steady,
         )
 
         FWD, ADJ = "forward", "adjoint"
