@@ -22,7 +22,7 @@ from setup import fields, get_initial_condition, get_solver, get_qoi
 
 n = 4
 anisotropic = False
-aniso_str = "aniso_" if anisotropic else "iso_"
+aniso_str = "aniso" if anisotropic else "iso"
 
 # Set up the GoalOrientedMeshSeq
 mesh_seq = GoalOrientedMeshSeq(
