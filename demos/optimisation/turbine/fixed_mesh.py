@@ -1,9 +1,18 @@
 import matplotlib.pyplot as plt
+import numpy as np
+
 from firedrake.pyplot import tricontourf
 from firedrake.utility_meshes import RectangleMesh
-from setup import *
 
-from goalie import *
+from goalie.adjoint import AdjointMeshSeq
+from goalie.log import pyrint
+from goalie.metric import ramp_complexity
+from goalie.plot import plot_indicator_snapshots
+from goalie.optimisation import QoIOptimiser
+from goalie.options import OptimisationParameters
+from goalie.time_partition import TimeInstant
+
+from setup import fields, get_initial_condition, get_solver, get_qoi
 
 # Set up the AdjointMeshSeq
 n = 4
@@ -43,16 +52,5 @@ print(parameters)
 optimiser = QoIOptimiser(mesh_seq, "yc", parameters, method="gradient_descent")
 optimiser.minimise()
 
-fig, axes = plt.subplots()
-axes.plot(optimiser.progress["control"], "--x")
-axes.set_xlabel("Iteration")
-axes.set_ylabel("Control")
-axes.grid(True)
-plt.savefig(f"fixed_mesh_{n}_control.jpg", bbox_inches="tight")
-
-fig, axes = plt.subplots()
-axes.plot(optimiser.progress["qoi"], "--x")
-axes.set_xlabel("Iteration")
-axes.set_ylabel("QoI")
-axes.grid(True)
-plt.savefig(f"fixed_mesh_{n}_qoi.jpg", bbox_inches="tight")
+np.save(f"fixed_mesh_{n}_control.npy", optimiser.progress["control"])
+np.save(f"fixed_mesh_{n}_qoi.npy", optimiser.progress["qoi"])
