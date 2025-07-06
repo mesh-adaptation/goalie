@@ -220,8 +220,6 @@ def get_qoi(mesh_seq, index):
 
         # Power output contribution
         J_power = farm.turbine.power(u, eta) * farm.turbine_density * ufl.dx
-        # TODO: Why does the above not depend on solution_2d?
-        # # return yc * eta * ufl.dx
 
         # Add a regularisation term for constraining the control
         area = assemble(domain_constant(1.0, mesh) * ufl.dx)
