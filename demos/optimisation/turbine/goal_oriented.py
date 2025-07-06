@@ -1,3 +1,4 @@
+import argparse
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -20,7 +21,14 @@ from goalie.time_partition import TimeInstant
 
 from setup import fields, get_initial_condition, get_solver, get_qoi
 
-n = 4
+# Add argparse for command-line arguments
+parser = argparse.ArgumentParser(description="Plot progress of controls and QoIs.")
+parser.add_argument("--n", type=int, default=4, help="Initial mesh resolution.")
+args = parser.parse_args()
+
+# Use parsed arguments
+n = args.n
+
 anisotropic = False
 aniso_str = "aniso" if anisotropic else "iso"
 
@@ -64,8 +72,13 @@ def adaptor(mesh_seq, solutions, indicators):
     metric = RiemannianMetric(P1_ten)
 
     # Ramp the target metric complexity from 400 to 1000 over the first few iterations
-    base, target, iteration = 400, 1000, mesh_seq.fp_iteration
-    mp = {"dm_plex_metric_target_complexity": ramp_complexity(base, target, iteration)}
+    base, target, iteration, num_iterations = 400, 1000, mesh_seq.fp_iteration, 3
+    mp = {
+        "dm_plex_metric_target_complexity": ramp_complexity(
+            base, target, iteration, num_iterations=num_iterations
+        ),
+        # "dm_plex_metric_no_insert": True,
+    }
     metric.set_parameters(mp)
 
     if anisotropic:

@@ -1,3 +1,4 @@
+import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -14,8 +15,15 @@ from goalie.time_partition import TimeInstant
 
 from setup import fields, get_initial_condition, get_solver, get_qoi
 
+# Add argparse for command-line arguments
+parser = argparse.ArgumentParser(description="Plot progress of controls and QoIs.")
+parser.add_argument("--n", type=int, default=4, help="Initial mesh resolution.")
+args = parser.parse_args()
+
+# Use parsed arguments
+n = args.n
+
 # Set up the AdjointMeshSeq
-n = 4
 mesh_seq = AdjointMeshSeq(
     TimeInstant(fields),
     RectangleMesh(12 * n, 5 * n, 1200, 500),
