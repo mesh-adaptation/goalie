@@ -18,6 +18,7 @@ from setup import *
 # Add argparse for command-line arguments
 parser = argparse.ArgumentParser(description="Plot progress of controls and QoIs.")
 parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
+parser.add_argument("--taylor_test", action="store_true", help="Run a Taylor test.")
 args = parser.parse_args()
 
 # Use parsed arguments
@@ -33,9 +34,9 @@ mesh_seq = AdjointMeshSeq(
     qoi_type="steady",
 )
 
-# # FIXME: Sub-quadratic convergence
-# # Run a Taylor test to check the gradient is computed correctly
-# mesh_seq.taylor_test("yc")
+# Run a Taylor test to check the gradient is computed correctly
+if args.taylor_test:
+    mesh_seq.taylor_test("yc")
 
 # Solve the adjoint problem, computing gradients, and plot the x-velocity component of
 # both the forward and adjoint solutions
