@@ -10,7 +10,10 @@ min_n = 0
 max_n = 4
 
 # Define approaches
-goal_oriented_approaches = ["goal_oriented_iso", "goal_oriented_aniso"]
+go_labels = {
+    "goal_oriented_iso": "Goal-oriented (isotropic)",
+    "goal_oriented_aniso": "Goal-oriented (anisotropic)",
+}
 
 # Plot controls for all approaches
 fig, axes = plt.subplots()
@@ -18,43 +21,43 @@ fig, axes = plt.subplots()
 for n in range(min_n, max_n + 1):
     try:
         controls = np.load(f"fixed_mesh_{n}_control.npy")
-        axes.plot(controls, "--x", label=f"fixed_mesh_n={n}")
+        axes.plot(controls, "--x", label=f"Fixed mesh ({3000 * 2**n} elements)")
     except FileNotFoundError:
         print(f"Control data for fixed_mesh with n={n} not found.")
 # Plot goal-oriented cases
 n = args.n
-for approach in goal_oriented_approaches:
+for approach, label in go_labels.items():
     try:
         controls = np.load(f"{approach}_{n}_control.npy")
-        axes.plot(controls, "--x", label=approach)
+        axes.plot(controls, "--x", label=label)
     except FileNotFoundError:
         print(f"Control data for {approach} with n={n} not found.")
 axes.set_xlabel("Iteration")
-axes.set_ylabel("Control")
+axes.set_ylabel(r"Control turbine position [$\mathrm{m}$]")
 axes.grid(True)
 axes.legend()
-plt.savefig(f"controls_{n}.jpg", bbox_inches="tight")
+plt.savefig(f"controls.jpg", bbox_inches="tight")
 
 # Plot QoIs for all approaches
 fig, axes = plt.subplots()
 # Plot fixed mesh cases
 for n in range(min_n, max_n + 1):
     try:
-        qois = -np.load(f"fixed_mesh_{n}_qoi.npy")
-        axes.plot(qois, "--x", label=f"fixed_mesh_n={n}")
+        qois = -np.load(f"fixed_mesh_{n}_qoi.npy") * 1e-6
+        axes.plot(qois, "--x", label=f"Fixed mesh ({3000 * 2**n} elements)")
     except FileNotFoundError:
         print(f"QoI data for fixed_mesh with n={n} not found.")
 # Plot goal-oriented cases
 n = args.n
-for approach in goal_oriented_approaches:
+for approach, label in go_labels.items():
     try:
-        qois = -np.load(f"{approach}_{n}_qoi.npy")
-        axes.plot(qois, "--x", label=approach)
+        qois = -np.load(f"{approach}_{n}_qoi.npy") * 1e-6
+        axes.plot(qois, "--x", label=label)
     except FileNotFoundError:
         print(f"QoI data for {approach} with n={n} not found.")
 
 axes.set_xlabel("Iteration")
-axes.set_ylabel("QoI")
+axes.set_ylabel(r"Power output [$\mathrm{MW}$]")
 axes.grid(True)
 axes.legend()
-plt.savefig(f"qois_{n}.jpg", bbox_inches="tight")
+plt.savefig(f"qois.jpg", bbox_inches="tight")

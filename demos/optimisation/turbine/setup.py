@@ -18,10 +18,10 @@ __all__ = [
 ]
 
 turbine_locations = [
-    (450, 250),
-    (450, 310),
-    (450, 190),
-    (750, 260),
+    (450.0, 250.0),
+    (450.0, 310.0),
+    (450.0, 190.0),
+    (750.0, 260.0),
 ]
 
 # Set up P1DGv-P1DG element
@@ -284,11 +284,11 @@ def plot_patches(mesh_seq, optimised, filename):
 
     mesh_seq.plot(fig=fig, axes=axes)
     for i, (xloc, yloc) in enumerate(turbine_locations[:3]):
-        add_patch(xloc, yloc, "gray", "Fixed")
+        add_patch(xloc, yloc, "C0", "Fixed")
     xc, yc = turbine_locations[3]
-    add_patch(xc, yc, "blue", "Initial")
-    add_patch(xc, optimised, "red", "Optimised")
+    add_patch(xc, yc, "C1", "Initial")
+    add_patch(xc, optimised, "C2", "Optimised")
     axes.set_title("")
     handles, labels = axes.get_legend_handles_labels()
-    axes.legend(handles[-3:], labels[-3:])
+    axes.legend(handles[-3:], labels[-3:], loc="upper left")
     plt.savefig(filename, bbox_inches="tight")
