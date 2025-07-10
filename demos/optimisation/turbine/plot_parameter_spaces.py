@@ -6,16 +6,17 @@ from scipy.interpolate import CubicSpline
 
 from setup import qoi_scaling
 
-if not os.path.exists("plots"):
-    os.makedirs("plots")
+plot_dir = "plots"
+if not os.path.exists(plot_dir):
+    os.makedirs(plot_dir)
 
 scaling = 1e-6 / qoi_scaling
 
 # Plot the trajectory with the maximum QoIs highlighted
 fig, axes = plt.subplots()
 for n in range(3):
-    sampled_controls = np.load(f"outputs/fixed_mesh_{n}/controls.npy")
-    sampled_qois = -np.load(f"outputs/fixed_mesh_{n}/qois.npy") * scaling
+    sampled_controls = np.load(f"outputs/fixed_mesh_{n}/sampled_controls.npy")
+    sampled_qois = -np.load(f"outputs/fixed_mesh_{n}/sampled_qois.npy") * scaling
 
     # Perform cubic interpolation
     cubic_spline = CubicSpline(sampled_controls, sampled_qois)
@@ -43,4 +44,4 @@ axes.set_xlabel(r"Control turbine position [$\mathrm{m}$]")
 axes.set_ylabel(r"Power output [$\mathrm{MW}$]")
 axes.grid(True)
 axes.legend()
-plt.savefig(f"plots/progress_parameter_spaces.png", bbox_inches="tight")
+plt.savefig(f"{plot_dir}/progress_parameter_spaces.png", bbox_inches="tight")

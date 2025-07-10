@@ -37,8 +37,8 @@ max_control = critical_controls[max_index]
 max_qoi = critical_qois[max_index]
 print(f"Maximum QoI: {max_qoi} at Control: {max_control}")
 
-fixed_mesh_controls = np.load(f"outputs/fixed_mesh_{n}/control.npy")
-fixed_mesh_qois = -np.load(f"outputs/fixed_mesh_{n}/qoi.npy") * scaling
+fixed_mesh_controls = np.load(f"outputs/fixed_mesh_{n}/controls.npy")
+fixed_mesh_qois = -np.load(f"outputs/fixed_mesh_{n}/qois.npy") * scaling
 
 # Plot the trajectory with the maximum QoI highlighted
 fig, axes = plt.subplots()
@@ -49,4 +49,7 @@ axes.set_xlabel(r"Control turbine position [$\mathrm{m}$]")
 axes.set_ylabel(r"Power output [$\mathrm{MW}$]")
 axes.grid(True)
 axes.legend()
-plt.savefig(f"plots/fixed_mesh_{n}/progress_parameter_space.png", bbox_inches="tight")
+plot_dir = f"plots/fixed_mesh_{n}"
+if not os.path.exists(plot_dir):
+    os.makedirs(plot_dir)
+plt.savefig(f"{plot_dir}/progress_parameter_space.png", bbox_inches="tight")

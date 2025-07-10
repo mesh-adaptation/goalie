@@ -4,20 +4,24 @@ import numpy as np
 import os
 
 from setup import qoi_scaling
-from utils import get_experiment_id
+from utils import get_latest_experiment_id
 
 # Add argparse for command-line arguments
 parser = argparse.ArgumentParser(
     description="Plot progress of controls and QoIs on different axes."
 )
 parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
+parser.add_argument(
+    "--hash", type=str, default=None, help="Git hash identifier for the experiment."
+)
 args = parser.parse_args()
 min_n = 0
 max_n = 4
 scaling = 1e-6 / qoi_scaling
-experiment_id = get_experiment_id()
-if not os.path.exists("plots"):
-    os.makedirs("plots")
+experiment_id = get_latest_experiment_id(hash=args.hash)
+plot_dir = f"plots/{experiment_id}"
+if not os.path.exists(plot_dir):
+    os.makedirs(plot_dir)
 
 # Define approaches
 go_labels = {
@@ -46,7 +50,7 @@ axes.set_xlabel("Iteration")
 axes.set_ylabel(r"Control turbine position [$\mathrm{m}$]")
 axes.grid(True)
 axes.legend()
-plt.savefig(f"plots/controls.jpg", bbox_inches="tight")
+plt.savefig(f"{plot_dir}/controls.jpg", bbox_inches="tight")
 
 # Plot QoIs for all approaches
 fig, axes = plt.subplots()
@@ -70,4 +74,4 @@ axes.set_xlabel("Iteration")
 axes.set_ylabel(r"Power output [$\mathrm{MW}$]")
 axes.grid(True)
 axes.legend()
-plt.savefig(f"plots/qois.jpg", bbox_inches="tight")
+plt.savefig(f"{plot_dir}/qois.jpg", bbox_inches="tight")

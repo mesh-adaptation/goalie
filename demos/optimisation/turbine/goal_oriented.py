@@ -159,8 +159,8 @@ optimiser.minimise(dropout=False)
 output_dir = f"outputs/{experiment_id}"
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
-np.save(f"{output_dir}/control.npy", optimiser.progress["control"])
-np.save(f"{output_dir}/qoi.npy", optimiser.progress["qoi"])
+np.save(f"{output_dir}/controls.npy", optimiser.progress["control"])
+np.save(f"{output_dir}/qois.npy", optimiser.progress["qoi"])
 # TODO: Write the final mesh to file
 
 # Plot the patches for the final positions

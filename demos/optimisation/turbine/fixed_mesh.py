@@ -71,8 +71,8 @@ optimiser.minimise()
 
 # Write the optimiser progress to file
 output_dir = f"outputs/{experiment_id}"
-np.save(f"{output_dir}/control.npy", optimiser.progress["control"])
-np.save(f"{output_dir}/qoi.npy", optimiser.progress["qoi"])
+np.save(f"{output_dir}/controls.npy", optimiser.progress["control"])
+np.save(f"{output_dir}/qois.npy", optimiser.progress["qoi"])
 
 # Plot the patches for the final positions
 plot_patches(mesh_seq, optimiser.progress["control"][-1], f"{plot_dir}/patches.jpg")
