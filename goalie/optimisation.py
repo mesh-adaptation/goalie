@@ -126,6 +126,7 @@ class QoIOptimiser_Base(abc.ABC):
         :raises: :class:`~.ConvergenceError` if the maximum number of iterations are
             reached.
         """
+        mesh_seq = self.mesh_seq
         for it in range(1, self.params.maxiter + 1):
             tape = pyadjoint.get_working_tape()
             tape.clear_tape()
@@ -134,9 +135,11 @@ class QoIOptimiser_Base(abc.ABC):
             pyadjoint.continue_annotation()
             self.mesh_seq.solve_adjoint(compute_gradient=True)
             pyadjoint.pause_annotation()
-            J = self.mesh_seq.J
-            u = self.mesh_seq.controls[self.control].tape_value()
-            dJ = self.mesh_seq.gradient[self.control]
+            J = mesh_seq.J
+            u = mesh_seq.controls[self.control].tape_value()
+            dJ = mesh_seq.gradient[self.control]
+            if mesh_seq.fp_iteration == 1:
+                self.progress["control"].append(float(u))
 
             # Take a step with the specified optimisation method and track progress
             self.step(u, J, dJ)
@@ -159,6 +162,7 @@ class QoIOptimiser_Base(abc.ABC):
             if it == 1:
                 continue
             if self.check_gradient_convergence():
+                self.progress["control"].pop()
                 self.progress.convert_to_float()
                 return
             self.check_qoi_divergence()
