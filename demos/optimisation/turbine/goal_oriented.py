@@ -3,6 +3,8 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
+import os
+import subprocess
 
 from animate.metric import RiemannianMetric
 from animate.adapt import adapt
@@ -30,6 +32,24 @@ parser.add_argument(
     help="Use anisotropic adaptation (default: False).",
 )
 args = parser.parse_args()
+
+
+def get_git_hash():
+    """Generate experiment identifier"""
+    try:
+        return (
+            subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+            .decode()
+            .strip()
+        )
+    except subprocess.CalledProcessError as cpe:
+        raise RuntimeError("Could not retrieve git hash.") from cpe
+
+
+experiment_id = (
+    f"goal_oriented_n{args.n}_anisotropic{int(args.anisotropic)}_{get_git_hash()}"
+)
+print(f"Experiment ID: {experiment_id}")
 
 # Use parsed arguments
 n = args.n
@@ -63,6 +83,7 @@ plt.savefig(f"goal_oriented_{n}_adjoint.jpg", bbox_inches="tight")
 J = mesh_seq.J
 print(f"J = {J:.4e}")
 
+# Set optimiser parameters, including a large starting step length
 parameters = OptimisationParameters({"lr": 10.0})
 print(parameters)
 
@@ -95,7 +116,6 @@ def adaptor(mesh_seq, solutions, indicators):
         hessian = hessians["u"].average(hessians["v"], hessians["eta"])
 
         # Deduce an anisotropic metric from the error indicator field and the Hessian
-        # FIXME: Only seems to refine at the inflow
         metric.compute_anisotropic_dwr_metric(indicators["solution_2d"][0][0], hessian)
     else:
         # Deduce an isotropic metric from the error indicator field
@@ -138,16 +158,19 @@ def adaptor(mesh_seq, solutions, indicators):
     return [continue_unconditionally]
 
 
+# Run the optimiser
 optimiser = QoIOptimiser(
     mesh_seq, "yc", parameters, method="gradient_descent", adaptor=adaptor
 )
 optimiser.minimise(dropout=False)
 
-np.save(f"goal_oriented_{aniso_str}_{n}_control.npy", optimiser.progress["control"])
-np.save(f"goal_oriented_{aniso_str}_{n}_qoi.npy", optimiser.progress["qoi"])
+# Write the optimiser progress to file
+output_dir = f"outputs/{experiment_id}"
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+np.save(f"{output_dir}/control.npy", optimiser.progress["control"])
+np.save(f"{output_dir}/qoi.npy", optimiser.progress["qoi"])
+# TODO: Write the final mesh to file
 
-plot_patches(
-    mesh_seq,
-    optimiser.progress["control"][-1],
-    f"goal_oriented_{aniso_str}_{n}_patches.jpg",
-)
+# Plot the patches for the final positions
+plot_patches(mesh_seq, optimiser.progress["control"][-1], f"{output_dir}/patches.jpg")
