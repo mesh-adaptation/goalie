@@ -46,10 +46,6 @@ mesh_seq = GoalOrientedMeshSeq(
     qoi_type="steady",
 )
 
-# # FIXME: Sub-quadratic convergence
-# # Run a Taylor test to check the gradient is computed correctly
-# mesh_seq.taylor_test("yc")
-
 # Solve the adjoint problem, computing gradients, and plot the x-velocity component of
 # both the forward and adjoint solutions
 solutions = mesh_seq.solve_adjoint(compute_gradient=True)
