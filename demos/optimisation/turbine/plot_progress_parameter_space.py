@@ -42,8 +42,7 @@ fixed_mesh_qois = -np.load(f"fixed_mesh_{n}_qoi.npy") * scaling
 # Plot the trajectory with the maximum QoI highlighted
 fig, axes = plt.subplots()
 axes.plot(sampled_controls, sampled_qois, "--x", label="Sampled data")
-axes.plot(fixed_mesh_controls, fixed_mesh_qois, "--x", label="Fixed mesh")
-# FIXME: Why are fixed mesh results not in parameter space?
+axes.plot(fixed_mesh_controls, fixed_mesh_qois, "--^", label="Fixed mesh")
 axes.plot(max_control, max_qoi, "o", label="Maximum value")
 axes.set_xlabel(r"Control turbine position [$\mathrm{m}$]")
 axes.set_ylabel(r"Power output [$\mathrm{MW}$]")
