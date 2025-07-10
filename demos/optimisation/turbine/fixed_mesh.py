@@ -1,6 +1,7 @@
 import argparse
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 from firedrake.pyplot import tricontourf
 from firedrake.utility_meshes import RectangleMesh
@@ -24,6 +25,11 @@ args = parser.parse_args()
 # Use parsed arguments
 n = args.n
 
+experiment_id = f"fixed_mesh_{n}"
+plot_dir = f"plots/{experiment_id}"
+if not os.path.exists(plot_dir):
+    os.makedirs(plot_dir)
+
 # Set up the AdjointMeshSeq
 mesh_seq = AdjointMeshSeq(
     TimeInstant(fields),
@@ -45,23 +51,28 @@ u, eta = solutions["solution_2d"]["forward"][0][0].subfunctions
 fig, axes = plt.subplots(figsize=(12, 5))
 axes.set_title(r"Forward $x$-velocity")
 fig.colorbar(tricontourf(u.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
-plt.savefig(f"fixed_mesh_{n}_forward.jpg", bbox_inches="tight")
+plt.savefig(f"{plot_dir}/forward.jpg", bbox_inches="tight")
 fig, axes = plt.subplots(figsize=(12, 5))
 axes.set_title(r"Adjoint $x$-velocity")
 u_star, eta_star = solutions["solution_2d"]["adjoint"][0][0].subfunctions
 fig.colorbar(tricontourf(u_star.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
-plt.savefig(f"fixed_mesh_{n}_adjoint.jpg", bbox_inches="tight")
+plt.savefig(f"{plot_dir}/adjoint.jpg", bbox_inches="tight")
 
 J = mesh_seq.J
 print(f"J = {J:.4e}")
 
+# Set optimiser parameters, including a large starting step length
 parameters = OptimisationParameters({"lr": 10.0})
 print(parameters)
 
+# Run the optimiser
 optimiser = QoIOptimiser(mesh_seq, "yc", parameters, method="gradient_descent")
 optimiser.minimise()
 
-np.save(f"fixed_mesh_{n}_control.npy", optimiser.progress["control"])
-np.save(f"fixed_mesh_{n}_qoi.npy", optimiser.progress["qoi"])
+# Write the optimiser progress to file
+output_dir = f"outputs/{experiment_id}"
+np.save(f"{output_dir}/control.npy", optimiser.progress["control"])
+np.save(f"{output_dir}/qoi.npy", optimiser.progress["qoi"])
 
-plot_patches(mesh_seq, optimiser.progress["control"][-1], f"fixed_mesh_{n}_patches.jpg")
+# Plot the patches for the final positions
+plot_patches(mesh_seq, optimiser.progress["control"][-1], f"{plot_dir}/patches.jpg")

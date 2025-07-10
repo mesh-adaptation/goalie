@@ -1,6 +1,7 @@
 import argparse
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 from scipy.interpolate import CubicSpline
 
 from setup import qoi_scaling
@@ -15,8 +16,8 @@ args = parser.parse_args()
 n = args.n
 scaling = 1e-6 / qoi_scaling
 
-sampled_controls = np.load(f"controls_{n}.npy")
-sampled_qois = -np.load(f"qois_{n}.npy") * scaling
+sampled_controls = np.load(f"outputs/fixed_mesh_{n}/sampled_controls.npy")
+sampled_qois = -np.load(f"outputs/fixed_mesh_{n}/sampled_qois.npy") * scaling
 
 # Perform cubic interpolation
 cubic_spline = CubicSpline(sampled_controls, sampled_qois)
@@ -36,8 +37,8 @@ max_control = critical_controls[max_index]
 max_qoi = critical_qois[max_index]
 print(f"Maximum QoI: {max_qoi} at Control: {max_control}")
 
-fixed_mesh_controls = np.load(f"fixed_mesh_{n}_control.npy")
-fixed_mesh_qois = -np.load(f"fixed_mesh_{n}_qoi.npy") * scaling
+fixed_mesh_controls = np.load(f"outputs/fixed_mesh_{n}/control.npy")
+fixed_mesh_qois = -np.load(f"outputs/fixed_mesh_{n}/qoi.npy") * scaling
 
 # Plot the trajectory with the maximum QoI highlighted
 fig, axes = plt.subplots()
@@ -48,4 +49,4 @@ axes.set_xlabel(r"Control turbine position [$\mathrm{m}$]")
 axes.set_ylabel(r"Power output [$\mathrm{MW}$]")
 axes.grid(True)
 axes.legend()
-plt.savefig(f"progress_parameter_space_{n}.png", bbox_inches="tight")
+plt.savefig(f"plots/fixed_mesh_{n}/progress_parameter_space.png", bbox_inches="tight")

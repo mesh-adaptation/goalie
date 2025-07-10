@@ -13,8 +13,10 @@ parser = argparse.ArgumentParser(description="Explore parameter space by varying
 parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
 args = parser.parse_args()
 
-# Consider a relatively fine uniform mesh
 n = args.n
+output_dir = f"outputs/fixed_mesh_{n}"
+
+# Consider a relatively fine uniform mesh
 mesh = RectangleMesh(60 * 2**n, 25 * 2**n, 1200, 500)
 
 # Explore the parameter space and compute the corresponding cost function values
@@ -41,5 +43,5 @@ for i, control in enumerate(controls):
     qois.append(J)
 
     # Save the trajectory to file
-    np.save(f"controls_{n}.npy", controls[: i + 1])
-    np.save(f"qois_{n}.npy", qois)
+    np.save(f"{output_dir}/sampled_controls.npy", controls[: i + 1])
+    np.save(f"{output_dir}/sampled_qois.npy", qois)

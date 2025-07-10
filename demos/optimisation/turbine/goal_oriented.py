@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 import os
-import subprocess
 
 from animate.metric import RiemannianMetric
 from animate.adapt import adapt
@@ -22,6 +21,7 @@ from goalie.options import OptimisationParameters
 from goalie.time_partition import TimeInstant
 
 from setup import *
+from utils import get_experiment_id
 
 # Add argparse for command-line arguments
 parser = argparse.ArgumentParser(description="Plot progress of controls and QoIs.")
@@ -33,28 +33,19 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-
-def get_git_hash():
-    """Generate experiment identifier"""
-    try:
-        return (
-            subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
-            .decode()
-            .strip()
-        )
-    except subprocess.CalledProcessError as cpe:
-        raise RuntimeError("Could not retrieve git hash.") from cpe
-
-
-experiment_id = (
-    f"goal_oriented_n{args.n}_anisotropic{int(args.anisotropic)}_{get_git_hash()}"
-)
-print(f"Experiment ID: {experiment_id}")
-
 # Use parsed arguments
 n = args.n
 anisotropic = args.anisotropic
 aniso_str = "aniso" if anisotropic else "iso"
+
+experiment_id = (
+    f"goal_oriented_n{n}_anisotropic{int(anisotropic)}_{get_experiment_id()}"
+)
+print(f"Experiment ID: {experiment_id}")
+
+plot_dir = f"plots/{experiment_id}"
+if not os.path.exists(plot_dir):
+    os.makedirs(plot_dir)
 
 # Set up the GoalOrientedMeshSeq
 mesh_seq = GoalOrientedMeshSeq(
@@ -73,12 +64,12 @@ u, eta = solutions["solution_2d"]["forward"][0][0].subfunctions
 fig, axes = plt.subplots(figsize=(12, 5))
 axes.set_title(r"Forward $x$-velocity")
 fig.colorbar(tricontourf(u.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
-plt.savefig(f"goal_oriented_{n}_forward.jpg", bbox_inches="tight")
+plt.savefig(f"{plot_dir}/forward.jpg", bbox_inches="tight")
 fig, axes = plt.subplots(figsize=(12, 5))
 axes.set_title(r"Adjoint $x$-velocity")
 u_star, eta_star = solutions["solution_2d"]["adjoint"][0][0].subfunctions
 fig.colorbar(tricontourf(u_star.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
-plt.savefig(f"goal_oriented_{n}_adjoint.jpg", bbox_inches="tight")
+plt.savefig(f"{plot_dir}/adjoint.jpg", bbox_inches="tight")
 
 J = mesh_seq.J
 print(f"J = {J:.4e}")
@@ -136,7 +127,7 @@ def adaptor(mesh_seq, solutions, indicators):
     interior_kw = {"edgecolor": "k", "linewidth": 0.5}
     mesh_seq.plot(fig=fig, axes=axes, interior_kw=interior_kw)
     axes.set_title(f"Mesh at iteration {iteration + 1}")
-    fig.savefig(f"{aniso_str}_go_mesh{iteration + 1}.jpg")
+    fig.savefig(f"{plot_dir}/mesh{iteration + 1}.jpg")
     plt.close()
 
     # Plot error indicator on intermediate meshes
@@ -146,9 +137,9 @@ def adaptor(mesh_seq, solutions, indicators):
     fig, axes, tcs = plot_indicator_snapshots(
         indicators, mesh_seq.time_partition, "solution_2d", **plot_kwargs
     )
-    axes.set_title(f"Indicator at iteration {mesh_seq.fp_iteration + 1}")
+    axes.set_title(f"Indicator at iteration {iteration + 1}")
     fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
-    fig.savefig(f"{aniso_str}_go_indicator{mesh_seq.fp_iteration + 1}.jpg")
+    fig.savefig(f"{plot_dir}/indicator{iteration + 1}.jpg")
     plt.close()
 
     # Check whether the target complexity has been (approximately) reached. If not,
@@ -173,4 +164,4 @@ np.save(f"{output_dir}/qoi.npy", optimiser.progress["qoi"])
 # TODO: Write the final mesh to file
 
 # Plot the patches for the final positions
-plot_patches(mesh_seq, optimiser.progress["control"][-1], f"{output_dir}/patches.jpg")
+plot_patches(mesh_seq, optimiser.progress["control"][-1], f"{plot_dir}/patches.jpg")
