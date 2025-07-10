@@ -162,6 +162,8 @@ class QoIOptimiser_Base(abc.ABC):
             J = mesh_seq.J
             u = mesh_seq.controls[self.control].tape_value()
             dJ = mesh_seq.gradient[self.control]
+            if mesh_seq.fp_iteration == 1:
+                self.progress["control"].append(float(u))
 
             # Take a step with the specified optimisation method and track progress
             self.step(u, J, dJ)
@@ -192,6 +194,7 @@ class QoIOptimiser_Base(abc.ABC):
             if mesh_seq.fp_iteration == 1:
                 continue
             if self.check_gradient_convergence():
+                self.progress["control"].pop()
                 self.progress.convert_to_float()
                 return
             self.check_qoi_divergence()
