@@ -109,6 +109,7 @@ def adaptor(mesh_seq, solutions, indicators):
 
         # Deduce an anisotropic metric from the error indicator field and the Hessian
         metric.compute_anisotropic_dwr_metric(indicators["solution_2d"][0][0], hessian)
+        # FIXME: Why does it only refine the inflow?
     else:
         # Deduce an isotropic metric from the error indicator field
         metric.compute_isotropic_dwr_metric(indicators["solution_2d"][0][0])
