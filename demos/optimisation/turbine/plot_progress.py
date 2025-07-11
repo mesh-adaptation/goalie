@@ -25,8 +25,8 @@ if not os.path.exists(plot_dir):
 
 # Define approaches
 go_labels = {
-    "goal_oriented_iso": "Goal-oriented (isotropic)",
-    "goal_oriented_aniso": "Goal-oriented (anisotropic)",
+    False: "Goal-oriented (isotropic)",
+    True: "Goal-oriented (anisotropic)",
 }
 
 # Plot controls for all approaches
@@ -34,18 +34,20 @@ fig, axes = plt.subplots()
 # Plot fixed mesh cases
 for n in range(min_n, max_n + 1):
     try:
-        controls = np.load(f"outputs/fixed_mesh_{n}/control.npy")
+        controls = np.load(f"outputs/fixed_mesh_{n}/controls.npy")
         axes.plot(controls, "--x", label=f"Fixed mesh ({3000 * 2**n} elements)")
     except FileNotFoundError:
         print(f"Control data for fixed_mesh with n={n} not found.")
 # Plot goal-oriented cases
 n = args.n
-for approach, label in go_labels.items():
+for anisotropic, label in go_labels.items():
+    output_dir = f"outputs/{experiment_id}"
+    model_config = f"goal_oriented_n{n}_anisotropic{int(anisotropic)}"
     try:
-        controls = np.load(f"outputs/{approach}_{n}_{experiment_id}/control.npy")
+        controls = np.load(f"{output_dir}/{model_config}_controls.npy")
         axes.plot(controls, "--x", label=label)
     except FileNotFoundError:
-        print(f"Control data for {approach} with n={n} not found.")
+        print(f"Control data not found for {model_config}.")
 axes.set_xlabel("Iteration")
 axes.set_ylabel(r"Control turbine position [$\mathrm{m}$]")
 axes.grid(True)
@@ -57,18 +59,20 @@ fig, axes = plt.subplots()
 # Plot fixed mesh cases
 for n in range(min_n, max_n + 1):
     try:
-        qois = -np.load(f"outputs/fixed_mesh_{n}/qoi.npy") * scaling
+        qois = -np.load(f"outputs/fixed_mesh_{n}/qois.npy") * scaling
         axes.plot(qois, "--x", label=f"Fixed mesh ({3000 * 2**n} elements)")
     except FileNotFoundError:
         print(f"QoI data for fixed_mesh with n={n} not found.")
 # Plot goal-oriented cases
 n = args.n
-for approach, label in go_labels.items():
+for anisotropic, label in go_labels.items():
+    output_dir = f"outputs/{experiment_id}"
+    model_config = f"goal_oriented_n{n}_anisotropic{int(anisotropic)}"
     try:
-        qois = -np.load(f"outputs/{approach}_{n}_{experiment_id}/qoi.npy") * scaling
+        qois = -np.load(f"{output_dir}/{model_config}_qois.npy") * scaling
         axes.plot(qois, "--x", label=label)
     except FileNotFoundError:
-        print(f"QoI data for {approach} with n={n} not found.")
+        print(f"QoI data not found for {model_config}.")
 
 axes.set_xlabel("Iteration")
 axes.set_ylabel(r"Power output [$\mathrm{MW}$]")

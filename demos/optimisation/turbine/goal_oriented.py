@@ -38,14 +38,15 @@ n = args.n
 anisotropic = args.anisotropic
 aniso_str = "aniso" if anisotropic else "iso"
 
-experiment_id = (
-    f"goal_oriented_n{n}_anisotropic{int(anisotropic)}_{get_experiment_id()}"
-)
+# Determine the experiment_id and create associated directories
+experiment_id = get_experiment_id()
 print(f"Experiment ID: {experiment_id}")
-
 plot_dir = f"plots/{experiment_id}"
 if not os.path.exists(plot_dir):
     os.makedirs(plot_dir)
+output_dir = f"outputs/{experiment_id}"
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
 # Set up the GoalOrientedMeshSeq
 mesh_seq = GoalOrientedMeshSeq(
@@ -156,11 +157,14 @@ optimiser = QoIOptimiser(
 optimiser.minimise(dropout=False)
 
 # Write the optimiser progress to file
-output_dir = f"outputs/{experiment_id}"
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
-np.save(f"{output_dir}/controls.npy", optimiser.progress["control"])
-np.save(f"{output_dir}/qois.npy", optimiser.progress["qoi"])
+np.save(
+    f"{output_dir}/goal_oriented_n{n}_anisotropic{int(anisotropic)}_controls.npy",
+    optimiser.progress["control"],
+)
+np.save(
+    f"{output_dir}/goal_oriented_n{n}_anisotropic{int(anisotropic)}_qois.npy",
+    optimiser.progress["qoi"],
+)
 # TODO: Write the final mesh to file
 
 # Plot the patches for the final positions
