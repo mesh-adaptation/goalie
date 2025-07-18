@@ -110,6 +110,7 @@ def adaptor(mesh_seq, solutions, indicators):
         # Deduce an anisotropic metric from the error indicator field and the Hessian
         metric.compute_anisotropic_dwr_metric(indicators["solution_2d"][0][0], hessian)
         # FIXME: Why does it only refine the inflow?
+        # TODO: Plot Hessian components for debugging (indicators seem fine)
     else:
         # Deduce an isotropic metric from the error indicator field
         metric.compute_isotropic_dwr_metric(indicators["solution_2d"][0][0])
@@ -131,6 +132,7 @@ def adaptor(mesh_seq, solutions, indicators):
     axes.set_title(f"Mesh at iteration {iteration + 1}")
     fig.savefig(f"{plot_dir}/mesh{iteration + 1}.jpg")
     plt.close()
+    # TODO: Write meshes to checkpoint files so we can analyse them / restart
 
     # Plot error indicator on intermediate meshes
     plot_kwargs = {"figsize": (12, 5)}
@@ -166,7 +168,6 @@ np.save(
     f"{output_dir}/goal_oriented_n{n}_anisotropic{int(anisotropic)}_qois.npy",
     optimiser.progress["qoi"],
 )
-# TODO: Write the final mesh to file
 
 # Plot the patches for the final positions
 plot_patches(mesh_seq, optimiser.progress["control"][-1], f"{plot_dir}/patches.jpg")
