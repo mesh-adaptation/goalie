@@ -13,6 +13,7 @@ goalie.egg-info/
 # File extensions
 *.ipynb*
 *.jpg
+*.h5
 *.msh
 *.npy
 *.patch

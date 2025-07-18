@@ -7,9 +7,10 @@ import os
 
 from animate.metric import RiemannianMetric
 from animate.adapt import adapt
-from firedrake.pyplot import tricontourf
+from firedrake.checkpointing import CheckpointFile
 from firedrake.function import Function
 from firedrake.functionspace import TensorFunctionSpace
+from firedrake.pyplot import tricontourf
 from firedrake.utility_meshes import RectangleMesh
 
 from goalie.go_mesh_seq import GoalOrientedMeshSeq
@@ -24,7 +25,7 @@ from setup import *
 from utils import get_experiment_id
 
 # Add argparse for command-line arguments
-parser = argparse.ArgumentParser(description="Plot progress of controls and QoIs.")
+parser = argparse.ArgumentParser(description="Run with goal-oriented adaptation.")
 parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
 parser.add_argument(
     "--anisotropic",
@@ -37,16 +38,20 @@ args = parser.parse_args()
 n = args.n
 anisotropic = args.anisotropic
 aniso_str = "aniso" if anisotropic else "iso"
+config_str = f"{aniso_str}_n{n}"
 
 # Determine the experiment_id and create associated directories
 experiment_id = get_experiment_id()
 print(f"Experiment ID: {experiment_id}")
-plot_dir = f"plots/{experiment_id}"
+plot_dir = os.path.join("plots", experiment_id)
 if not os.path.exists(plot_dir):
     os.makedirs(plot_dir)
-output_dir = f"outputs/{experiment_id}"
+output_dir = os.path.join("outputs", experiment_id)
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
+data_dir = os.path.join("data", experiment_id)
+if not os.path.exists(data_dir):
+    os.makedirs(data_dir)
 
 # Set up the GoalOrientedMeshSeq
 mesh_seq = GoalOrientedMeshSeq(
@@ -121,18 +126,14 @@ def adaptor(mesh_seq, solutions, indicators):
     num_dofs = mesh_seq.count_vertices()[0]
     num_elem = mesh_seq.count_elements()[0]
     pyrint(
-        f"{iteration + 1:2d}, complexity: {complexity:4.0f}"
+        f"{iteration:2d}, complexity: {complexity:4.0f}"
         f", dofs: {num_dofs:4d}, elements: {num_elem:4d}"
     )
 
-    # Plot each intermediate adapted mesh
-    fig, axes = plt.subplots(figsize=(12, 5))
-    interior_kw = {"edgecolor": "k", "linewidth": 0.5}
-    mesh_seq.plot(fig=fig, axes=axes, interior_kw=interior_kw)
-    axes.set_title(f"Mesh at iteration {iteration + 1}")
-    fig.savefig(f"{plot_dir}/mesh{iteration + 1}.jpg")
-    plt.close()
-    # TODO: Write meshes to checkpoint files so we can analyse them / restart
+    # Write each intermediate adapted mesh
+    checkpoint_filename = os.path.join(data_dir, f"{config_str}_mesh{iteration}.h5")
+    with CheckpointFile(checkpoint_filename, "w") as chk:
+        chk.save_mesh(mesh_seq[0])
 
     # Plot error indicator on intermediate meshes
     plot_kwargs = {"figsize": (12, 5)}
@@ -141,9 +142,9 @@ def adaptor(mesh_seq, solutions, indicators):
     fig, axes, tcs = plot_indicator_snapshots(
         indicators, mesh_seq.time_partition, "solution_2d", **plot_kwargs
     )
-    axes.set_title(f"Indicator at iteration {iteration + 1}")
+    axes.set_title(f"Indicator at iteration {iteration}")
     fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
-    fig.savefig(f"{plot_dir}/indicator{iteration + 1}.jpg")
+    fig.savefig(f"{plot_dir}/{config_str}_indicator{iteration}.jpg")
     plt.close()
 
     # Check whether the target complexity has been (approximately) reached. If not,
@@ -170,4 +171,6 @@ np.save(
 )
 
 # Plot the patches for the final positions
-plot_patches(mesh_seq, optimiser.progress["control"][-1], f"{plot_dir}/patches.jpg")
+plot_patches(
+    mesh_seq, optimiser.progress["control"][-1], f"{plot_dir}/{config_str}_patches.jpg"
+)
