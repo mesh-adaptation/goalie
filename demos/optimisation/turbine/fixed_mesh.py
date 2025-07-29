@@ -20,6 +20,7 @@ from setup import *
 parser = argparse.ArgumentParser(description="Plot progress of controls and QoIs.")
 parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
 parser.add_argument("--taylor_test", action="store_true", help="Run a Taylor test.")
+parser.add_argument("--plot_setup", action="store_true", help="Plot the problem setup.")
 args = parser.parse_args()
 
 # Use parsed arguments
@@ -40,6 +41,10 @@ mesh_seq = AdjointMeshSeq(
     qoi_type="steady",
 )
 
+# Plot the problem setup
+if args.plot_setup:
+    plot_setup("plots/setup.jpg")
+
 # Run a Taylor test to check the gradient is computed correctly
 if args.taylor_test:
     mesh_seq.taylor_test("yc")
@@ -49,14 +54,17 @@ if args.taylor_test:
 solutions = mesh_seq.solve_adjoint(compute_gradient=True)
 u, eta = solutions["solution_2d"]["forward"][0][0].subfunctions
 fig, axes = plt.subplots(figsize=(12, 5))
-axes.set_title(r"Forward $x$-velocity")
+axes.set_xlabel(r"x-coordinate $\mathrm{[m]}$")
+axes.set_ylabel(r"y-coordinate $\mathrm{[m]}$")
 fig.colorbar(tricontourf(u.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
-plt.savefig(f"{plot_dir}/forward.jpg", bbox_inches="tight")
+plt.savefig(f"{plot_dir}/fixed_mesh_{n}_forward_unoptimised.jpg", bbox_inches="tight")
 fig, axes = plt.subplots(figsize=(12, 5))
 axes.set_title(r"Adjoint $x$-velocity")
+axes.set_xlabel(r"x-coordinate $\mathrm{[m]}$")
+axes.set_ylabel(r"y-coordinate $\mathrm{[m]}$")
 u_star, eta_star = solutions["solution_2d"]["adjoint"][0][0].subfunctions
 fig.colorbar(tricontourf(u_star.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
-plt.savefig(f"{plot_dir}/adjoint.jpg", bbox_inches="tight")
+plt.savefig(f"{plot_dir}/fixed_mesh_{n}_adjoint_unoptimised.jpg", bbox_inches="tight")
 
 J = mesh_seq.J
 print(f"J = {J:.4e}")

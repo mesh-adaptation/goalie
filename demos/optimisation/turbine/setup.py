@@ -15,6 +15,7 @@ __all__ = [
     "get_initial_condition",
     "get_solver",
     "get_qoi",
+    "plot_setup",
     "plot_patches",
 ]
 
@@ -253,9 +254,75 @@ def get_qoi(mesh_seq, index):
     return steady_qoi
 
 
+def add_patch(axes, xloc, yloc, colour, label, diameter=20.0):
+    """
+    Adds a square patch to the given axes at the specified location.
+
+    :param axes: The matplotlib axes object to which the patch will be added.
+    :type axes: matplotlib.axes.Axes
+    :param xloc: The x-coordinate of the center of the square.
+    :type xloc: float
+    :param yloc: The y-coordinate of the center of the square.
+    :type yloc: float
+    :param colour: The color of the square (used for both edge and face).
+    :type colour: str
+    :param label: The label associated with the square.
+    :type label: str
+    :param diameter: The side length of the square. Defaults to 20.0.
+    :type diameter: float
+    """
+    axes.add_patch(
+        patches.Rectangle(
+            (xloc - diameter / 2, yloc - diameter / 2),
+            diameter,
+            diameter,
+            edgecolor=colour,
+            facecolor=colour,
+            linewidth=0.1,
+            label=label,
+        )
+    )
+
+
+def plot_setup(filename):
+    """
+    Plot the initial turbine locations.
+
+    :arg filename: name of the file to save the plot
+    :type filename: :class:`str`
+    """
+    fig, axes = plt.subplots(figsize=(12, 5))
+    axes.plot([0, 0], [0, 500], color="C2", linewidth=3, label="Inflow boundary")
+    axes.plot([1200, 1200], [0, 500], color="C3", linewidth=3, label="Outflow boundary")
+    axes.plot([0, 1200], [0, 0], color="C4", linewidth=3, label="No-slip boundary")
+    axes.plot([0, 1200], [500, 500], color="C4", linewidth=3)
+    for i, (xloc, yloc) in enumerate(turbine_locations[:3]):
+        add_patch(axes, xloc, yloc, "C0", "Fixed turbines")
+    xc, yc = turbine_locations[3]
+    add_patch(axes, xc, yc, "C1", "Control turbine")
+    axes.set_title("")
+    axes.set_xlabel(r"x-coordinate $\mathrm{[m]}$")
+    axes.set_ylabel(r"y-coordinate $\mathrm{[m]}$")
+    axes.axis(True)
+    eps = 5
+    axes.set_xlim([-eps, 1200 + eps])
+    axes.set_ylim([-eps, 500 + eps])
+    handles, labels = axes.get_legend_handles_labels()
+    handles = [handles[0], handles[1], handles[2], handles[-2], handles[-1]]
+    labels = [
+        "Inflow boundary",
+        "Outflow boundary",
+        "No-slip boundary",
+        labels[-2],
+        labels[-1],
+    ]
+    axes.legend(handles, labels, loc="upper left")
+    plt.savefig(filename, bbox_inches="tight")
+
+
 def plot_patches(mesh_seq, optimised, filename):
     """
-    Plot the initial and final turbine locations
+    Plot the initial and final turbine locations over the mesh.
 
     :arg mesh_seq: mesh sequence holding the mesh
     :type mesh_seq: :class:`goalie.mesh_seq.MeshSeq`
@@ -265,26 +332,12 @@ def plot_patches(mesh_seq, optimised, filename):
     :type filename: :class:`str`
     """
     fig, axes = plt.subplots(figsize=(12, 5))
-
-    def add_patch(xloc, yloc, colour, label, diameter=20.0):
-        axes.add_patch(
-            patches.Rectangle(
-                (xloc - diameter / 2, yloc - diameter / 2),
-                diameter,
-                diameter,
-                edgecolor=colour,
-                facecolor=colour,
-                linewidth=0.1,
-                label=label,
-            )
-        )
-
     mesh_seq.plot(fig=fig, axes=axes)
     for i, (xloc, yloc) in enumerate(turbine_locations[:3]):
-        add_patch(xloc, yloc, "C0", "Fixed")
+        add_patch(axes, xloc, yloc, "C0", "Fixed turbines")
     xc, yc = turbine_locations[3]
-    add_patch(xc, yc, "C1", "Initial")
-    add_patch(xc, optimised, "C2", "Optimised")
+    add_patch(axes, xc, yc, "C1", "Initial control turbine")
+    add_patch(axes, xc, optimised, "C2", "Optimised control turbine")
     axes.set_title("")
     handles, labels = axes.get_legend_handles_labels()
     axes.legend(handles[-3:], labels[-3:], loc="upper left")
