@@ -14,6 +14,7 @@ parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
 parser.add_argument(
     "--hash", type=str, default=None, help="Git hash identifier for the experiment."
 )
+# TODO: Accept multiple target complexities
 args = parser.parse_args()
 min_n = 0
 max_n = 4

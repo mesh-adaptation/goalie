@@ -20,8 +20,7 @@ args = parser.parse_args()
 # Use parsed arguments
 n = args.n
 anisotropic = args.anisotropic
-aniso_str = "aniso" if anisotropic else "iso"
-config_str = f"{aniso_str}_n{n}"
+config_str = f"goal_oriented_n{n}_anisotropic{int(anisotropic)}"
 
 # Determine the experiment_id and get associated directory
 experiment_id = get_latest_experiment_id()
