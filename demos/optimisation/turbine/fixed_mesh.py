@@ -59,7 +59,6 @@ axes.set_ylabel(r"y-coordinate $\mathrm{[m]}$")
 fig.colorbar(tricontourf(u.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
 plt.savefig(f"{plot_dir}/fixed_mesh_{n}_forward_unoptimised.jpg", bbox_inches="tight")
 fig, axes = plt.subplots(figsize=(12, 5))
-axes.set_title(r"Adjoint $x$-velocity")
 axes.set_xlabel(r"x-coordinate $\mathrm{[m]}$")
 axes.set_ylabel(r"y-coordinate $\mathrm{[m]}$")
 u_star, eta_star = solutions["solution_2d"]["adjoint"][0][0].subfunctions
@@ -75,7 +74,7 @@ print(parameters)
 
 # Run the optimiser
 optimiser = QoIOptimiser(mesh_seq, "yc", parameters, method="gradient_descent")
-optimiser.minimise()
+solutions = optimiser.minimise()
 
 # Write the optimiser progress to file
 output_dir = f"outputs/{experiment_id}"
@@ -84,3 +83,11 @@ np.save(f"{output_dir}/qois.npy", optimiser.progress["qoi"])
 
 # Plot the patches for the final positions
 plot_patches(mesh_seq, optimiser.progress["control"][-1], f"{plot_dir}/patches.jpg")
+
+# Plot the x-velocity component of the forward solution for the final control
+u, eta = solutions["solution_2d"]["forward"][0][0].subfunctions
+fig, axes = plt.subplots(figsize=(12, 5))
+axes.set_xlabel(r"x-coordinate $\mathrm{[m]}$")
+axes.set_ylabel(r"y-coordinate $\mathrm{[m]}$")
+fig.colorbar(tricontourf(u.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
+plt.savefig(f"{plot_dir}/fixed_mesh_{n}_forward_optimised.jpg", bbox_inches="tight")

@@ -37,8 +37,7 @@ args = parser.parse_args()
 # Use parsed arguments
 n = args.n
 anisotropic = args.anisotropic
-aniso_str = "aniso" if anisotropic else "iso"
-config_str = f"{aniso_str}_n{n}"
+config_str = f"goal_oriented_n{n}_anisotropic{int(anisotropic)}"
 
 # Determine the experiment_id and create associated directories
 experiment_id = get_experiment_id()
@@ -70,12 +69,12 @@ u, eta = solutions["solution_2d"]["forward"][0][0].subfunctions
 fig, axes = plt.subplots(figsize=(12, 5))
 axes.set_title(r"Forward $x$-velocity")
 fig.colorbar(tricontourf(u.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
-plt.savefig(f"{plot_dir}/forward.jpg", bbox_inches="tight")
+plt.savefig(f"{plot_dir}/{config_str}_forward_unoptimised.jpg", bbox_inches="tight")
 fig, axes = plt.subplots(figsize=(12, 5))
 axes.set_title(r"Adjoint $x$-velocity")
 u_star, eta_star = solutions["solution_2d"]["adjoint"][0][0].subfunctions
 fig.colorbar(tricontourf(u_star.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
-plt.savefig(f"{plot_dir}/adjoint.jpg", bbox_inches="tight")
+plt.savefig(f"{plot_dir}/{config_str}_adjoint_unoptimised.jpg", bbox_inches="tight")
 
 J = mesh_seq.J
 print(f"J = {J:.4e}")
@@ -161,16 +160,18 @@ optimiser = QoIOptimiser(
 optimiser.minimise(dropout=False)
 
 # Write the optimiser progress to file
-np.save(
-    f"{output_dir}/goal_oriented_n{n}_anisotropic{int(anisotropic)}_controls.npy",
-    optimiser.progress["control"],
-)
-np.save(
-    f"{output_dir}/goal_oriented_n{n}_anisotropic{int(anisotropic)}_qois.npy",
-    optimiser.progress["qoi"],
-)
+np.save(f"{output_dir}/{config_str}_controls.npy", optimiser.progress["control"])
+np.save(f"{output_dir}/{config_str}_qois.npy", optimiser.progress["qoi"])
 
 # Plot the patches for the final positions
 plot_patches(
     mesh_seq, optimiser.progress["control"][-1], f"{plot_dir}/{config_str}_patches.jpg"
 )
+
+# Plot the x-velocity component of the forward solution for the final control/mesh
+u, eta = solutions["solution_2d"]["forward"][0][0].subfunctions
+fig, axes = plt.subplots(figsize=(12, 5))
+axes.set_xlabel(r"x-coordinate $\mathrm{[m]}$")
+axes.set_ylabel(r"y-coordinate $\mathrm{[m]}$")
+fig.colorbar(tricontourf(u.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
+plt.savefig(f"{plot_dir}/{config_str}_forward_optimised.jpg", bbox_inches="tight")
