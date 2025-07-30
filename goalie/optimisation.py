@@ -142,6 +142,8 @@ class QoIOptimiser_Base(abc.ABC):
         :type adaptation_parameters: :class:`~.GoalOrientedAdaptParameters`
         :kwarg dropout: whether to stop adapting once the mesh has converged
         :type dropout: :class:`bool`
+        :return: solution data from the last iteration
+        :rtype: :class:`goalie.function.FunctionData`
 
         :raises: :class:`~.ConvergenceError` if the maximum number of iterations are
             reached.
@@ -196,7 +198,7 @@ class QoIOptimiser_Base(abc.ABC):
             if self.check_gradient_convergence():
                 self.progress["control"].pop()
                 self.progress.convert_to_float()
-                return
+                return mesh_seq.solve_forward()
             self.check_qoi_divergence()
         raise ConvergenceError("Reached maximum number of iterations.")
 
