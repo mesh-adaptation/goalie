@@ -529,8 +529,9 @@ class AdjointMeshSeq(MeshSeq):
             with PETSc.Log.Event("goalie.AdjointMeshSeq.solve_adjoint.evaluate_adj"):
                 controls = pyadjoint.enlisting.Enlist(self._controls)
                 with pyadjoint.stop_annotating():
-                    with tape.marked_nodes(controls):
-                        tape.evaluate_adj(markings=True)
+                    with tape.marked_control_dependents(controls):
+                        with tape.marked_functional_dependencies(self.J):
+                            tape.evaluate_adj(markings=True)
 
                 # Compute the gradient on the first subinterval
                 if i == 0 and compute_gradient:
@@ -564,7 +565,7 @@ class AdjointMeshSeq(MeshSeq):
                 if len(solve_blocks[::stride]) >= num_exports:
                     self.warning(
                         "More solve blocks than expected:"
-                        f" ({len(solve_blocks[::stride])} > {num_exports-1})."
+                        f" ({len(solve_blocks[::stride])} > {num_exports - 1})."
                     )
 
                 # Update forward and adjoint solution data based on block dependencies
@@ -739,7 +740,7 @@ class AdjointMeshSeq(MeshSeq):
             qoi_, qoi = self.qoi_values[-2:]
             if abs(qoi - qoi_) < self.params.qoi_rtol * abs(qoi_):
                 pyrint(
-                    f"QoI converged after {self.fp_iteration+1} iterations"
+                    f"QoI converged after {self.fp_iteration + 1} iterations"
                     f" under relative tolerance {self.params.qoi_rtol}."
                 )
                 return True
