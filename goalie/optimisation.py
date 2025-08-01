@@ -10,6 +10,7 @@ import ufl
 from firedrake.assemble import assemble
 from firedrake.exceptions import ConvergenceError
 from firedrake.function import Function
+from firedrake.petsc import PETSc
 
 from .go_mesh_seq import GoalOrientedMeshSeq
 from .log import pyrint, warning
@@ -128,6 +129,7 @@ class QoIOptimiser_Base(abc.ABC):
         if np.abs(self.mesh_seq.J / np.min(self.progress["qoi"])) > self.params.dtol:
             raise ConvergenceError("QoI divergence detected.")
 
+    @PETSc.Log.EventDecorator()
     def minimise(self, adaptation_parameters=None, dropout=True):
         """
         Custom minimisation routine, where the tape is re-annotated each iteration to
@@ -211,6 +213,7 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
     order = 1
     method_type = "gradient-based"
 
+    @PETSc.Log.EventDecorator()
     def step(self, u, J, dJ):
         """
         Take one gradient descent step.
@@ -255,6 +258,7 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
         u.dat.data[:] += self.params.lr * P.dat.data
 
 
+@PETSc.Log.EventDecorator()
 def QoIOptimiser(mesh_seq, control, params, method="gradient_descent", **kwargs):
     """
     Factory method for constructing handlers for PDE-constrained optimisation.
