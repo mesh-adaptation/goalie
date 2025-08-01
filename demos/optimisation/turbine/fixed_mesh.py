@@ -83,7 +83,7 @@ J = mesh_seq.J
 print(f"J = {J:.4e}")
 
 # Set optimiser parameters, including a large starting step length
-parameters = OptimisationParameters({"lr": 10.0})
+parameters = OptimisationParameters({"lr": 10.0, "gtol": 1.0e-3})
 print(parameters)
 
 # Run the optimiser
