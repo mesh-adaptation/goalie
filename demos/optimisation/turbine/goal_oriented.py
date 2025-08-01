@@ -32,6 +32,7 @@ parser.add_argument(
     action="store_true",
     help="Use anisotropic adaptation (default: False).",
 )
+parser.add_argument("--plot_fields", action="store_true", help="Plot solution fields.")
 args, _ = parser.parse_known_args()
 
 # Use parsed arguments
@@ -64,17 +65,20 @@ mesh_seq = GoalOrientedMeshSeq(
 
 # Solve the adjoint problem, computing gradients, and plot the x-velocity component of
 # both the forward and adjoint solutions
-solutions = mesh_seq.solve_adjoint(compute_gradient=True)
-u, eta = solutions["solution_2d"]["forward"][0][0].subfunctions
-fig, axes = plt.subplots(figsize=(12, 5))
-axes.set_title(r"Forward $x$-velocity")
-fig.colorbar(tricontourf(u.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
-plt.savefig(f"{plot_dir}/{config_str}_forward_unoptimised.jpg", bbox_inches="tight")
-fig, axes = plt.subplots(figsize=(12, 5))
-axes.set_title(r"Adjoint $x$-velocity")
-u_star, eta_star = solutions["solution_2d"]["adjoint"][0][0].subfunctions
-fig.colorbar(tricontourf(u_star.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
-plt.savefig(f"{plot_dir}/{config_str}_adjoint_unoptimised.jpg", bbox_inches="tight")
+if args.plot_fields:
+    solutions = mesh_seq.solve_adjoint(compute_gradient=True)
+    u, eta = solutions["solution_2d"]["forward"][0][0].subfunctions
+    fig, axes = plt.subplots(figsize=(12, 5))
+    axes.set_title(r"Forward $x$-velocity")
+    fig.colorbar(tricontourf(u.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
+    plt.savefig(f"{plot_dir}/{config_str}_forward_unoptimised.jpg", bbox_inches="tight")
+    fig, axes = plt.subplots(figsize=(12, 5))
+    axes.set_title(r"Adjoint $x$-velocity")
+    u_star, eta_star = solutions["solution_2d"]["adjoint"][0][0].subfunctions
+    fig.colorbar(
+        tricontourf(u_star.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes
+    )
+    plt.savefig(f"{plot_dir}/{config_str}_adjoint_unoptimised.jpg", bbox_inches="tight")
 
 J = mesh_seq.J
 print(f"J = {J:.4e}")
@@ -135,16 +139,17 @@ def adaptor(mesh_seq, solutions, indicators):
         chk.save_mesh(mesh_seq[0])
 
     # Plot error indicator on intermediate meshes
-    plot_kwargs = {"figsize": (12, 5)}
-    plot_kwargs["norm"] = mcolors.LogNorm()
-    plot_kwargs["locator"] = ticker.LogLocator()
-    fig, axes, tcs = plot_indicator_snapshots(
-        indicators, mesh_seq.time_partition, "solution_2d", **plot_kwargs
-    )
-    axes.set_title(f"Indicator at iteration {iteration}")
-    fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
-    fig.savefig(f"{plot_dir}/{config_str}_indicator{iteration}.jpg")
-    plt.close()
+    if args.plot_fields:
+        plot_kwargs = {"figsize": (12, 5)}
+        plot_kwargs["norm"] = mcolors.LogNorm()
+        plot_kwargs["locator"] = ticker.LogLocator()
+        fig, axes, tcs = plot_indicator_snapshots(
+            indicators, mesh_seq.time_partition, "solution_2d", **plot_kwargs
+        )
+        axes.set_title(f"Indicator at iteration {iteration}")
+        fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
+        fig.savefig(f"{plot_dir}/{config_str}_indicator{iteration}.jpg")
+        plt.close()
 
     # Check whether the target complexity has been (approximately) reached. If not,
     # return ``True`` to indicate that convergence checks should be skipped until the
@@ -163,15 +168,18 @@ optimiser.minimise(dropout=False)
 np.save(f"{output_dir}/{config_str}_controls.npy", optimiser.progress["control"])
 np.save(f"{output_dir}/{config_str}_qois.npy", optimiser.progress["qoi"])
 
-# Plot the patches for the final positions
-plot_patches(
-    mesh_seq, optimiser.progress["control"][-1], f"{plot_dir}/{config_str}_patches.jpg"
-)
+if args.plot_fields:
+    # Plot the patches for the final positions
+    plot_patches(
+        mesh_seq,
+        optimiser.progress["control"][-1],
+        f"{plot_dir}/{config_str}_patches.jpg",
+    )
 
-# Plot the x-velocity component of the forward solution for the final control/mesh
-u, eta = solutions["solution_2d"]["forward"][0][0].subfunctions
-fig, axes = plt.subplots(figsize=(12, 5))
-axes.set_xlabel(r"x-coordinate $\mathrm{[m]}$")
-axes.set_ylabel(r"y-coordinate $\mathrm{[m]}$")
-fig.colorbar(tricontourf(u.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
-plt.savefig(f"{plot_dir}/{config_str}_forward_optimised.jpg", bbox_inches="tight")
+    # Plot the x-velocity component of the forward solution for the final control/mesh
+    u, eta = solutions["solution_2d"]["forward"][0][0].subfunctions
+    fig, axes = plt.subplots(figsize=(12, 5))
+    axes.set_xlabel(r"x-coordinate $\mathrm{[m]}$")
+    axes.set_ylabel(r"y-coordinate $\mathrm{[m]}$")
+    fig.colorbar(tricontourf(u.subfunctions[0], axes=axes, cmap="coolwarm"), ax=axes)
+    plt.savefig(f"{plot_dir}/{config_str}_forward_optimised.jpg", bbox_inches="tight")
