@@ -28,6 +28,18 @@ from utils import get_experiment_id
 parser = argparse.ArgumentParser(description="Run with goal-oriented adaptation.")
 parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
 parser.add_argument(
+    "--base_complexity",
+    type=float,
+    default=1000.0,
+    help="Base metric complexity (default: 1000.0).",
+)
+parser.add_argument(
+    "--target_complexity",
+    type=float,
+    default=1000.0,  # FIXME: Avoid adjoint solver fail with larger values
+    help="Target metric complexity (default: 1000.0).",
+)
+parser.add_argument(
     "--anisotropic",
     action="store_true",
     help="Use anisotropic adaptation (default: False).",
@@ -38,7 +50,11 @@ args, _ = parser.parse_known_args()
 # Use parsed arguments
 n = args.n
 anisotropic = args.anisotropic
-config_str = f"goal_oriented_n{n}_anisotropic{int(anisotropic)}"
+base = args.base_complexity
+target = args.target_complexity
+config_str = (
+    f"goal_oriented_n{n}_anisotropic{int(anisotropic)}_base{base}_target{target}"
+)
 
 # Determine the experiment_id and create associated directories
 experiment_id = get_experiment_id()
@@ -93,13 +109,13 @@ def adaptor(mesh_seq, solutions, indicators):
     metric = RiemannianMetric(P1_ten)
 
     # Ramp the target metric complexity over the first few iterations
-    base = 1000
-    target = 1000  # FIXME: Avoid adjoint solver fail with larger values
     iteration = mesh_seq.fp_iteration
-    num_iterations = 3
     mp = {
         "dm_plex_metric_target_complexity": ramp_complexity(
-            base, target, iteration, num_iterations=num_iterations
+            base,
+            target,
+            iteration,
+            num_iterations=3,
         ),
         "dm_plex_metric_hausdorff_number": 0.01 * 1000,
     }
