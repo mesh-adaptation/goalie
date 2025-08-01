@@ -32,7 +32,7 @@ parser.add_argument(
     action="store_true",
     help="Use anisotropic adaptation (default: False).",
 )
-args = parser.parse_args()
+args, _ = parser.parse_known_args()
 
 # Use parsed arguments
 n = args.n

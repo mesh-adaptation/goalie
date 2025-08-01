@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser(description="Plot progress of controls and QoIs
 parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
 parser.add_argument("--taylor_test", action="store_true", help="Run a Taylor test.")
 parser.add_argument("--plot_setup", action="store_true", help="Plot the problem setup.")
-args = parser.parse_args()
+args, _ = parser.parse_known_args()
 
 # Use parsed arguments
 n = args.n
@@ -30,6 +30,9 @@ experiment_id = f"fixed_mesh_{n}"
 plot_dir = f"plots/{experiment_id}"
 if not os.path.exists(plot_dir):
     os.makedirs(plot_dir)
+output_dir = f"outputs/{experiment_id}"
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
 # Set up the AdjointMeshSeq
 mesh_seq = AdjointMeshSeq(
@@ -77,12 +80,12 @@ optimiser = QoIOptimiser(mesh_seq, "yc", parameters, method="gradient_descent")
 solutions = optimiser.minimise()
 
 # Write the optimiser progress to file
-output_dir = f"outputs/{experiment_id}"
 np.save(f"{output_dir}/controls.npy", optimiser.progress["control"])
 np.save(f"{output_dir}/qois.npy", optimiser.progress["qoi"])
 
 # Plot the patches for the final positions
-plot_patches(mesh_seq, optimiser.progress["control"][-1], f"{plot_dir}/patches.jpg")
+if n < 2:
+    plot_patches(mesh_seq, optimiser.progress["control"][-1], f"{plot_dir}/patches.jpg")
 
 # Plot the x-velocity component of the forward solution for the final control
 u, eta = solutions["solution_2d"]["forward"][0][0].subfunctions

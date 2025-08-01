@@ -11,7 +11,7 @@ from setup import *
 # Add argparse for command-line arguments
 parser = argparse.ArgumentParser(description="Explore parameter space by varying yc.")
 parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
-args = parser.parse_args()
+args, _ = parser.parse_known_args()
 
 n = args.n
 output_dir = f"outputs/fixed_mesh_{n}"
