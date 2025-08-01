@@ -97,6 +97,7 @@ with open(f"{output_dir}/cputime.txt", "w") as f:
 
 # Write the optimiser progress to file
 np.save(f"{output_dir}/controls.npy", optimiser.progress["control"])
+np.save(f"{output_dir}/timings.npy", optimiser.progress["cputime"])
 np.save(f"{output_dir}/qois.npy", optimiser.progress["qoi"])
 
 if args.plot_fields:

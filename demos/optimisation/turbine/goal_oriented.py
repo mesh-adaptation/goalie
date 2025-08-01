@@ -53,9 +53,7 @@ n = args.n
 anisotropic = args.anisotropic
 base = args.base_complexity
 target = args.target_complexity
-config_str = (
-    f"goal_oriented_n{n}_anisotropic{int(anisotropic)}_base{base}_target{target}"
-)
+config_str = f"goal_oriented_n{n}_anisotropic{int(anisotropic)}_base{int(base)}_target{int(target)}"
 
 # Determine the experiment_id and create associated directories
 experiment_id = get_experiment_id()
@@ -190,6 +188,7 @@ with open(f"{output_dir}/cputime.txt", "w") as f:
 
 # Write the optimiser progress to file
 np.save(f"{output_dir}/{config_str}_controls.npy", optimiser.progress["control"])
+np.save(f"{output_dir}/{config_str}_timings.npy", optimiser.progress["cputime"])
 np.save(f"{output_dir}/{config_str}_qois.npy", optimiser.progress["qoi"])
 
 if args.plot_fields:

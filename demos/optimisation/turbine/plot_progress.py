@@ -35,21 +35,32 @@ fig, axes = plt.subplots()
 # Plot fixed mesh cases
 for n in range(min_n, max_n + 1):
     try:
+        timings = np.load(f"outputs/fixed_mesh_{n}/timings.npy")
         controls = np.load(f"outputs/fixed_mesh_{n}/controls.npy")
-        axes.plot(controls, "--x", label=f"Fixed mesh ({3000 * 2**n} elements)")
+        axes.plot(
+            timings, controls, "--x", label=f"Fixed mesh ({3000 * 2**n} elements)"
+        )
     except FileNotFoundError:
         print(f"Control data for fixed_mesh with n={n} not found.")
+
 # Plot goal-oriented cases
 n = args.n
+# TODO: Vary complexity
+base = 1000
+target = 1000
+
 for anisotropic, label in go_labels.items():
     output_dir = f"outputs/{experiment_id}"
-    model_config = f"goal_oriented_n{n}_anisotropic{int(anisotropic)}"
+    model_config = (
+        f"goal_oriented_n{n}_anisotropic{int(anisotropic)}_base{base}_target{target}"
+    )
     try:
+        timings = np.load(f"{output_dir}/{model_config}_timings.npy")
         controls = np.load(f"{output_dir}/{model_config}_controls.npy")
-        axes.plot(controls, "--x", label=label)
+        axes.plot(timings, controls, "--x", label=label)
     except FileNotFoundError:
         print(f"Control data not found for {model_config}.")
-axes.set_xlabel("Iteration")
+axes.set_xlabel(r"CPU time [$\mathrm{s}$]")
 axes.set_ylabel(r"Control turbine position [$\mathrm{m}$]")
 axes.grid(True)
 axes.legend()
@@ -60,22 +71,26 @@ fig, axes = plt.subplots()
 # Plot fixed mesh cases
 for n in range(min_n, max_n + 1):
     try:
+        timings = np.load(f"outputs/fixed_mesh_{n}/timings.npy")
         qois = -np.load(f"outputs/fixed_mesh_{n}/qois.npy") * scaling
-        axes.plot(qois, "--x", label=f"Fixed mesh ({3000 * 2**n} elements)")
+        axes.plot(timings, qois, "--x", label=f"Fixed mesh ({3000 * 2**n} elements)")
     except FileNotFoundError:
         print(f"QoI data for fixed_mesh with n={n} not found.")
 # Plot goal-oriented cases
 n = args.n
 for anisotropic, label in go_labels.items():
     output_dir = f"outputs/{experiment_id}"
-    model_config = f"goal_oriented_n{n}_anisotropic{int(anisotropic)}"
+    model_config = (
+        f"goal_oriented_n{n}_anisotropic{int(anisotropic)}_base{base}_target{target}"
+    )
     try:
+        timings = np.load(f"{output_dir}/{model_config}_timings.npy")
         qois = -np.load(f"{output_dir}/{model_config}_qois.npy") * scaling
-        axes.plot(qois, "--x", label=label)
+        axes.plot(timings, qois, "--x", label=label)
     except FileNotFoundError:
         print(f"QoI data not found for {model_config}.")
 
-axes.set_xlabel("Iteration")
+axes.set_xlabel(r"CPU time [$\mathrm{s}$]")
 axes.set_ylabel(r"Power output [$\mathrm{MW}$]")
 axes.grid(True)
 axes.legend()
