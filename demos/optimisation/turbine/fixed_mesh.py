@@ -2,6 +2,7 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from time import perf_counter
 
 from firedrake.pyplot import tricontourf
 from firedrake.utility_meshes import RectangleMesh
@@ -34,6 +35,8 @@ if not os.path.exists(plot_dir):
 output_dir = f"outputs/{experiment_id}"
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
+
+start_time = perf_counter()
 
 # Set up the AdjointMeshSeq
 mesh_seq = AdjointMeshSeq(
@@ -86,6 +89,11 @@ print(parameters)
 # Run the optimiser
 optimiser = QoIOptimiser(mesh_seq, "yc", parameters, method="gradient_descent")
 solutions = optimiser.minimise()
+
+cpu_time = perf_counter() - start_time
+print(f"Optimisation completed in {cpu_time:.2f} seconds.")
+with open(f"{output_dir}/cputime.txt", "w") as f:
+    f.write(f"{cpu_time:.2f} seconds\n")
 
 # Write the optimiser progress to file
 np.save(f"{output_dir}/controls.npy", optimiser.progress["control"])
