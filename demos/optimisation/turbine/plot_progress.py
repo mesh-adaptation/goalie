@@ -95,3 +95,39 @@ axes.set_ylabel(r"Power output [$\mathrm{MW}$]")
 axes.grid(True)
 axes.legend()
 plt.savefig(f"{plot_dir}/qois.jpg", bbox_inches="tight")
+
+# Plot gradients for all approaches
+fig, axes = plt.subplots()
+# Plot fixed mesh cases
+for n in range(min_n, max_n + 1):
+    try:
+        timings = np.load(f"outputs/fixed_mesh_{n}/timings.npy")
+        gradients = np.abs(np.load(f"outputs/fixed_mesh_{n}/gradients.npy") * scaling)
+        gradients /= gradients[0]  # Normalise by the first value
+        axes.semilogy(
+            timings, gradients, "--x", label=f"Fixed mesh ({3000 * 2**n} elements)"
+        )
+    except FileNotFoundError:
+        print(f"Gradient data for fixed_mesh with n={n} not found.")
+# Plot goal-oriented cases
+n = args.n
+for anisotropic, label in go_labels.items():
+    output_dir = f"outputs/{experiment_id}"
+    model_config = (
+        f"goal_oriented_n{n}_anisotropic{int(anisotropic)}_base{base}_target{target}"
+    )
+    try:
+        timings = np.load(f"{output_dir}/{model_config}_timings.npy")
+        gradients = np.abs(
+            np.load(f"{output_dir}/{model_config}_gradients.npy") * scaling
+        )
+        gradients /= gradients[0]  # Normalise by the first value
+        axes.semilogy(timings, gradients, "--x", label=label)
+    except FileNotFoundError:
+        print(f"Gradient data not found for {model_config}.")
+
+axes.set_xlabel(r"CPU time [$\mathrm{s}$]")
+axes.set_ylabel("Gradient relative to initial value")
+axes.grid(True)
+axes.legend()
+plt.savefig(f"{plot_dir}/gradients.jpg", bbox_inches="tight")

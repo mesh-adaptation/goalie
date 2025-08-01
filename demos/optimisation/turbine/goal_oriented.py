@@ -190,6 +190,7 @@ with open(f"{output_dir}/cputime.txt", "w") as f:
 np.save(f"{output_dir}/{config_str}_controls.npy", optimiser.progress["control"])
 np.save(f"{output_dir}/{config_str}_timings.npy", optimiser.progress["cputime"])
 np.save(f"{output_dir}/{config_str}_qois.npy", optimiser.progress["qoi"])
+np.save(f"{output_dir}/{config_str}_gradients.npy", optimiser.progress["gradient"])
 
 if args.plot_fields:
     # Plot the patches for the final positions
