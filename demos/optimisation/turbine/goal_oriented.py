@@ -27,7 +27,7 @@ from utils import get_experiment_id
 
 # Add argparse for command-line arguments
 parser = argparse.ArgumentParser(description="Run with goal-oriented adaptation.")
-parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
+parser.add_argument("--n", type=float, default=0, help="Initial mesh resolution.")
 parser.add_argument(
     "--base_complexity",
     type=float,
@@ -53,7 +53,13 @@ n = args.n
 anisotropic = args.anisotropic
 base = args.base_complexity
 target = args.target_complexity
-config_str = f"goal_oriented_n{n}_anisotropic{int(anisotropic)}_base{int(base)}_target{int(target)}"
+if np.isclose(n, np.round(n)):
+    prefix = f"goal_oriented_n{n}"
+else:
+    prefix = f"goal_oriented_n{n:.4f}".replace(".", "p")
+config_str = (
+    f"{prefix}_anisotropic{int(anisotropic)}_base{int(base)}_target{int(target)}"
+)
 
 # Determine the experiment_id and create associated directories
 experiment_id = get_experiment_id()
@@ -71,9 +77,11 @@ if not os.path.exists(data_dir):
 start_time = perf_counter()
 
 # Set up the GoalOrientedMeshSeq
+nx = np.round(60 * 2**n).astype(int)
+ny = np.round(25 * 2**n).astype(int)
 mesh_seq = GoalOrientedMeshSeq(
     TimeInstant(fields),
-    RectangleMesh(int(np.round(60 * 2**n)), int(np.round(25 * 2**n)), 1200, 500),
+    RectangleMesh(nx, ny, 1200, 500),
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,

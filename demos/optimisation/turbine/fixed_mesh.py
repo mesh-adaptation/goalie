@@ -19,7 +19,7 @@ from setup import *
 
 # Add argparse for command-line arguments
 parser = argparse.ArgumentParser(description="Plot progress of controls and QoIs.")
-parser.add_argument("--n", type=int, default=0, help="Initial mesh resolution.")
+parser.add_argument("--n", type=float, default=0, help="Initial mesh resolution.")
 parser.add_argument("--taylor_test", action="store_true", help="Run a Taylor test.")
 parser.add_argument("--plot_setup", action="store_true", help="Plot the problem setup.")
 parser.add_argument("--plot_fields", action="store_true", help="Plot solution fields.")
@@ -28,7 +28,10 @@ args, _ = parser.parse_known_args()
 # Use parsed arguments
 n = args.n
 
-experiment_id = f"fixed_mesh_{n}"
+if np.isclose(n, np.round(n)):
+    experiment_id = f"fixed_mesh_{n}"
+else:
+    experiment_id = f"fixed_mesh_{n:.4f}".replace(".", "p")
 plot_dir = f"plots/{experiment_id}"
 if not os.path.exists(plot_dir):
     os.makedirs(plot_dir)
@@ -39,9 +42,11 @@ if not os.path.exists(output_dir):
 start_time = perf_counter()
 
 # Set up the AdjointMeshSeq
+nx = np.round(60 * 2**n).astype(int)
+ny = np.round(25 * 2**n).astype(int)
 mesh_seq = AdjointMeshSeq(
     TimeInstant(fields),
-    RectangleMesh(60 * 2**n, 25 * 2**n, 1200, 500),
+    RectangleMesh(nx, ny, 1200, 500),
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,

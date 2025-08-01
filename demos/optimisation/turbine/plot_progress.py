@@ -16,8 +16,7 @@ parser.add_argument(
 )
 # TODO: Accept multiple target complexities
 args = parser.parse_args()
-min_n = 0
-max_n = 4
+n_range = [0, 1, 2, 2.5850]
 scaling = 1e-6 / qoi_scaling
 experiment_id = get_latest_experiment_id(hash=args.hash)
 plot_dir = f"plots/{experiment_id}"
@@ -33,12 +32,14 @@ go_labels = {
 # Plot controls for all approaches
 fig, axes = plt.subplots()
 # Plot fixed mesh cases
-for n in range(min_n, max_n + 1):
+for n in n_range:
     try:
-        timings = np.load(f"outputs/fixed_mesh_{n}/timings.npy")
-        controls = np.load(f"outputs/fixed_mesh_{n}/controls.npy")
-        axes.plot(
-            timings, controls, "--x", label=f"Fixed mesh ({3000 * 2**n} elements)"
+        n_str = n if np.isclose(n, np.round(n)) else f"{n:.4f}".replace(".", "p")
+        nelements = np.round(60 * 25 * 2 ** (2 * n + 1)).astype(int)
+        timings = np.load(f"outputs/fixed_mesh_{n_str}/timings.npy")
+        controls = np.load(f"outputs/fixed_mesh_{n_str}/controls.npy")
+        axes.semilogx(
+            timings, controls, "--x", label=f"Fixed mesh ({nelements} elements)"
         )
     except FileNotFoundError:
         print(f"Control data for fixed_mesh with n={n} not found.")
@@ -57,7 +58,7 @@ for anisotropic, label in go_labels.items():
     try:
         timings = np.load(f"{output_dir}/{model_config}_timings.npy")
         controls = np.load(f"{output_dir}/{model_config}_controls.npy")
-        axes.plot(timings, controls, "--x", label=label)
+        axes.semilogx(timings, controls, "--x", label=label)
     except FileNotFoundError:
         print(f"Control data not found for {model_config}.")
 axes.set_xlabel(r"CPU time [$\mathrm{s}$]")
@@ -69,11 +70,13 @@ plt.savefig(f"{plot_dir}/controls.jpg", bbox_inches="tight")
 # Plot QoIs for all approaches
 fig, axes = plt.subplots()
 # Plot fixed mesh cases
-for n in range(min_n, max_n + 1):
+for n in n_range:
     try:
-        timings = np.load(f"outputs/fixed_mesh_{n}/timings.npy")
-        qois = -np.load(f"outputs/fixed_mesh_{n}/qois.npy") * scaling
-        axes.plot(timings, qois, "--x", label=f"Fixed mesh ({3000 * 2**n} elements)")
+        n_str = n if np.isclose(n, np.round(n)) else f"{n:.4f}".replace(".", "p")
+        nelements = np.round(60 * 25 * 2 ** (2 * n + 1)).astype(int)
+        timings = np.load(f"outputs/fixed_mesh_{n_str}/timings.npy")
+        qois = -np.load(f"outputs/fixed_mesh_{n_str}/qois.npy") * scaling
+        axes.semilogx(timings, qois, "--x", label=f"Fixed mesh ({nelements} elements)")
     except FileNotFoundError:
         print(f"QoI data for fixed_mesh with n={n} not found.")
 # Plot goal-oriented cases
@@ -86,7 +89,7 @@ for anisotropic, label in go_labels.items():
     try:
         timings = np.load(f"{output_dir}/{model_config}_timings.npy")
         qois = -np.load(f"{output_dir}/{model_config}_qois.npy") * scaling
-        axes.plot(timings, qois, "--x", label=label)
+        axes.semilogx(timings, qois, "--x", label=label)
     except FileNotFoundError:
         print(f"QoI data not found for {model_config}.")
 
@@ -99,13 +102,17 @@ plt.savefig(f"{plot_dir}/qois.jpg", bbox_inches="tight")
 # Plot gradients for all approaches
 fig, axes = plt.subplots()
 # Plot fixed mesh cases
-for n in range(min_n, max_n + 1):
+for n in n_range:
     try:
-        timings = np.load(f"outputs/fixed_mesh_{n}/timings.npy")
-        gradients = np.abs(np.load(f"outputs/fixed_mesh_{n}/gradients.npy") * scaling)
+        n_str = n if np.isclose(n, np.round(n)) else f"{n:.4f}".replace(".", "p")
+        nelements = np.round(60 * 25 * 2 ** (2 * n + 1)).astype(int)
+        timings = np.load(f"outputs/fixed_mesh_{n_str}/timings.npy")
+        gradients = np.abs(
+            np.load(f"outputs/fixed_mesh_{n_str}/gradients.npy") * scaling
+        )
         gradients /= gradients[0]  # Normalise by the first value
-        axes.semilogy(
-            timings, gradients, "--x", label=f"Fixed mesh ({3000 * 2**n} elements)"
+        axes.loglog(
+            timings, gradients, "--x", label=f"Fixed mesh ({nelements} elements)"
         )
     except FileNotFoundError:
         print(f"Gradient data for fixed_mesh with n={n} not found.")
@@ -122,7 +129,7 @@ for anisotropic, label in go_labels.items():
             np.load(f"{output_dir}/{model_config}_gradients.npy") * scaling
         )
         gradients /= gradients[0]  # Normalise by the first value
-        axes.semilogy(timings, gradients, "--x", label=label)
+        axes.loglog(timings, gradients, "--x", label=label)
     except FileNotFoundError:
         print(f"Gradient data not found for {model_config}.")
 
