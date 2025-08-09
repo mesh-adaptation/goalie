@@ -185,6 +185,8 @@ class GoalOrientedSolver(AdjointSolver):
                 self._update_function_spaces()
 
         enriched_solver = EnrichedSolver(tp, meshes, qoi_type=self.qoi_type)
+        enriched_solver.get_solver = self.get_solver
+        enriched_solver.get_qoi = self.get_qoi
 
         return enriched_solver
 

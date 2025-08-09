@@ -9,7 +9,7 @@ from firedrake.functionspace import FunctionSpace
 from firedrake.utility_meshes import UnitSquareMesh, UnitTriangleMesh
 from parameterized import parameterized
 
-from goalie.adjoint import AdjointSolver
+from goalie.adjoint import AdjointSolver, annotate_qoi
 from goalie.go_solver import GoalOrientedAdaptParameters, GoalOrientedSolver
 from goalie.mesh_seq import MeshSeq
 from goalie.options import AdaptParameters
@@ -17,6 +17,7 @@ from goalie.solver import Solver
 from goalie.time_partition import TimeInstant, TimePartition
 
 
+@annotate_qoi
 def constant_qoi(solver, index):
     R = FunctionSpace(solver.meshes[index], "R", 0)
 
@@ -26,6 +27,7 @@ def constant_qoi(solver, index):
     return qoi
 
 
+@annotate_qoi
 def oscillating_qoi(solver, index):
     R = FunctionSpace(solver.meshes[index], "R", 0)
 
@@ -83,6 +85,9 @@ class SolverBaseClass:
         solver = self.seq(kw.pop("time_partition"), kw.pop("mesh_seq"), **kw)
         solver.get_function_spaces = lambda _: {}
         solver.get_solver = lambda _: (yield from (None for _ in iter(int, 1)))
+        if hasattr(self, "default_kwargs") and "get_qoi" in self.default_kwargs:
+            qoi_func = self.default_kwargs["get_qoi"]
+            solver.get_qoi = lambda i: qoi_func(solver, i)
         solver.params = self.parameters
         return solver
 
