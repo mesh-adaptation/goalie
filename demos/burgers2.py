@@ -55,6 +55,7 @@ class BurgersSolver(AdjointSolver):
             u_.assign(u)
             t += dt
 
+    @annotate_qoi
     def get_qoi(self, i):
         def end_time_qoi():
             u = self.field_functions["u"][0]

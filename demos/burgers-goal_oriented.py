@@ -18,27 +18,21 @@ from firedrake import *
 from goalie import *
 
 n = 32
-meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
+mesh_seq = MeshSeq([UnitSquareMesh(n, n), UnitSquareMesh(n, n)])
 fields = [Field("u", family="Lagrange", degree=2, vector=True)]
-
-
-def get_initial_condition(mesh_seq):
-    fs = mesh_seq.function_spaces["u"][0]
-    x, y = SpatialCoordinate(mesh_seq[0])
-    return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
 
 # The solver and QoI are as described in the
 # `Burgers with a time-integrated QoI demo <./burgers_time_integrated.py.html>`__.
 
 
-def get_solver(mesh_seq):
-    def solver(index):
-        u, u_ = mesh_seq.field_functions["u"]
+class BurgersSolver(GoalOrientedSolver):
+    def get_solver(self, index):
+        u, u_ = self.field_functions["u"]
 
         # Define constants
-        R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
+        R = FunctionSpace(self.meshes[index], "R", 0)
+        dt = Function(R).assign(self.time_partition.timesteps[index])
         nu = Function(R).assign(0.0001)
 
         # Setup variational problem
@@ -49,35 +43,34 @@ def get_solver(mesh_seq):
             + nu * inner(grad(u), grad(v)) * dx
         )
 
-        # Communicate variational form to mesh_seq
-        mesh_seq.read_forms({"u": F})
-
         # Time integrate from t_start to t_end
-        tp = mesh_seq.time_partition
+        tp = self.time_partition
         t_start, t_end = tp.subintervals[index]
         dt = tp.timesteps[index]
         t = t_start
-        qoi = mesh_seq.get_qoi(index)
         while t < t_end - 1.0e-05:
             solve(F == 0, u, ad_block_tag="u")
-            mesh_seq.J += qoi(t)
             yield
 
             u_.assign(u)
             t += dt
 
-    return solver
+        # return solver
 
+    def get_initial_condition(self):
+        fs = self.function_spaces["u"][0]
+        x, y = SpatialCoordinate(self.meshes[0])
+        return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
-def get_qoi(mesh_seq, i):
-    R = FunctionSpace(mesh_seq[i], "R", 0)
-    dt = Function(R).assign(mesh_seq.time_partition.timesteps[i])
+    def get_qoi(self, i):
+        R = FunctionSpace(self.meshes[i], "R", 0)
+        dt = Function(R).assign(self.time_partition.timesteps[i])
 
-    def time_integrated_qoi(t):
-        u = mesh_seq.field_functions["u"][0]
-        return dt * inner(u, u) * ds(2)
+        def time_integrated_qoi(t):
+            u = self.field_functions["u"][0]
+            return dt * inner(u, u) * ds(2)
 
-    return time_integrated_qoi
+        return time_integrated_qoi
 
 
 # We use the mesh setup and time partitioning involving two meshes,
@@ -86,7 +79,7 @@ def get_qoi(mesh_seq, i):
 
 end_time = 0.5
 dt = 1 / n
-num_subintervals = len(meshes)
+num_subintervals = len(mesh_seq)
 time_partition = TimePartition(
     end_time,
     num_subintervals,
@@ -98,14 +91,15 @@ time_partition = TimePartition(
 # Since we want to do goal-oriented mesh adaptation, we use a
 # :class:`~.GoalOrientedMeshSeq`. ::
 
-mesh_seq = GoalOrientedMeshSeq(
-    time_partition,
-    meshes,
-    get_initial_condition=get_initial_condition,
-    get_solver=get_solver,
-    get_qoi=get_qoi,
-    qoi_type="time_integrated",
-)
+# mesh_seq = GoalOrientedMeshSeq(
+#     time_partition,
+#     meshes,
+#     get_initial_condition=get_initial_condition,
+#     get_solver=get_solver,
+#     get_qoi=get_qoi,
+#     qoi_type="time_integrated",
+# )
+solver = BurgersSolver(time_partition, mesh_seq, qoi_type="time_integrated")
 
 # Compared to the previous `Hessian-based adaptation <./burgers-hessian.py.html>`__,
 # this adaptor depends on adjoint solution data as well as forward solution data.
@@ -113,14 +107,14 @@ mesh_seq = GoalOrientedMeshSeq(
 # :meth:`~.RiemannianMetric.compute_isotropic_metric()`. ::
 
 
-def adaptor(mesh_seq, solutions=None, indicators=None):
+def adaptor(solver, solutions=None, indicators=None):
     metrics = []
     complexities = []
 
-    indicators = mesh_seq.indicators
+    indicators = solver.indicators
 
     # Ramp the target average metric complexity per fixed point iteration
-    base, target, iteration = 400, 1000, mesh_seq.fp_iteration
+    base, target, iteration = 400, 1000, solver.fp_iteration
     mp = {
         "dm_plex_metric": {
             "target_complexity": ramp_complexity(base, target, iteration),
@@ -131,8 +125,8 @@ def adaptor(mesh_seq, solutions=None, indicators=None):
     }
 
     # Construct the metric on each subinterval
-    for i, mesh in enumerate(mesh_seq):
-        dt = mesh_seq.time_partition.timesteps[i]
+    for i, mesh in enumerate(solver.meshes):
+        dt = solver.time_partition.timesteps[i]
 
         P1_ten = TensorFunctionSpace(mesh, "CG", 1)
         metrics_subinterval = []
@@ -200,7 +194,7 @@ params = GoalOrientedAdaptParameters(
     }
 )
 
-solutions = mesh_seq.fixed_point_iteration(
+solutions = solver.fixed_point_iteration(
     adaptor,
     enrichment_kwargs={"enrichment_method": "h"},
     parameters=params,

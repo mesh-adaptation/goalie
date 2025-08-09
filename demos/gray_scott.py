@@ -15,7 +15,8 @@ from goalie import *
 
 # The problem is defined on a doubly periodic mesh of squares. ::
 
-mesh = PeriodicSquareMesh(65, 65, 2.5, quadrilateral=True, direction="both")
+# FIXME
+# mesh = PeriodicSquareMesh(65, 65, 2.5, quadrilateral=True, direction="both")
 
 # We solve for the tracer species using a mixed formulation, with a :math:`\mathbb P1`
 # approximation for both components. In this case, it's more convenient to define the
@@ -28,34 +29,32 @@ fields = [Field("ab", finite_element=MixedElement([p1_element, p1_element]))]
 # The initial conditions are localised within the region :math:`[1, 1.5]^2`. ::
 
 
-def get_initial_condition(mesh_seq):
-    x, y = SpatialCoordinate(mesh_seq[0])
-    fs = mesh_seq.function_spaces["ab"][0]
-    ab_init = Function(fs)
-    a_init, b_init = ab_init.subfunctions
-    b_init.interpolate(
-        conditional(
-            And(And(1 <= x, x <= 1.5), And(1 <= y, y <= 1.5)),
-            0.25 * sin(4 * pi * x) ** 2 * sin(4 * pi * y) ** 2,
-            0,
+class GrayScottSolver(AdjointSolver):
+    def get_initial_condition(self):
+        x, y = SpatialCoordinate(self.meshes[0])
+        fs = self.function_spaces["ab"][0]
+        ab_init = Function(fs)
+        a_init, b_init = ab_init.subfunctions
+        b_init.interpolate(
+            conditional(
+                And(And(1 <= x, x <= 1.5), And(1 <= y, y <= 1.5)),
+                0.25 * sin(4 * pi * x) ** 2 * sin(4 * pi * y) ** 2,
+                0,
+            )
         )
-    )
-    a_init.interpolate(1 - 2 * b_init)
-    return {"ab": ab_init}
+        a_init.interpolate(1 - 2 * b_init)
+        return {"ab": ab_init}
 
+    # For the solver, we just use the default configuration of Firedrake's
+    # :class:`NonlinearVariationalSolver`. Since we are using a mixed formulation, the
+    # forms for each component equation are summed together. ::
 
-# For the solver, we just use the default configuration of Firedrake's
-# :class:`NonlinearVariationalSolver`. Since we are using a mixed formulation, the forms
-# for each component equation are summed together. ::
-
-
-def get_solver(mesh_seq):
-    def solver(index):
-        ab, ab_ = mesh_seq.field_functions["ab"]
+    def get_solver(self, index):
+        ab, ab_ = self.field_functions["ab"]
 
         # Define constants
-        R = FunctionSpace(mesh_seq[index], "R", 0)
-        dt = Function(R).assign(mesh_seq.time_partition.timesteps[index])
+        R = FunctionSpace(self.meshes[index], "R", 0)
+        dt = Function(R).assign(self.time_partition.timesteps[index])
         D_a = Function(R).assign(8.0e-05)
         D_b = Function(R).assign(4.0e-05)
         gamma = Function(R).assign(0.024)
@@ -64,7 +63,7 @@ def get_solver(mesh_seq):
         # Write the two equations in variational form
         a, b = split(ab)
         a_, b_ = split(ab_)
-        psi_a, psi_b = TestFunctions(mesh_seq.function_spaces["ab"][index])
+        psi_a, psi_b = TestFunctions(self.function_spaces["ab"][index])
         F = (
             psi_a * (a - a_) * dx
             + dt * D_a * inner(grad(psi_a), grad(a)) * dx
@@ -79,7 +78,7 @@ def get_solver(mesh_seq):
         nlvs = NonlinearVariationalSolver(nlvp, ad_block_tag="ab")
 
         # Time integrate from t_start to t_end
-        tp = mesh_seq.time_partition
+        tp = self.time_partition
         t_start, t_end = tp.subintervals[index]
         dt = tp.timesteps[index]
         t = t_start
@@ -90,20 +89,17 @@ def get_solver(mesh_seq):
             ab_.assign(ab)
             t += dt
 
-    return solver
+    # The term :math:`a * b ^ 2` appears in both equations. By solving the adjoint for
+    # the QoI :math:`\int a(x,T) * b(x,T) * dx` we consider sensitivities to this
+    # term. ::
 
+    def get_qoi(self, index):
+        def qoi():
+            ab = self.field_functions["ab"][0]
+            a, b = split(ab)
+            return a * b**2 * dx
 
-# The term :math:`a * b ^ 2` appears in both equations. By solving the adjoint for the
-# QoI :math:`\int a(x,T) * b(x,T) * dx` we consider sensitivities to this term. ::
-
-
-def get_qoi(mesh_seq, index):
-    def qoi():
-        ab = mesh_seq.field_functions["ab"][0]
-        a, b = split(ab)
-        return a * b**2 * dx
-
-    return qoi
+        return qoi
 
 
 # This problem is multi-scale in time and requires spinning up by gradually increasing
@@ -131,22 +127,21 @@ time_partition = TimePartition(
 
 # As usual, define an appropriate :class:`MeshSeq` and choose the `qoi_type`. ::
 
-mesh_seq = AdjointMeshSeq(
-    time_partition,
-    mesh,
-    get_initial_condition=get_initial_condition,
-    get_solver=get_solver,
-    get_qoi=get_qoi,
-    qoi_type="end_time",
+mesh_seq = MeshSeq(
+    [
+        PeriodicSquareMesh(65, 65, 2.5, quadrilateral=True, direction="both")
+        for _ in range(num_subintervals)
+    ]
 )
-solutions = mesh_seq.solve_adjoint()
+solver = GrayScottSolver(time_partition, mesh_seq, qoi_type="end_time")
+solutions = solver.solve_adjoint()
 
 # Finally, plot the outputs to be viewed in Paraview. ::
 
 solutions.export(
     "gray_scott/solutions.pvd",
     export_field_types=["forward", "adjoint"],
-    initial_condition=mesh_seq.get_initial_condition(),
+    initial_condition=solver.get_initial_condition(),
 )
 
 # In the `next demo <./gray_scott_split.py.html>`__, we consider solving the same

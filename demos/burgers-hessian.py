@@ -22,13 +22,13 @@ from firedrake import *
 from goalie import *
 
 n = 32
-meshes = [UnitSquareMesh(n, n), UnitSquareMesh(n, n)]
+mesh_seq = MeshSeq([UnitSquareMesh(n, n), UnitSquareMesh(n, n)])
 fields = [Field("u", family="Lagrange", degree=2, vector=True)]
 
 
-def get_solver(mesh_seq):
-    def solver(index):
-        u, u_ = mesh_seq.field_functions["u"]
+class BurgersSolver(Solver):
+    def get_solver(self, index):
+        u, u_ = self.field_functions["u"]
 
         # Define constants
         R = FunctionSpace(self.meshes[index], "R", 0)
@@ -65,7 +65,7 @@ def get_solver(mesh_seq):
 
 end_time = 0.5
 dt = 1 / n
-num_subintervals = len(meshes)
+num_subintervals = len(mesh_seq)
 time_partition = TimePartition(
     end_time,
     num_subintervals,
@@ -73,14 +73,7 @@ time_partition = TimePartition(
     fields,
     num_timesteps_per_export=2,
 )
-
-mesh_seq = MeshSeq(
-    # time_partition,
-    meshes,
-    get_initial_condition=get_initial_condition,
-    get_solver=get_solver,
-)
-mysolver = MySolver(time_partition, mesh_seq)
+solver = BurgersSolver(time_partition, mesh_seq)
 
 # As in the previous adaptation demos, the most important part is the adaptor function.
 # The one used here takes a similar form, except that we need to handle multiple meshes
@@ -100,7 +93,7 @@ mysolver = MySolver(time_partition, mesh_seq)
 # skipped. ::
 
 
-def adaptor(solver, mesh_seq, solutions):
+def adaptor(solver, solutions):
     metrics = []
     complexities = []
 
@@ -116,7 +109,7 @@ def adaptor(solver, mesh_seq, solutions):
     }
 
     # Construct the metric on each subinterval
-    for i, mesh in enumerate(mesh_seq):
+    for i, mesh in enumerate(solver.meshes):
         sols = solutions["u"]["forward"][i]
         dt = solver.time_partition.timesteps[i]
 
@@ -175,7 +168,7 @@ params = AdaptParameters(
         "maxiter": 35,
     }
 )
-solutions = mysolver.fixed_point_iteration(adaptor, parameters=params)
+solutions = solver.fixed_point_iteration(adaptor, parameters=params)
 
 # Here the output should look something like
 #

@@ -124,6 +124,7 @@ class SolidBodyRotationSolver(AdjointSolver):
             c_.assign(c)
             t += dt
 
+    @annotate_qoi
     def get_qoi(self, index):
         def qoi():
             c = self.field_functions["c"][0]

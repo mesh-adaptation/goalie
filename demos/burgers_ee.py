@@ -86,6 +86,7 @@ class BurgersSolver(GoalOrientedSolver):
         x, y = SpatialCoordinate(self.meshes[0])
         return {"u": Function(fs).interpolate(as_vector([sin(pi * x), 0]))}
 
+    @annotate_qoi
     def get_qoi(self, i):
         def end_time_qoi():
             u = self.field_functions["u"][0]

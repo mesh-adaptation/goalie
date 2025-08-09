@@ -28,15 +28,15 @@ def source(mesh):
     return 100.0 * exp(-((x - x0) ** 2 + (y - y0) ** 2) / r**2)
 
 
-def get_solver(mesh_seq):
-    def solver(index):
-        function_space = mesh_seq.function_spaces["c"][index]
-        c = mesh_seq.field_functions["c"]
-        h = CellSize(mesh_seq[index])
-        S = source(mesh_seq[index])
+class PointDischargeSolver(GoalOrientedSolver):
+    def get_solver(self, index):
+        function_space = self.function_spaces["c"][index]
+        c = self.field_functions["c"]
+        h = CellSize(self.meshes[index])
+        S = source(self.meshes[index])
 
         # Define constants
-        R = FunctionSpace(mesh_seq[index], "R", 0)
+        R = FunctionSpace(self.meshes[index], "R", 0)
         D = Function(R).assign(0.1)
         u_x = Function(R).assign(1.0)
         u_y = Function(R).assign(0.0)
@@ -57,42 +57,35 @@ def get_solver(mesh_seq):
         )
         bc = DirichletBC(function_space, 0, 1)
 
-        # Communicate variational form to mesh_seq
-        mesh_seq.read_forms({"c": F})
+        # Communicate variational form to the solver
+        self.read_forms({"c": F})
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
         yield
 
-    return solver
+    @annotate_qoi
+    def get_qoi(self, index):
+        def qoi():
+            c = self.field_functions["c"]
+            x, y = SpatialCoordinate(self.meshes[index])
+            xr, yr, rr = 20, 7.5, 0.5
+            kernel = conditional((x - xr) ** 2 + (y - yr) ** 2 < rr**2, 1, 0)
+            return kernel * c * dx
 
-
-def get_qoi(mesh_seq, index):
-    def qoi():
-        c = mesh_seq.field_functions["c"]
-        x, y = SpatialCoordinate(mesh_seq[index])
-        xr, yr, rr = 20, 7.5, 0.5
-        kernel = conditional((x - xr) ** 2 + (y - yr) ** 2 < rr**2, 1, 0)
-        return kernel * c * dx
-
-    return qoi
+        return qoi
 
 
 # Since we want to do goal-oriented mesh adaptation, we use a
 # :class:`GoalOrientedMeshSeq`. ::
 
 time_partition = TimeInstant(fields)
-mesh_seq = GoalOrientedMeshSeq(
-    time_partition,
-    mesh,
-    get_solver=get_solver,
-    get_qoi=get_qoi,
-    qoi_type="steady",
-)
+mesh_seq = MeshSeq(mesh)
 
 # Let's solve the adjoint problem on the initial mesh so that we can see what the
 # corresponding solution looks like. ::
 
-solutions = mesh_seq.solve_adjoint()
+solver = PointDischargeSolver(time_partition, mesh_seq, qoi_type="steady")
+solutions = solver.solve_adjoint()
 plot_kwargs = {"levels": 50, "figsize": (10, 3), "cmap": "coolwarm"}
 interior_kw = {"linewidth": 0.5}
 fig, axes, tcs = plot_snapshots(
@@ -124,23 +117,23 @@ plt.close()
 # isotropic metric function. ::
 
 
-def adaptor(mesh_seq, solutions, indicators):
+def adaptor(solver, solutions, indicators):
     # Deduce an isotropic metric from the error indicator field
-    P1_ten = TensorFunctionSpace(mesh_seq[0], "CG", 1)
+    P1_ten = TensorFunctionSpace(solver.meshes[0], "CG", 1)
     metric = RiemannianMetric(P1_ten)
     metric.compute_isotropic_metric(indicators["c"][0][0])
 
     # Ramp the target metric complexity from 400 to 1000 over the first few iterations
-    base, target, iteration = 400, 1000, mesh_seq.fp_iteration
+    base, target, iteration = 400, 1000, solver.fp_iteration
     mp = {"dm_plex_metric_target_complexity": ramp_complexity(base, target, iteration)}
     metric.set_parameters(mp)
 
     # Normalise the metric according to the target complexity and then adapt the mesh
     metric.normalise()
     complexity = metric.complexity()
-    mesh_seq[0] = adapt(mesh_seq[0], metric)
-    num_dofs = mesh_seq.count_vertices()[0]
-    num_elem = mesh_seq.count_elements()[0]
+    solver.meshes[0] = adapt(solver.meshes[0], metric)
+    num_dofs = solver.meshes.count_vertices()[0]
+    num_elem = solver.meshes.count_elements()[0]
     pyrint(
         f"{iteration + 1:2d}, complexity: {complexity:4.0f}"
         f", dofs: {num_dofs:4d}, elements: {num_elem:4d}"
@@ -148,7 +141,7 @@ def adaptor(mesh_seq, solutions, indicators):
 
     # Plot each intermediate adapted mesh
     fig, axes = plt.subplots(figsize=(10, 2))
-    mesh_seq.plot(fig=fig, axes=axes, interior_kw=interior_kw)
+    solver.meshes.plot(fig=fig, axes=axes, interior_kw=interior_kw)
     axes.set_title(f"Mesh at iteration {iteration + 1}")
     fig.savefig(f"point_discharge2d-iso_go_mesh{iteration + 1}.jpg")
     plt.close()
@@ -159,9 +152,9 @@ def adaptor(mesh_seq, solutions, indicators):
     fig, axes, tcs = plot_indicator_snapshots(
         indicators, time_partition, "c", **plot_kwargs
     )
-    axes.set_title(f"Indicator at iteration {mesh_seq.fp_iteration + 1}")
+    axes.set_title(f"Indicator at iteration {solver.fp_iteration + 1}")
     fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
-    fig.savefig(f"point_discharge2d-iso_go_indicator{mesh_seq.fp_iteration + 1}.jpg")
+    fig.savefig(f"point_discharge2d-iso_go_indicator{solver.fp_iteration + 1}.jpg")
     plt.close()
 
     # Check whether the target complexity has been (approximately) reached. If not,
@@ -186,7 +179,7 @@ params = GoalOrientedAdaptParameters(
         "maxiter": 35,
     }
 )
-solutions, indicators = mesh_seq.fixed_point_iteration(adaptor, parameters=params)
+solutions, indicators = solver.fixed_point_iteration(adaptor, parameters=params)
 
 # This time, we find that the fixed point iteration converges in five iterations.
 # Convergence is reached because the relative change in QoI is found to be smaller than
