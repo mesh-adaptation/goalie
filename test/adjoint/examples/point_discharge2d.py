@@ -21,6 +21,7 @@ from firedrake.solving import solve
 from firedrake.ufl_expr import CellSize, TestFunction
 from firedrake.utility_meshes import RectangleMesh
 
+from goalie.adjoint import AdjointSolver, annotate_qoi
 from goalie.field import Field
 from goalie.math import bessk0
 
@@ -47,22 +48,22 @@ def source(mesh):
     return 100.0 * ufl.exp(-((x - src_x) ** 2 + (y - src_y) ** 2) / src_r**2)
 
 
-def get_solver(self):
-    """Advection-diffusion equation solved using a direct method."""
+class ProblemSolver(AdjointSolver):
+    def get_solver(self, i):
+        """Advection-diffusion equation solved using a direct method."""
 
-    def solver(i):
         fs = self.function_spaces["tracer_2d"][i]
         c = self.field_functions["tracer_2d"]
 
         # Define constants
         fs = self.function_spaces["tracer_2d"][i]
-        R = FunctionSpace(self[i], "R", 0)
+        R = FunctionSpace(self.meshes[i], "R", 0)
         D = Function(R).assign(0.1)
         u_x = Function(R).assign(1.0)
         u_y = Function(R).assign(0.0)
         u = ufl.as_vector([u_x, u_y])
-        h = CellSize(self[i])
-        S = source(self[i])
+        h = CellSize(self.meshes[i])
+        S = source(self.meshes[i])
 
         # Stabilisation parameter
         unorm = ufl.sqrt(ufl.dot(u, u))
@@ -92,25 +93,25 @@ def get_solver(self):
         solve(F == 0, c, bcs=bc, solver_parameters=sp, ad_block_tag="tracer_2d")
         yield
 
-    return solver
+    @annotate_qoi
+    def get_qoi(self, i):
+        """
+        Quantity of interest which integrates the tracer concentration over an offset
+        receiver region.
+        """
 
+        def steady_qoi():
+            c = self.field_functions["tracer_2d"]
+            x, y = ufl.SpatialCoordinate(self.meshes[i])
+            kernel = ufl.conditional(
+                (x - rec_x) ** 2 + (y - rec_y) ** 2 < rec_r**2, 1, 0
+            )
+            area = assemble(kernel * ufl.dx)
+            area_analytical = ufl.pi * rec_r**2
+            scaling = 1.0 if np.allclose(area, 0.0) else area_analytical / area
+            return scaling * kernel * c * ufl.dx
 
-def get_qoi(self, i):
-    """
-    Quantity of interest which integrates the tracer concentration over an offset
-    receiver region.
-    """
-
-    def steady_qoi():
-        c = self.field_functions["tracer_2d"]
-        x, y = ufl.SpatialCoordinate(self[i])
-        kernel = ufl.conditional((x - rec_x) ** 2 + (y - rec_y) ** 2 < rec_r**2, 1, 0)
-        area = assemble(kernel * ufl.dx)
-        area_analytical = ufl.pi * rec_r**2
-        scaling = 1.0 if np.allclose(area, 0.0) else area_analytical / area
-        return scaling * kernel * c * ufl.dx
-
-    return steady_qoi
+        return steady_qoi
 
 
 def analytical_solution(mesh):

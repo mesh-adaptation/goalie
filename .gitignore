@@ -6,6 +6,7 @@ outputs/
 plots/
 __pycache__/
 goalie.egg-info/
+.cache/
 
 # Specific files
 .coverage

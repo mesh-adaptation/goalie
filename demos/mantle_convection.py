@@ -66,32 +66,30 @@ fields = [
 # *initial guess* for the solver.
 
 
-def get_initial_condition(mesh_seq):
-    x, y = SpatialCoordinate(mesh_seq[0])
-    T_init = Function(mesh_seq.function_spaces["T"][0])
-    T_init.interpolate(1.0 - y + 0.05 * cos(pi * x) * sin(pi * y))
-    up_init = Function(mesh_seq.function_spaces["up"][0])  # Zero by default
-    return {"up": up_init, "T": T_init}
+class MantleConvectionSolver(Solver):
+    def get_initial_condition(self):
+        x, y = SpatialCoordinate(self.meshes[0])
+        T_init = Function(self.function_spaces["T"][0])
+        T_init.interpolate(1.0 - y + 0.05 * cos(pi * x) * sin(pi * y))
+        up_init = Function(self.function_spaces["up"][0])  # Zero by default
+        return {"up": up_init, "T": T_init}
 
+    # In the solver, weak forms for the Stokes and energy equations are defined as
+    # follows. Note that the mixed field ``"up"`` does not have a lagged term.
 
-# In the solver, weak forms for the Stokes and energy equations are defined as follows.
-# Note that the mixed field ``"up"`` does not have a lagged term.
+    def get_solver(self, index):
+        Z = self.function_spaces["up"][index]
+        Q = self.function_spaces["T"][index]
 
-
-def get_solver(mesh_seq):
-    def solver(index):
-        Z = mesh_seq.function_spaces["up"][index]
-        Q = mesh_seq.function_spaces["T"][index]
-
-        up = mesh_seq.field_functions["up"]
+        up = self.field_functions["up"]
         u, p = split(up)
-        T, T_ = mesh_seq.field_functions["T"]
+        T, T_ = self.field_functions["T"]
 
         # Crank-Nicolson time discretisation for temperature
         Ttheta = 0.5 * (T + T_)
 
         # Variational problem for the Stokes equations
-        v, w = TestFunctions(mesh_seq.function_spaces["up"][index])
+        v, w = TestFunctions(self.function_spaces["up"][index])
         stress = 2 * mu * sym(grad(u))
         F_up = (
             inner(grad(v), stress) * dx
@@ -101,7 +99,7 @@ def get_solver(mesh_seq):
         F_up += -w * div(u) * dx  # Continuity equation
 
         # Variational problem for the energy equation
-        q = TestFunction(mesh_seq.function_spaces["T"][index])
+        q = TestFunction(self.function_spaces["T"][index])
         F_T = (
             q * (T - T_) / dt * dx
             + q * dot(u, grad(Ttheta)) * dx
@@ -142,14 +140,12 @@ def get_solver(mesh_seq):
         )
 
         # Time integrate over the subinterval
-        num_timesteps = mesh_seq.time_partition.num_timesteps_per_subinterval[index]
+        num_timesteps = self.time_partition.num_timesteps_per_subinterval[index]
         for _ in range(num_timesteps):
             nlvs_up.solve()
             nlvs_T.solve()
             yield
             T_.assign(T)
-
-    return solver
 
 
 # We can now create a MeshSeq object and solve the forward problem.
@@ -157,7 +153,7 @@ def get_solver(mesh_seq):
 # timesteps.
 
 num_subintervals = 2
-meshes = [UnitSquareMesh(32, 32) for _ in range(num_subintervals)]
+meshes = MeshSeq([UnitSquareMesh(32, 32) for _ in range(num_subintervals)])
 
 dt = 1e-3
 num_timesteps = 40
@@ -172,15 +168,16 @@ time_partition = TimePartition(
     num_timesteps_per_export=dt_per_export,
 )
 
-mesh_seq = MeshSeq(
-    time_partition,
-    meshes,
-    get_initial_condition=get_initial_condition,
-    get_solver=get_solver,
-    transfer_method="interpolate",
-)
+# mesh_seq = MeshSeq(
+#     time_partition,
+#     meshes,
+#     get_initial_condition=get_initial_condition,
+#     get_solver=get_solver,
+#     transfer_method="interpolate",
+# )
 
-solutions = mesh_seq.solve_forward()
+solver = MantleConvectionSolver(time_partition, meshes)
+solutions = solver.solve_forward()
 
 # We can plot the temperature fields for exported timesteps using the in-built
 # plotting function ``plot_snapshots``.

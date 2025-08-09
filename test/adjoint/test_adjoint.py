@@ -15,9 +15,10 @@ from firedrake.cofunction import Cofunction
 from firedrake.output.vtk_output import VTKFile
 from firedrake.utility_meshes import UnitTriangleMesh
 
-from goalie.adjoint import AdjointMeshSeq
+from goalie.adjoint import AdjointSolver
 from goalie.field import Field
 from goalie.log import DEBUG, pyrint, set_log_level
+from goalie.mesh_seq import MeshSeq
 from goalie.time_partition import TimeInterval, TimePartition
 from goalie.utility import AttrDict
 
@@ -28,29 +29,22 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "examples"))
 # ---------------------------
 
 
-class TestAdjointMeshSeqGeneric(unittest.TestCase):
+class TestAdjointSolverGeneric(unittest.TestCase):
     """
-    Generic unit tests for :class:`AdjointMeshSeq`.
+    Generic unit tests for :class:`AdjointSolver`.
     """
 
     def setUp(self):
         self.time_interval = TimeInterval(1.0, [0.5], Field("field", family="Real"))
-        self.meshes = [UnitTriangleMesh()]
+        self.mesh_seq = MeshSeq([UnitTriangleMesh()])
 
     def test_qoi_type_error(self):
         with self.assertRaises(ValueError) as cm:
-            AdjointMeshSeq(self.time_interval, self.meshes, qoi_type="blah")
+            AdjointSolver(self.time_interval, self.mesh_seq, qoi_type="blah")
         msg = (
             "QoI type 'blah' not recognised. "
             "Choose from 'end_time', 'time_integrated', or 'steady'."
         )
-        self.assertEqual(str(cm.exception), msg)
-
-    def test_get_qoi_notimplemented_error(self):
-        mesh_seq = AdjointMeshSeq(self.time_interval, self.meshes, qoi_type="end_time")
-        with self.assertRaises(NotImplementedError) as cm:
-            mesh_seq.get_qoi(0)
-        msg = "'get_qoi' is not implemented."
         self.assertEqual(str(cm.exception), msg)
 
 
@@ -116,13 +110,9 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         test_case.fields,
         num_timesteps_per_export=test_case.dt_per_export,
     )
-    mesh_seq = AdjointMeshSeq(
-        time_partition,
-        test_case.mesh,
-        get_initial_condition=test_case.get_initial_condition,
-        get_solver=test_case.get_solver,
-        get_qoi=test_case.get_qoi,
-        qoi_type=qoi_type,
+    mesh_seq = MeshSeq([test_case.mesh])
+    problem_solver = test_case.ProblemSolver(
+        time_partition, mesh_seq, qoi_type=qoi_type
     )
 
     # Solve forward and adjoint without solve_adjoint
@@ -131,15 +121,15 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         pyadjoint.continue_annotation()
     tape = pyadjoint.get_working_tape()
     tape.clear_tape()
-    ic = mesh_seq.initial_condition
+    ic = problem_solver.initial_condition
     controls = [pyadjoint.Control(value) for key, value in ic.items()]
-    mesh_seq._reinitialise_fields(ic)
-    solver = mesh_seq.solver(0)
-    for i in range(len(mesh_seq)):
-        for _ in range(mesh_seq.time_partition.num_timesteps_per_subinterval[i]):
+    problem_solver._reinitialise_fields(ic)
+    solver = problem_solver.solver(0)
+    for i in range(problem_solver.num_subintervals):
+        for _ in range(problem_solver.time_partition.num_timesteps_per_subinterval[i]):
             next(solver)
-    qoi = mesh_seq.get_qoi(0)
-    J = mesh_seq.J if qoi_type == "time_integrated" else qoi()
+    qoi = problem_solver.get_qoi(0)
+    J = problem_solver.J if qoi_type == "time_integrated" else qoi()
     m = pyadjoint.enlisting.Enlist(controls)
     assert pyadjoint.annotate_tape()
     pyadjoint.pause_annotation()
@@ -153,13 +143,13 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     first_export_idx = test_case.dt_per_export - 1
     adj_sols_expected = {}
     adj_values_expected = {}
-    for field, fs in mesh_seq._fs.items():
-        solve_blocks = mesh_seq.get_solve_blocks(field, 0)
+    for field, fs in problem_solver._fs.items():
+        solve_blocks = problem_solver.get_solve_blocks(field, 0)
         adj_sols_expected[field] = solve_blocks[first_export_idx].adj_sol.copy(
             deepcopy=True
         )
         if not steady:
-            dep = mesh_seq._dependency(field, 0, solve_blocks[first_export_idx])
+            dep = problem_solver._dependency(field, 0, solve_blocks[first_export_idx])
             adj_values_expected[field] = Cofunction(fs[0].dual())
             adj_values_expected[field].assign(dep.adj_value)
 
@@ -176,21 +166,17 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
             test_case.fields,
             num_timesteps_per_export=test_case.dt_per_export,
         )
-        mesh_seq = AdjointMeshSeq(
-            time_partition,
-            test_case.mesh,
-            get_initial_condition=test_case.get_initial_condition,
-            get_solver=test_case.get_solver,
-            get_qoi=test_case.get_qoi,
-            qoi_type=qoi_type,
+        mesh_seq = MeshSeq([test_case.mesh for _ in range(N)])
+        problem_solver = test_case.ProblemSolver(
+            time_partition, mesh_seq, qoi_type=qoi_type
         )
-        solutions = mesh_seq.solve_adjoint(
+        solutions = problem_solver.solve_adjoint(
             get_adj_values=not steady, test_checkpoint_qoi=True
         )
 
         # Check quantities of interest match
-        if not np.isclose(J_expected, mesh_seq.J):
-            raise ValueError(f"QoIs do not match ({J_expected} vs. {mesh_seq.J})")
+        if not np.isclose(J_expected, problem_solver.J):
+            raise ValueError(f"QoIs do not match ({J_expected} vs. {problem_solver.J})")
 
         # Check adjoint solutions at first export time match
         first_export_time = test_case.dt * test_case.dt_per_export
@@ -252,12 +238,10 @@ def plot_solutions(problem, qoi_type, debug=True):
         test_case.fields,
         num_timesteps_per_export=test_case.dt_per_export,
     )
-    solutions = AdjointMeshSeq(
+    mesh_seq = MeshSeq([test_case.mesh])
+    solutions = test_case.ProblemSolver(
         time_partition,
-        test_case.mesh,
-        get_initial_condition=test_case.get_initial_condition,
-        get_solver=test_case.get_solver,
-        get_qoi=test_case.get_qoi,
+        mesh_seq,
         qoi_type=qoi_type,
     ).solve_adjoint(get_adj_values=not steady, test_checkpoint_qoi=True)
     output_dir = os.path.join(os.path.dirname(__file__), "outputs", problem)

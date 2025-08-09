@@ -74,15 +74,15 @@ def source(mesh):
 # ::
 
 
-def get_solver(mesh_seq):
-    def solver(index):
-        function_space = mesh_seq.function_spaces["c"][index]
-        c = mesh_seq.field_functions["c"]
-        h = CellSize(mesh_seq[index])
-        S = source(mesh_seq[index])
+class PointDischargeSolver(GoalOrientedSolver):
+    def get_solver(self, index):
+        function_space = self.function_spaces["c"][index]
+        c = self.field_functions["c"]
+        h = CellSize(self.meshes[index])
+        S = source(self.meshes[index])
 
         # Define constants
-        R = FunctionSpace(mesh_seq[index], "R", 0)
+        R = FunctionSpace(self.meshes[index], "R", 0)
         D = Function(R).assign(0.1)
         u_x = Function(R).assign(1.0)
         u_y = Function(R).assign(0.0)
@@ -104,32 +104,30 @@ def get_solver(mesh_seq):
         bc = DirichletBC(function_space, 0, 1)
 
         # Communicate variational form to mesh_seq
-        mesh_seq.read_forms({"c": F})
+        self.read_forms({"c": F})
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
         yield
 
-    return solver
+    # For steady-state problems, we do not need to specify :func:`get_initial_condition`
+    # if the equation is linear. If the equation is nonlinear then this would provide
+    # an initial guess. By default, all components are initialised to zero.
+    #
+    # As in the motivation for the manual, we consider a quantity of interest that
+    # integrates the tracer concentration over a circular "receiver" region. Since
+    # there is no time dependence, the QoI looks just like an ``"end_time"`` type
+    # QoI. ::
 
+    @annotate_qoi
+    def get_qoi(self, index):
+        def qoi():
+            c = self.field_functions["c"]
+            x, y = SpatialCoordinate(self.meshes[index])
+            xr, yr, rr = 20, 7.5, 0.5
+            kernel = conditional((x - xr) ** 2 + (y - yr) ** 2 < rr**2, 1, 0)
+            return kernel * c * dx
 
-# For steady-state problems, we do not need to specify :func:`get_initial_condition`
-# if the equation is linear. If the equation is nonlinear then this would provide
-# an initial guess. By default, all components are initialised to zero.
-#
-# As in the motivation for the manual, we consider a quantity of interest that
-# integrates the tracer concentration over a circular "receiver" region. Since
-# there is no time dependence, the QoI looks just like an ``"end_time"`` type QoI. ::
-
-
-def get_qoi(mesh_seq, index):
-    def qoi():
-        c = mesh_seq.field_functions["c"]
-        x, y = SpatialCoordinate(mesh_seq[index])
-        xr, yr, rr = 20, 7.5, 0.5
-        kernel = conditional((x - xr) ** 2 + (y - yr) ** 2 < rr**2, 1, 0)
-        return kernel * c * dx
-
-    return qoi
+        return qoi
 
 
 # Finally, we can set up the problem. Instead of using a :class:`TimePartition`,
@@ -140,14 +138,9 @@ time_partition = TimeInstant(fields)
 # When creating the :class:`MeshSeq`, we need to set the ``"qoi_type"`` to
 # ``"steady"``. ::
 
-mesh_seq = GoalOrientedMeshSeq(
-    time_partition,
-    mesh,
-    get_solver=get_solver,
-    get_qoi=get_qoi,
-    qoi_type="steady",
-)
-solutions, indicators = mesh_seq.indicate_errors(
+mesh_seq = MeshSeq(mesh)
+solver = PointDischargeSolver(time_partition, mesh_seq, qoi_type="steady")
+solutions, indicators = solver.indicate_errors(
     enrichment_kwargs={"enrichment_method": "p"}
 )
 
