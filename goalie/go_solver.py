@@ -184,9 +184,7 @@ class GoalOrientedSolver(AdjointSolver):
                 super().__init__(time_partition, mesh_sequence, **kwargs)
                 self._update_function_spaces()
 
-        enriched_solver = EnrichedSolver(
-            self.time_partition, meshes, qoi_type=self.qoi_type
-        )
+        enriched_solver = EnrichedSolver(tp, meshes, qoi_type=self.qoi_type)
 
         return enriched_solver
 
@@ -496,8 +494,8 @@ class GoalOrientedSolver(AdjointSolver):
                 self.check_convergence[:] = np.logical_not(
                     np.logical_or(continue_unconditionally, self.converged)
                 )
-            self.element_counts.append(self.count_elements())
-            self.vertex_counts.append(self.count_vertices())
+            self.meshes.element_counts.append(self.meshes.count_elements())
+            self.meshes.vertex_counts.append(self.meshes.count_vertices())
 
             # Check for element count convergence
             self.converged[:] = self.check_element_count_convergence()

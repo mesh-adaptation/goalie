@@ -1,5 +1,5 @@
 """
-Testing for the mesh sequence objects.
+Testing for the solver objects.
 """
 
 import logging
@@ -45,7 +45,7 @@ class BaseClasses:
 
     class TrivialGoalOrientedBaseClass(unittest.TestCase):
         """
-        Base class for tests with a trivial :class:`GoalOrientedMeshSeq`.
+        Base class for tests with a trivial :class:`GoalOrientedSolver`.
         """
 
         def setUp(self):
@@ -53,8 +53,8 @@ class BaseClasses:
             self.mesh_seq = MeshSeq(self.meshes)
 
         @staticmethod
-        def constant_qoi(mesh_seq, solutions, index):
-            R = FunctionSpace(mesh_seq[index], "R", 0)
+        def constant_qoi(mesh_seq, index):
+            R = FunctionSpace(mesh_seq.meshes[index], "R", 0)
             return lambda: Function(R).assign(1) * ufl.dx
 
         def go_solver(self, element=None, parameters=None):
@@ -70,7 +70,7 @@ class BaseClasses:
 
     class GoalOrientedBaseClass(unittest.TestCase):
         """
-        Base class for tests with a complete :class:`GoalOrientedMeshSeq`.
+        Base class for tests with a complete :class:`GoalOrientedSolver`.
         """
 
         def setUp(self):
@@ -92,7 +92,7 @@ class BaseClasses:
 
                 def get_solver(self, index):
                     tp = outer_self.time_partition
-                    R = FunctionSpace(outer_self.mesh_seq[index], "R", 0)
+                    R = FunctionSpace(self.meshes[index], "R", 0)
                     dt = Function(R).assign(tp.timesteps[index])
 
                     u, u_ = self.field_functions[outer_self.field.name]
@@ -109,9 +109,9 @@ class BaseClasses:
                         f += coeff_diff
 
                 @annotate_qoi
-                def get_qoi(mesh_seq, i):
+                def get_qoi(self, i):
                     def end_time_qoi():
-                        u = mesh_seq.field_functions[outer_self.field.name][0]
+                        u = self.field_functions[outer_self.field.name][0]
                         return ufl.inner(u, u) * ufl.dx
 
                     return end_time_qoi
@@ -125,7 +125,7 @@ class BaseClasses:
 
 class TestBlockLogic(BaseClasses.RSpaceTestCase):
     """
-    Unit tests for :meth:`MeshSeq._dependency` and :meth:`MeshSeq._output`.
+    Unit tests for :meth:`AdjointSolver._dependency` and :meth:`AdjointSolver._output`.
     """
 
     def setUp(self):
@@ -273,7 +273,7 @@ class TestBlockLogic(BaseClasses.RSpaceTestCase):
 
 class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
     """
-    Unit tests for :meth:`get_solve_blocks`.
+    Unit tests for :meth:`AdjointSolver.get_solve_blocks`.
     """
 
     def setUp(self):
@@ -385,9 +385,9 @@ class TestGetSolveBlocks(BaseClasses.RSpaceTestCase):
         self.assertEqual(str(cm.exception), msg)
 
 
-class TestGoalOrientedMeshSeq(BaseClasses.TrivialGoalOrientedBaseClass):
+class TestGoalOrientedSolver(BaseClasses.TrivialGoalOrientedBaseClass):
     """
-    Unit tests for a :class:`GoalOrientedMeshSeq`.
+    Unit tests for a :class:`GoalOrientedSolver`.
     """
 
     def test_read_forms_error_field(self):
@@ -424,7 +424,7 @@ class TestGoalOrientedMeshSeq(BaseClasses.TrivialGoalOrientedBaseClass):
 
 class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
     """
-    Unit tests for global enrichment of a :class:`GoalOrientedMeshSeq`.
+    Unit tests for global enrichment of a :class:`GoalOrientedSolver`.
     """
 
     def element(self, family, degree, rank):
@@ -460,14 +460,13 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
         num_subintervals = 2
         dt = end_time / num_subintervals
         field = Field("field", family="Real")
-        mesh_seq = GoalOrientedSolver(
+        solver = GoalOrientedSolver(
             TimePartition(end_time, num_subintervals, dt, field),
             MeshSeq([UnitTriangleMesh()] * num_subintervals),
-            get_qoi=self.constant_qoi,
             qoi_type="end_time",
         )
         with self.assertRaises(ValueError) as cm:
-            mesh_seq.get_enriched_solver(enrichment_method="h")
+            solver.get_enriched_solver(enrichment_method="h")
         msg = "h-enrichment is not supported for shallow-copied meshes."
         self.assertEqual(str(cm.exception), msg)
 
@@ -606,7 +605,7 @@ class TestGlobalEnrichment(BaseClasses.TrivialGoalOrientedBaseClass):
 class TestDetectChangedCoefficients(BaseClasses.GoalOrientedBaseClass):
     """
     Unit tests for detecting changed coefficients using
-    :meth:`GoalOrientedMeshSeq._detect_changing_coefficients`.
+    :meth:`GoalOrientedSolver._detect_changing_coefficients`.
     """
 
     def test_constant_coefficients(self):
