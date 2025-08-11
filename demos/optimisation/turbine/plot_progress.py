@@ -35,7 +35,7 @@ fig, axes = plt.subplots()
 for n in n_range:
     try:
         n_str = n if np.isclose(n, np.round(n)) else f"{n:.4f}".replace(".", "p")
-        nelements = np.round(60 * 25 * 2 ** (2 * n + 1)).astype(int)
+        nelements = np.round(60 * 25 * 2 ** (2 * np.round(n) + 1)).astype(int)
         timings = np.load(f"outputs/fixed_mesh_{n_str}/timings.npy")
         controls = np.load(f"outputs/fixed_mesh_{n_str}/controls.npy")
         axes.semilogx(
@@ -73,7 +73,7 @@ fig, axes = plt.subplots()
 for n in n_range:
     try:
         n_str = n if np.isclose(n, np.round(n)) else f"{n:.4f}".replace(".", "p")
-        nelements = np.round(60 * 25 * 2 ** (2 * n + 1)).astype(int)
+        nelements = np.round(60 * 25 * 2 ** (2 * np.round(n) + 1)).astype(int)
         timings = np.load(f"outputs/fixed_mesh_{n_str}/timings.npy")
         qois = -np.load(f"outputs/fixed_mesh_{n_str}/qois.npy") * scaling
         axes.semilogx(timings, qois, "--x", label=f"Fixed mesh ({nelements} elements)")
@@ -105,7 +105,7 @@ fig, axes = plt.subplots()
 for n in n_range:
     try:
         n_str = n if np.isclose(n, np.round(n)) else f"{n:.4f}".replace(".", "p")
-        nelements = np.round(60 * 25 * 2 ** (2 * n + 1)).astype(int)
+        nelements = np.round(60 * 25 * 2 ** (2 * np.round(n) + 1)).astype(int)
         timings = np.load(f"outputs/fixed_mesh_{n_str}/timings.npy")
         gradients = np.abs(
             np.load(f"outputs/fixed_mesh_{n_str}/gradients.npy") * scaling
