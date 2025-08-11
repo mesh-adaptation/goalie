@@ -138,9 +138,9 @@ fig, axes = plt.subplots()
 for n in n_range:
     try:
         n_str = n if np.isclose(n, np.round(n)) else f"{n:.4f}".replace(".", "p")
-        dofs = np.load(f"outputs/fixed_mesh_{n_str}/dofs.npy")[-1]
+        dofs = np.load(f"outputs/fixed_mesh_{n_str}/dofs.npy")
         timings = np.load(f"outputs/fixed_mesh_{n_str}/timings.npy")
-        axes.loglog(dofs, dofs, "--x", label=f"Fixed mesh ({dofs:.0f} DoFs)")
+        axes.loglog(timings, dofs, "--x", label=f"Fixed mesh ({dofs[-1]:.0f} DoFs)")
     except FileNotFoundError:
         print(f"DoF count data for fixed_mesh with n={n} not found.")
 # Plot goal-oriented cases
