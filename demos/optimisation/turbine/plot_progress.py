@@ -131,3 +131,34 @@ axes.set_ylabel("Gradient relative to initial value")
 axes.grid(True)
 axes.legend()
 plt.savefig(f"{plot_dir}/gradients.jpg", bbox_inches="tight")
+
+# Plot dof counts for all approaches
+fig, axes = plt.subplots()
+# Plot fixed mesh cases
+for n in n_range:
+    try:
+        n_str = n if np.isclose(n, np.round(n)) else f"{n:.4f}".replace(".", "p")
+        dofs = np.load(f"outputs/fixed_mesh_{n_str}/dofs.npy")[-1]
+        timings = np.load(f"outputs/fixed_mesh_{n_str}/timings.npy")
+        axes.loglog(dofs, dofs, "--x", label=f"Fixed mesh ({dofs:.0f} DoFs)")
+    except FileNotFoundError:
+        print(f"DoF count data for fixed_mesh with n={n} not found.")
+# Plot goal-oriented cases
+n = args.n
+for anisotropic, label in go_labels.items():
+    output_dir = f"outputs/{experiment_id}"
+    model_config = (
+        f"goal_oriented_n{n}_anisotropic{int(anisotropic)}_base{base}_target{target}"
+    )
+    try:
+        dofs = np.load(f"{output_dir}/{model_config}_dofs.npy")
+        timings = np.load(f"{output_dir}/{model_config}_timings.npy")
+        axes.loglog(timings, dofs, "--x", label=label)
+    except FileNotFoundError:
+        print(f"DoF count data not found for {model_config}.")
+
+axes.set_xlabel(r"CPU time [$\mathrm{s}$]")
+axes.set_ylabel("DoF count")
+axes.grid(True)
+axes.legend()
+plt.savefig(f"{plot_dir}/dofs.jpg", bbox_inches="tight")
