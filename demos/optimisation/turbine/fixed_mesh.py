@@ -101,8 +101,9 @@ with open(f"{output_dir}/cputime.txt", "w") as f:
     f.write(f"{cpu_time:.2f} seconds\n")
 
 # Write the optimiser progress to file
-np.save(f"{output_dir}/controls.npy", optimiser.progress["control"])
 np.save(f"{output_dir}/timings.npy", optimiser.progress["cputime"])
+np.save(f"{output_dir}/dofs.npy", optimiser.progress["dofs"])
+np.save(f"{output_dir}/controls.npy", optimiser.progress["control"])
 np.save(f"{output_dir}/qois.npy", optimiser.progress["qoi"])
 np.save(f"{output_dir}/gradients.npy", optimiser.progress["gradient"])
 
