@@ -41,8 +41,8 @@ class OptimisationProgress(AttrDict):
         """
         Reset the progress tracks to their initial state as empty lists.
         """
-        self["count"] = []
         self["cputime"] = []
+        self["dofs"] = []
         self["qoi"] = []
         self["control"] = []
         self["gradient"] = []
@@ -185,7 +185,13 @@ class QoIOptimiser_Base(abc.ABC):
                 f"dJ={float(dJ):11.4e}, "
                 f"lr={self.params.lr:10.4e}"
             )
-            self.progress["count"].append(mesh_seq.fp_iteration)
+            self.progress["dofs"].append(
+                sum(
+                    sum(subspace.dof_count)
+                    for fs in mesh_seq.solution_spaces.values()
+                    for subspace in fs
+                )
+            )
             self.progress["control"].append(u)
             self.progress["qoi"].append(J)
             self.progress["gradient"].append(dJ)
