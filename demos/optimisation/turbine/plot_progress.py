@@ -35,7 +35,7 @@ for n in n_range:
         dofs = np.load(f"outputs/fixed_mesh_{n_str}/dofs.npy")[-1]
         timings = np.load(f"outputs/fixed_mesh_{n_str}/timings.npy")
         controls = np.load(f"outputs/fixed_mesh_{n_str}/controls.npy")
-        axes.semilogx(timings, controls, "--x", label=f"Fixed mesh ({dofs} DoFs)")
+        axes.semilogx(timings, controls, "--x", label=f"Fixed mesh ({dofs:.0f} DoFs)")
     except FileNotFoundError:
         print(f"Control data for fixed_mesh with n={n} not found.")
 
@@ -71,7 +71,7 @@ for n in n_range:
         dofs = np.load(f"outputs/fixed_mesh_{n_str}/dofs.npy")[-1]
         timings = np.load(f"outputs/fixed_mesh_{n_str}/timings.npy")
         qois = -np.load(f"outputs/fixed_mesh_{n_str}/qois.npy") * scaling
-        axes.semilogx(timings, qois, "--x", label=f"Fixed mesh ({dofs} DoFs)")
+        axes.semilogx(timings, qois, "--x", label=f"Fixed mesh ({dofs:.0f} DoFs)")
     except FileNotFoundError:
         print(f"QoI data for fixed_mesh with n={n} not found.")
 # Plot goal-oriented cases
@@ -106,7 +106,7 @@ for n in n_range:
             np.load(f"outputs/fixed_mesh_{n_str}/gradients.npy") * scaling
         )
         gradients /= gradients[0]  # Normalise by the first value
-        axes.loglog(timings, gradients, "--x", label=f"Fixed mesh ({dofs} DoFs)")
+        axes.loglog(timings, gradients, "--x", label=f"Fixed mesh ({dofs:.0f} DoFs)")
     except FileNotFoundError:
         print(f"Gradient data for fixed_mesh with n={n} not found.")
 # Plot goal-oriented cases
