@@ -24,10 +24,7 @@ if not os.path.exists(plot_dir):
     os.makedirs(plot_dir)
 
 # Define approaches
-go_labels = {
-    False: "Goal-oriented (isotropic)",
-    True: "Goal-oriented (anisotropic)",
-}
+go_labels = {False: "Isotropic goal-oriented", True: "Anisotropic goal-oriented"}
 
 # Plot controls for all approaches
 fig, axes = plt.subplots()
@@ -35,12 +32,10 @@ fig, axes = plt.subplots()
 for n in n_range:
     try:
         n_str = n if np.isclose(n, np.round(n)) else f"{n:.4f}".replace(".", "p")
-        nelements = np.round(60 * 25 * 2 ** (2 * np.round(n) + 1)).astype(int)
+        dofs = np.load(f"outputs/fixed_mesh_{n_str}/dofs.npy")[-1]
         timings = np.load(f"outputs/fixed_mesh_{n_str}/timings.npy")
         controls = np.load(f"outputs/fixed_mesh_{n_str}/controls.npy")
-        axes.semilogx(
-            timings, controls, "--x", label=f"Fixed mesh ({nelements} elements)"
-        )
+        axes.semilogx(timings, controls, "--x", label=f"Fixed mesh ({dofs} DoFs)")
     except FileNotFoundError:
         print(f"Control data for fixed_mesh with n={n} not found.")
 
@@ -73,10 +68,10 @@ fig, axes = plt.subplots()
 for n in n_range:
     try:
         n_str = n if np.isclose(n, np.round(n)) else f"{n:.4f}".replace(".", "p")
-        nelements = np.round(60 * 25 * 2 ** (2 * np.round(n) + 1)).astype(int)
+        dofs = np.load(f"outputs/fixed_mesh_{n_str}/dofs.npy")[-1]
         timings = np.load(f"outputs/fixed_mesh_{n_str}/timings.npy")
         qois = -np.load(f"outputs/fixed_mesh_{n_str}/qois.npy") * scaling
-        axes.semilogx(timings, qois, "--x", label=f"Fixed mesh ({nelements} elements)")
+        axes.semilogx(timings, qois, "--x", label=f"Fixed mesh ({dofs} DoFs)")
     except FileNotFoundError:
         print(f"QoI data for fixed_mesh with n={n} not found.")
 # Plot goal-oriented cases
@@ -105,15 +100,13 @@ fig, axes = plt.subplots()
 for n in n_range:
     try:
         n_str = n if np.isclose(n, np.round(n)) else f"{n:.4f}".replace(".", "p")
-        nelements = np.round(60 * 25 * 2 ** (2 * np.round(n) + 1)).astype(int)
+        dofs = np.load(f"outputs/fixed_mesh_{n_str}/dofs.npy")[-1]
         timings = np.load(f"outputs/fixed_mesh_{n_str}/timings.npy")
         gradients = np.abs(
             np.load(f"outputs/fixed_mesh_{n_str}/gradients.npy") * scaling
         )
         gradients /= gradients[0]  # Normalise by the first value
-        axes.loglog(
-            timings, gradients, "--x", label=f"Fixed mesh ({nelements} elements)"
-        )
+        axes.loglog(timings, gradients, "--x", label=f"Fixed mesh ({dofs} DoFs)")
     except FileNotFoundError:
         print(f"Gradient data for fixed_mesh with n={n} not found.")
 # Plot goal-oriented cases

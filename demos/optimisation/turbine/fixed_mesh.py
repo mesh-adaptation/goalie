@@ -29,7 +29,7 @@ args, _ = parser.parse_known_args()
 n = args.n
 
 if np.isclose(n, np.round(n)):
-    experiment_id = f"fixed_mesh_{n}"
+    experiment_id = f"fixed_mesh_{int(n)}"
 else:
     experiment_id = f"fixed_mesh_{n:.4f}".replace(".", "p")
 plot_dir = f"plots/{experiment_id}"

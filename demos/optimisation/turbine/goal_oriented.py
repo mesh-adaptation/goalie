@@ -54,7 +54,7 @@ anisotropic = args.anisotropic
 base = args.base_complexity
 target = args.target_complexity
 if np.isclose(n, np.round(n)):
-    prefix = f"goal_oriented_n{n}"
+    prefix = f"goal_oriented_n{int(n)}"
 else:
     prefix = f"goal_oriented_n{n:.4f}".replace(".", "p")
 config_str = (
