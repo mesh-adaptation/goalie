@@ -143,8 +143,9 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     m = pyadjoint.enlisting.Enlist(controls)
     assert pyadjoint.annotate_tape()
     pyadjoint.pause_annotation()
-    with tape.marked_nodes(m):
-        tape.evaluate_adj(markings=True)
+    with tape.marked_control_dependents(m):
+        with tape.marked_functional_dependencies(J):
+            tape.evaluate_adj(markings=True)
     # FIXME: Using mixed Functions as Controls not correct
     J_expected = float(J)
 
