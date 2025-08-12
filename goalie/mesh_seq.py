@@ -416,6 +416,22 @@ class MeshSeq:
         return self._fs
 
     @property
+    def solution_spaces(self):
+        """
+        Get the function spaces corresponding to the fields solved for.
+
+        :returns: a dictionary whose keys are solution field names and whose values are
+            the corresponding function spaces
+        :rtype: :class:`~.AttrDict` with :class:`str` keys and
+            :class:`firedrake.functionspaceimpl.FunctionSpace` values
+        """
+        return {
+            key: value
+            for key, value in self.function_spaces.items()
+            if key in self.solution_names
+        }
+
+    @property
     def initial_condition(self):
         """
         Get the initial conditions associated with the first subinterval.
