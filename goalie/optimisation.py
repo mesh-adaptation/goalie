@@ -3,6 +3,7 @@ Module for handling PDE-constrained optimisation.
 """
 
 import abc
+from time import perf_counter
 
 import numpy as np
 import pyadjoint
@@ -39,21 +40,26 @@ class OptimisationProgress(AttrDict):
         """
         Reset the progress tracks to their initial state as empty lists.
         """
-        self["count"] = []
+        self["cputime"] = []
+        self["dofs"] = []
         self["qoi"] = []
         self["control"] = []
         self["gradient"] = []
 
-    def convert_to_float(self):
+    def convert_for_output(self):
         r"""
-        Convert all progress tracks to be lists of :class:`float`\s.
+        Convert all progress tracks to be lists of :class:`float`\s and convert the
+        cputimes to seconds elapsed.
 
         This is required because the optimisation algorithms will track progress of
         :class:`firedrake.function.Function`\s and :class:`~.AdjFloat`\s, whereas
         post-processing typically expects real values.
         """
         for key in self.keys():
-            self[key] = [float(x) for x in self[key]]
+            if key == "cputime":
+                self[key] = [t - self[key][0] for t in self[key][1:]]
+            else:
+                self[key] = [float(x) for x in self[key]]
 
 
 class QoIOptimiser_Base(abc.ABC):
@@ -142,6 +148,8 @@ class QoIOptimiser_Base(abc.ABC):
         :type adaptation_parameters: :class:`~.GoalOrientedAdaptParameters`
         :kwarg dropout: whether to stop adapting once the mesh has converged
         :type dropout: :class:`bool`
+        :return: solution data from the last iteration
+        :rtype: :class:`goalie.function.FunctionData`
 
         :raises: :class:`~.ConvergenceError` if the maximum number of iterations are
             reached.
@@ -149,6 +157,7 @@ class QoIOptimiser_Base(abc.ABC):
         mesh_seq = self.mesh_seq
         mesh_seq.params = adaptation_parameters or GoalOrientedAdaptParameters()
         for mesh_seq.fp_iteration in range(1, self.params.maxiter + 1):
+            self.progress["cputime"].append(perf_counter())
             tape = pyadjoint.get_working_tape()
             tape.clear_tape()
 
@@ -174,7 +183,13 @@ class QoIOptimiser_Base(abc.ABC):
                 f"dJ={float(dJ):11.4e}, "
                 f"lr={self.params.lr:10.4e}"
             )
-            self.progress["count"].append(mesh_seq.fp_iteration)
+            self.progress["dofs"].append(
+                sum(
+                    sum(subspace.dof_count)
+                    for fs in mesh_seq.solution_spaces.values()
+                    for subspace in fs
+                )
+            )
             self.progress["control"].append(u)
             self.progress["qoi"].append(J)
             self.progress["gradient"].append(dJ)
@@ -195,8 +210,9 @@ class QoIOptimiser_Base(abc.ABC):
                 continue
             if self.check_gradient_convergence():
                 self.progress["control"].pop()
-                self.progress.convert_to_float()
-                return
+                self.progress["cputime"].append(perf_counter())
+                self.progress.convert_for_output()
+                return mesh_seq.solve_forward()
             self.check_qoi_divergence()
         raise ConvergenceError("Reached maximum number of iterations.")
 
