@@ -558,7 +558,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         """
         # TODO #124: adaptor no longer needs solution and indicator data to be passed
         #            explicitly
-        self.params = parameters or GoalOrientedAdaptParameters()
+        self._params = parameters or GoalOrientedAdaptParameters()
         enrichment_kwargs = enrichment_kwargs or {}
         solver_kwargs = solver_kwargs or {}
         self._reset_counts()

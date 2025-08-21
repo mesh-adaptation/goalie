@@ -76,7 +76,7 @@ class MeshSeq:
         self.check_convergence = np.array([True] * len(self), dtype=bool)
         self.converged = np.array([False] * len(self), dtype=bool)
         self.fp_iteration = 0
-        self.params = None
+        self._params = None
         self.sections = [{} for mesh in self]
 
         self._outputs_consistent()
@@ -616,6 +616,21 @@ class MeshSeq:
 
         return self.solutions
 
+    @property
+    def params(self):
+        """
+        Get the adaptation parameters.
+
+        :returns: the adaptation parameters
+        :rtype: :class:`~.AdaptParameters`
+        """
+        if self._params is None:
+            raise AttributeError(
+                "Adaptation parameters have not been set. Use the "
+                "`fixed_point_iteration` method to set them."
+            )
+        return self._params
+
     def check_element_count_convergence(self):
         r"""
         Check for convergence of the fixed point iteration due to the relative
@@ -723,7 +738,7 @@ class MeshSeq:
         :rtype: :class:`~.ForwardSolutionData`
         """
         # TODO #124: adaptor no longer needs solution data to be passed explicitly
-        self.params = parameters or AdaptParameters()
+        self._params = parameters or AdaptParameters()
         solver_kwargs = solver_kwargs or {}
         adaptor_kwargs = adaptor_kwargs or {}
 
