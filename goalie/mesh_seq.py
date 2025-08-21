@@ -45,6 +45,9 @@ class MeshSeq:
         :kwarg transfer_kwargs: kwargs to pass to the chosen transfer method
         :type transfer_kwargs: :class:`dict` with :class:`str` keys and values which may
             take various types
+        :kwarg test_case_setup: static class defining parameters used to define the
+            test case
+        :type test_case_setup: class
         """
         self.time_partition = time_partition
         self.subintervals = time_partition.subintervals
@@ -77,6 +80,7 @@ class MeshSeq:
         self.converged = np.array([False] * len(self), dtype=bool)
         self.fp_iteration = 0
         self._adapt_parameters = None
+        self.test_case_setup = kwargs.get("test_case_setup")
         self.sections = [{} for mesh in self]
 
         self._outputs_consistent()
