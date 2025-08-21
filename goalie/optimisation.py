@@ -157,7 +157,9 @@ class QoIOptimiser_Base(abc.ABC):
             reached.
         """
         mesh_seq = self.mesh_seq
-        mesh_seq.params = adaptation_parameters or GoalOrientedAdaptParameters()
+        mesh_seq._adapt_parameters = (
+            adaptation_parameters or GoalOrientedAdaptParameters()
+        )
         for mesh_seq.fp_iteration in range(1, self.params.maxiter + 1):
             self.progress["cputime"].append(perf_counter())
             tape = pyadjoint.get_working_tape()
