@@ -23,7 +23,7 @@ class TestAdjointUtils(unittest.TestCase):
 
     def mesh_seq(self, qoi_type="end_time"):
         msq = AdjointMeshSeq(self.time_interval, [self.mesh], qoi_type=qoi_type)
-        msq.params = GoalOrientedAdaptParameters()
+        msq._adapt_parameters = GoalOrientedAdaptParameters()
         return msq
 
     def test_annotate_qoi_0args(self):
@@ -123,25 +123,25 @@ class TestAdjointUtils(unittest.TestCase):
 
     def test_qoi_convergence_values_lt_2(self):
         mesh_seq = self.mesh_seq("end_time")
-        mesh_seq.fp_iteration = mesh_seq.params.miniter + 1
+        mesh_seq.fp_iteration = mesh_seq.adapt_parameters.miniter + 1
         mesh_seq.qoi_values = [1.0]
         self.assertFalse(mesh_seq.check_qoi_convergence())
 
     def test_qoi_convergence_values_lt_miniter(self):
         mesh_seq = self.mesh_seq("end_time")
-        mesh_seq.fp_iteration = mesh_seq.params.miniter
-        mesh_seq.qoi_values = np.ones(mesh_seq.params.miniter - 1)
+        mesh_seq.fp_iteration = mesh_seq.adapt_parameters.miniter
+        mesh_seq.qoi_values = np.ones(mesh_seq.adapt_parameters.miniter - 1)
         self.assertFalse(mesh_seq.check_qoi_convergence())
 
     def test_qoi_convergence_values_constant(self):
         mesh_seq = self.mesh_seq("end_time")
-        mesh_seq.fp_iteration = mesh_seq.params.miniter
-        mesh_seq.qoi_values = np.ones(mesh_seq.params.miniter + 1)
+        mesh_seq.fp_iteration = mesh_seq.adapt_parameters.miniter
+        mesh_seq.qoi_values = np.ones(mesh_seq.adapt_parameters.miniter + 1)
         self.assertTrue(mesh_seq.check_qoi_convergence())
 
     def test_qoi_convergence_values_not_converged(self):
         mesh_seq = self.mesh_seq("end_time")
-        mesh_seq.fp_iteration = mesh_seq.params.miniter
-        mesh_seq.qoi_values = np.ones(mesh_seq.params.miniter + 1)
+        mesh_seq.fp_iteration = mesh_seq.adapt_parameters.miniter
+        mesh_seq.qoi_values = np.ones(mesh_seq.adapt_parameters.miniter + 1)
         mesh_seq.qoi_values[-1] = 100.0
         self.assertFalse(mesh_seq.check_qoi_convergence())

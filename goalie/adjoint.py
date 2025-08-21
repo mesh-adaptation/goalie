@@ -135,6 +135,33 @@ class AdjointMeshSeq(MeshSeq):
             )
         return self._gradient
 
+    def get_initial_condition(self):
+        r"""
+        Get the initial conditions applied on the first mesh in the sequence.
+
+        In the case where controls are defined in Real space, their values are carried
+        over.
+
+        :returns: the dictionary, whose keys are field names and whose values are the
+            corresponding initial conditions applied
+        :rtype: :class:`dict` with :class:`str` keys and
+            :class:`firedrake.function.Function` values
+        """
+        if self._get_initial_condition is not None:
+            ics = self._get_initial_condition(self)
+        else:
+            ics = {
+                fieldname: firedrake.Function(fs[0])
+                for fieldname, fs in self.function_spaces.items()
+            }
+
+        # Update the values for all controls from Real space
+        if hasattr(self, "controls"):
+            for key, control in self.controls.items():
+                if control.function_space().ufl_element().family() == "Real":
+                    ics[key].assign(float(control.tape_value()))
+        return ics
+
     @annotate_qoi
     def get_qoi(self, subinterval):
         """
@@ -528,20 +555,20 @@ class AdjointMeshSeq(MeshSeq):
                 for fieldname, solution_function in self.field_functions.items()
             }
 
-            # Get seed vector for reverse propagation
-            if i == num_subintervals - 1:
-                if self.qoi_type in ["end_time", "steady"]:
-                    pyadjoint.continue_annotation()
-                    qoi = self.get_qoi(i)
-                    self.J = qoi(**qoi_kwargs)
-                    if abs(self.J) < 1e-12:
-                        self.warning("Zero QoI. Is it implemented as intended?")
-                    pyadjoint.pause_annotation()
-            else:
+            if i < num_subintervals - 1:
+                # Get seed vector for reverse propagation
                 for fieldname in self.solution_names:
                     checkpoint[fieldname].block_variable.adj_value = self._transfer(
                         seeds[fieldname], self.function_spaces[fieldname][i]
                     )
+            elif self.qoi_type in ["end_time", "steady"]:
+                # Evaluate the QoI at the end of the final subinterval
+                pyadjoint.continue_annotation()
+                qoi = self.get_qoi(i)
+                self.J = qoi(**qoi_kwargs)
+                if abs(self.J) < 1e-12:
+                    self.warning("Zero QoI. Is it implemented as intended?")
+                pyadjoint.pause_annotation()
 
             # Update adjoint solver kwargs
             for fieldname in self.solution_names:
@@ -553,8 +580,9 @@ class AdjointMeshSeq(MeshSeq):
             with PETSc.Log.Event("goalie.AdjointMeshSeq.solve_adjoint.evaluate_adj"):
                 controls = pyadjoint.enlisting.Enlist(list(self._controls.values()))
                 with pyadjoint.stop_annotating():
-                    with tape.marked_nodes(controls):
-                        tape.evaluate_adj(markings=True)
+                    with tape.marked_control_dependents(controls):
+                        with tape.marked_functional_dependencies(self.J):
+                            tape.evaluate_adj(markings=True)
 
                 # Compute the gradient on the first subinterval
                 if i == 0 and compute_gradient:
@@ -773,12 +801,12 @@ class AdjointMeshSeq(MeshSeq):
                 f" False values for indices {self._subintervals_not_checked}."
             )
             return False
-        if len(self.qoi_values) >= max(2, self.params.miniter + 1):
+        if len(self.qoi_values) >= max(2, self.adapt_parameters.miniter + 1):
             qoi_, qoi = self.qoi_values[-2:]
-            if abs(qoi - qoi_) < self.params.qoi_rtol * abs(qoi_):
+            if abs(qoi - qoi_) < self.adapt_parameters.qoi_rtol * abs(qoi_):
                 pyrint(
                     f"QoI converged after {self.fp_iteration + 1} iterations"
-                    f" under relative tolerance {self.params.qoi_rtol}."
+                    f" under relative tolerance {self.adapt_parameters.qoi_rtol}."
                 )
                 return True
         return False
