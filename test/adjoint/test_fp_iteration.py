@@ -84,7 +84,7 @@ class MeshSeqBaseClass:
         mesh_seq._get_solver = lambda _: lambda *_: (
             yield from (None for _ in iter(int, 1))
         )
-        mesh_seq.params = self.parameters
+        mesh_seq._adapt_parameters = self.parameters
         return mesh_seq
 
     def test_convergence_noop(self):
@@ -135,15 +135,17 @@ class MeshSeqBaseClass:
             np.allclose(mesh_seq.check_convergence, [not drop_out_converged, True])
         )
 
-    def test_update_params(self):
-        def update_params(params, fp_iteration):
-            params.element_rtol = fp_iteration
+    def test_update_parameters(self):
+        def update_parameters(adapt_parameters, fp_iteration):
+            adapt_parameters.element_rtol = fp_iteration
 
         self.parameters.miniter = self.parameters.maxiter
         self.parameters.element_rtol = 0.5
         mesh_seq = self.mesh_seq()
         mesh_seq.fixed_point_iteration(
-            empty_adaptor, parameters=self.parameters, update_params=update_params
+            empty_adaptor,
+            parameters=self.parameters,
+            update_parameters=update_parameters,
         )
         self.assertEqual(self.parameters.element_rtol + 1, 5)
 
@@ -155,7 +157,7 @@ class MeshSeqBaseClass:
     def test_convergence_true(self):
         self.parameters.drop_out_converged = True
         mesh_seq = self.mesh_seq()
-        self.set_values(mesh_seq, np.ones((mesh_seq.params.miniter + 1, 1)))
+        self.set_values(mesh_seq, np.ones((mesh_seq.adapt_parameters.miniter + 1, 1)))
         self.assertTrue(self.check_convergence(mesh_seq))
         return mesh_seq
 
@@ -171,7 +173,7 @@ class MeshSeqBaseClass:
     def test_convergence_check_false(self):
         self.parameters.drop_out_converged = True
         mesh_seq = self.mesh_seq()
-        self.set_values(mesh_seq, np.ones((mesh_seq.params.miniter + 1, 1)))
+        self.set_values(mesh_seq, np.ones((mesh_seq.adapt_parameters.miniter + 1, 1)))
         mesh_seq.check_convergence[:] = True
         mesh_seq.check_convergence[-1] = False
         self.assertFalse(self.check_convergence(mesh_seq))

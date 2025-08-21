@@ -801,12 +801,12 @@ class AdjointMeshSeq(MeshSeq):
                 f" False values for indices {self._subintervals_not_checked}."
             )
             return False
-        if len(self.qoi_values) >= max(2, self.params.miniter + 1):
+        if len(self.qoi_values) >= max(2, self.adapt_parameters.miniter + 1):
             qoi_, qoi = self.qoi_values[-2:]
-            if abs(qoi - qoi_) < self.params.qoi_rtol * abs(qoi_):
+            if abs(qoi - qoi_) < self.adapt_parameters.qoi_rtol * abs(qoi_):
                 pyrint(
                     f"QoI converged after {self.fp_iteration + 1} iterations"
-                    f" under relative tolerance {self.params.qoi_rtol}."
+                    f" under relative tolerance {self.adapt_parameters.qoi_rtol}."
                 )
                 return True
         return False
