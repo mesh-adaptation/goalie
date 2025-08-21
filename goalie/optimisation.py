@@ -187,7 +187,9 @@ class QoIOptimiser_Base(abc.ABC):
             )
             self.progress["dofs"].append(
                 sum(
-                    sum(subspace.dof_count)
+                    subspace.dof_count
+                    if isinstance(subspace.dof_count, int)
+                    else sum(subspace.dof_count)
                     for fs in mesh_seq.solution_spaces.values()
                     for subspace in fs
                 )

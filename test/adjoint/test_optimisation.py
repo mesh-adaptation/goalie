@@ -40,13 +40,13 @@ class TestOptimisationProgress(unittest.TestCase):
         self.progress.reset()
         self.test_initial_state()
 
-    def test_convert_to_float(self):
+    def test_convert_for_output(self):
         mesh = VertexOnlyMesh(UnitIntervalMesh(1), [[0.5]])
         R = FunctionSpace(mesh, "R", 0)
         self.progress["qoi"] = [Function(R).assign(1.0)]
         self.progress["control"] = [Function(R).assign(2.0)]
         self.progress["gradient"] = [Function(R).assign(3.0)]
-        self.progress.convert_to_float()
+        self.progress.convert_for_output()
         self.assertEqual(self.progress["qoi"], [1.0])
         self.assertEqual(self.progress["control"], [2.0])
         self.assertEqual(self.progress["gradient"], [3.0])
