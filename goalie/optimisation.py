@@ -29,9 +29,11 @@ class OptimisationProgress(AttrDict):
     may be accessed either as class attributes or with dictionary keys.
 
     The progress of three quantities are tracked as lists:
+    * `cputime`: elapsed CPU time for the current optimisation iteration in seconds
+    * `dofs`: number of degrees of freedom in the current function space(s)
     * `qoi`: quantity of interest (QoI), i.e., cost function
-    * `control`: control variable(s)
-    * `gradient`: gradient(s) of QoI with respect to the control variable(s)
+    * `controls`: control variable(s)
+    * `gradients`: gradient(s) of QoI with respect to the control variable(s)
     """
 
     def __init__(self):
@@ -44,8 +46,8 @@ class OptimisationProgress(AttrDict):
         self["cputime"] = []
         self["dofs"] = []
         self["qoi"] = []
-        self["control"] = []
-        self["gradient"] = []
+        self["controls"] = []
+        self["gradients"] = []
 
     def convert_for_output(self):
         r"""
@@ -59,6 +61,8 @@ class OptimisationProgress(AttrDict):
         for key in self.keys():
             if key == "cputime":
                 self[key] = [t - self[key][0] for t in self[key][1:]]
+            elif key in {"controls", "gradients"}:
+                self[key] = [np.array(x, dtype=float) for x in self[key]]
             else:
                 self[key] = [float(x) for x in self[key]]
 
@@ -69,13 +73,13 @@ class QoIOptimiser_Base(abc.ABC):
     """
 
     # TODO: Use Goalie Solver rather than MeshSeq (#239)
-    def __init__(self, mesh_seq, control, params, adaptor=None, adaptor_kwargs=None):
+    def __init__(self, mesh_seq, controls, params, adaptor=None, adaptor_kwargs=None):
         """
         :arg mesh_seq: a mesh sequence that implements the forward model and
             computes the objective functional
         :type mesh_seq: :class:`~.AdjointMeshSeq`
-        :arg control: name of the field to use as the control
-        :type control: :class:`str`
+        :arg controls: names of the fields to use as controls
+        :type controls: :class:`str` or tuple[str]
         :kwarg params: Class holding parameters for optimisation routine
         :type params: :class:`~.OptimisationParameters`
         :kwarg adaptor: function for adapting the mesh sequence. Its arguments are the
@@ -88,13 +92,17 @@ class QoIOptimiser_Base(abc.ABC):
             take various types
         """
         self.mesh_seq = mesh_seq
-        self.control = control
-        if control not in mesh_seq.field_metadata:
-            raise ValueError(f"Invalid control '{control}'.")
-        if mesh_seq.field_metadata[control].family != "Real":
-            raise NotImplementedError(
-                "Only controls in R-space are currently implemented."
-            )
+        if isinstance(controls, str):
+            controls = tuple([controls])
+        assert isinstance(controls, tuple)
+        self.controls = controls
+        for control in self.controls:
+            if control not in mesh_seq.field_metadata:
+                raise ValueError(f"Invalid control '{control}'.")
+            if mesh_seq.field_metadata[control].family != "Real":
+                raise NotImplementedError(
+                    "Only controls in R-space are currently implemented."
+                )
         self.params = params
         self.progress = OptimisationProgress()
         self.adaptor = adaptor
@@ -119,8 +127,12 @@ class QoIOptimiser_Base(abc.ABC):
         :return: ``True`` if gradient convergence is detected, else ``False``
         :rtype: :class:`bool`
         """
-        dJ = float(self.mesh_seq.gradient[self.control])
-        if abs(dJ / float(self.progress["gradient"][0])) < self.params.gtol:
+        ratio = [
+            float(self.mesh_seq.gradient[control])
+            / float(self.progress["gradients"][0][i])
+            for i, control in enumerate(self.controls)
+        ]
+        if np.linalg.norm(ratio) < self.params.gtol:
             pyrint("Gradient convergence detected.")
             return True
         return False
@@ -173,18 +185,20 @@ class QoIOptimiser_Base(abc.ABC):
                 mesh_seq.solve_adjoint(compute_gradient=True)
             pyadjoint.pause_annotation()
             J = mesh_seq.J
-            u = mesh_seq.controls[self.control].tape_value()
-            dJ = mesh_seq.gradient[self.control]
+            u = [mesh_seq.controls[control].tape_value() for control in self.controls]
+            dJ = [mesh_seq.gradient[control] for control in self.controls]
             if mesh_seq.fp_iteration == 1:
-                self.progress["control"].append(float(u))
+                self.progress["controls"].append([float(ui) for ui in u])
 
             # Take a step with the specified optimisation method and track progress
             self.step(u, J, dJ)
+            controls_str = ", ".join([f"{float(ui):11.4e}" for ui in u])
+            gradients_str = ", ".join([f"{float(dj):11.4e}" for dj in dJ])
             pyrint(
                 f"it={mesh_seq.fp_iteration:2d}, "
-                f"control={float(u):11.4e}, "
+                f"controls=[{controls_str}], "
                 f"J={J:11.4e}, "
-                f"dJ={float(dJ):11.4e}, "
+                f"dJ=[{gradients_str}], "
                 f"lr={self.params.lr:10.4e}"
             )
             self.progress["dofs"].append(
@@ -196,9 +210,9 @@ class QoIOptimiser_Base(abc.ABC):
                     for subspace in fs
                 )
             )
-            self.progress["control"].append(u)
+            self.progress["controls"].append(u)
             self.progress["qoi"].append(J)
-            self.progress["gradient"].append(dJ)
+            self.progress["gradients"].append(dJ)
 
             # Apply mesh adaptation, if enabled
             if self.adaptive:
@@ -209,13 +223,14 @@ class QoIOptimiser_Base(abc.ABC):
                     self.adaptive = False
 
             # Update the value of the control in the MeshSeq
-            mesh_seq.controls[self.control].assign(float(u))
+            for control, ui in zip(self.controls, u):
+                mesh_seq.controls[control].assign(float(ui))
 
             # Check for convergence and divergence
             if mesh_seq.fp_iteration == 1:
                 continue
             if self.check_gradient_convergence():
-                self.progress["control"].pop()
+                self.progress["controls"].pop()
                 self.progress["cputime"].append(perf_counter())
                 self.progress.convert_for_output()
                 return mesh_seq.solve_forward()
@@ -240,52 +255,69 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
         :meth:`goalie.mesh_seq.MeshSeq._get_initial_condition` so that the control
         variable value corresponds to the updated value from this iteration.
 
-        :arg u: control value at the current iteration
-        :type u: :class:`firedrake.function.Function`, and
+        :arg u: control values at the current iteration
+        :type u: :class:`list` of :class:`firedrake.function.Function`
         :arg J: QoI value at the current iteration
         :type J: :class:`tuple` of :class:`~.AdjFloat`,
-        :arg dJ: gradient at the current iteration
-        :type dJ: :class:`firedrake.function.Function`
+        :arg dJ: gradient values at the current iteration
+        :type dJ: :class:`list` of :class:`firedrake.function.Function`
         """
+        R = u[0].function_space()
+        for ui, dj in zip(u, dJ):
+            assert ui.function_space() is R
+            assert dj.function_space() is R
 
         # Compute descent direction
-        P = dJ.copy(deepcopy=True)
-        P *= -1
+        P = [dj.copy(deepcopy=True) for dj in dJ]
+        for p in P:
+            p *= -1
 
         # Barzilai-Borwein formula
-        if len(self.progress["control"]) > 1:
-            R = u.function_space()
-
+        if len(self.progress["controls"]) > 1:
             # Get all the quantities in the same space
-            assert R == dJ.function_space()
-            u_prev = Function(R, val=float(self.progress["control"][-2]))
-            dJ_prev = Function(R, val=float(self.progress["gradient"][-1]))
+            u_prev = [Function(R, val=val) for val in self.progress["controls"][-2]]
+            dJ_prev = [Function(R, val=val) for val in self.progress["gradients"][-1]]
 
             # Evaluate the formula
-            dJ_diff = assemble(ufl.inner(dJ_prev - dJ, dJ_prev - dJ) * ufl.dx)
+            dJ_diff = assemble(
+                sum(
+                    ufl.inner(dj_prev - dj, dj_prev - dj)
+                    for dj_prev, dj in zip(dJ_prev, dJ)
+                )
+                * ufl.dx
+            )
             if dJ_diff < 1e-12:
                 warning(
                     "Near-zero difference between successive gradient values."
                     " Skipping Barzilai-Borwein step length update."
                 )
             else:
-                product = assemble(abs(ufl.inner(u_prev - u, dJ_prev - dJ)) * ufl.dx)
+                product = assemble(
+                    abs(
+                        sum(
+                            ufl.inner(ui_prev - ui, dj_prev - dj)
+                            for ui_prev, ui, dj_prev, dj in zip(u_prev, u, dJ_prev, dJ)
+                        )
+                    )
+                    * ufl.dx
+                )
                 self.params.lr = max(product / dJ_diff, self.params.lr_min)
 
         # Take a step downhill
-        u.dat.data[:] += self.params.lr * P.dat.data
+        for ui, p in zip(u, P):
+            ui.dat.data[:] += self.params.lr * p.dat.data
 
 
 @PETSc.Log.EventDecorator()
-def QoIOptimiser(mesh_seq, control, params, method="gradient_descent", **kwargs):
+def QoIOptimiser(mesh_seq, controls, params, method="gradient_descent", **kwargs):
     """
     Factory method for constructing handlers for PDE-constrained optimisation.
 
     :arg mesh_seq: a mesh sequence that implements the forward model and computes the
         objective functional
     :type mesh_seq: :class:`~.AdjointMeshSeq`
-    :arg control: name of the field to use as the control
-    :type control: :class:`str`
+    :arg controls: names of the fields to use as controls
+    :type controls: :class:`str` or tuple[str]
     :kwarg params: Class holding parameters for optimisation routine
     :type params: :class:`~.OptimisationParameters`
     :kwarg adaptor: function for adapting the mesh sequence. Its arguments are the mesh
@@ -302,6 +334,6 @@ def QoIOptimiser(mesh_seq, control, params, method="gradient_descent", **kwargs)
     try:
         return {
             "gradient_descent": QoIOptimiser_GradientDescent,
-        }[method](mesh_seq, control, params, **kwargs)
+        }[method](mesh_seq, controls, params, **kwargs)
     except KeyError as ke:
         raise ValueError(f"Method '{method}' not supported.") from ke
