@@ -43,7 +43,7 @@ def effectivity_index(error_indicator, Je):
     el = error_indicator.ufl_element()
     if not (el.family() == "Discontinuous Lagrange" and el.degree() == 0):
         raise ValueError("Error indicator must be P0.")
-    eta = error_indicator.vector().gather().sum()
+    eta = error_indicator.dat.global_data.sum()
     return np.abs(eta / Je)
 
 

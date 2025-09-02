@@ -107,9 +107,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     # Skip solution fields since they are stored separately
                     if coeff.name().split("_old")[0] in self.function_spaces:
                         continue
-                    if not np.allclose(
-                        coeff.vector().array(), init_coeff.vector().array()
-                    ):
+                    if not np.allclose(coeff.dat.data_ro, init_coeff.dat.data_ro):
                         if coeff_idx not in self._changed_form_coeffs[fieldname]:
                             self._changed_form_coeffs[fieldname][coeff_idx] = {
                                 0: deepcopy(init_coeff)
@@ -379,7 +377,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 for indicator in by_mesh:
                     if absolute_value:
                         indicator.interpolate(abs(indicator))
-                    estimator += dt * indicator.vector().gather().sum()
+                    estimator += dt * indicator.dat.global_data.sum()
         return estimator
 
     def check_estimator_convergence(self):

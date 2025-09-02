@@ -192,7 +192,7 @@ class MeshSeq:
                 nv = self.vertex_counts[0][i]
                 qm = QualityMeasure(mesh)
                 ar = qm("aspect_ratio")
-                mar = ar.vector().gather().max()
+                mar = ar.dat.global_data.max()
                 self.debug(
                     f"{i}: {nc:7d} cells, {nv:7d} vertices,  max aspect ratio {mar:.2f}"
                 )
@@ -348,7 +348,7 @@ class MeshSeq:
                 if logger.level == DEBUG:
                     next(solver_gen)
                     f, f_ = self.field_functions[next(iter(self.field_functions))]
-                    if np.array_equal(f.vector().array(), f_.vector().array()):
+                    if np.array_equal(f.dat.data_ro, f_.dat.data_ro):
                         self.debug(
                             "Current and lagged solutions are equal. Does the"
                             " solver yield before updating lagged solutions?"
@@ -398,9 +398,9 @@ class MeshSeq:
                     for fieldname in self.field_functions
                 }
             )
-        assert (
-            self._function_spaces_consistent()
-        ), "Meshes and function spaces are inconsistent"
+        assert self._function_spaces_consistent(), (
+            "Meshes and function spaces are inconsistent"
+        )
 
     @property
     def function_spaces(self):
@@ -624,14 +624,14 @@ class MeshSeq:
                     converged[i] = True
                     if len(self) == 1:
                         pyrint(
-                            f"Element count converged after {self.fp_iteration+1}"
+                            f"Element count converged after {self.fp_iteration + 1}"
                             " iterations under relative tolerance"
                             f" {self.params.element_rtol}."
                         )
                     else:
                         pyrint(
                             f"Element count converged on subinterval {i} after"
-                            f" {self.fp_iteration+1} iterations under relative"
+                            f" {self.fp_iteration + 1} iterations under relative"
                             f" tolerance {self.params.element_rtol}."
                         )
 
