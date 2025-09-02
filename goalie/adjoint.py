@@ -541,8 +541,9 @@ class AdjointMeshSeq(MeshSeq):
             with PETSc.Log.Event("goalie.AdjointMeshSeq.solve_adjoint.evaluate_adj"):
                 controls = pyadjoint.enlisting.Enlist(list(self._controls.values()))
                 with pyadjoint.stop_annotating():
-                    with tape.marked_nodes(controls):
-                        tape.evaluate_adj(markings=True)
+                    with tape.marked_control_dependents(controls):
+                        with tape.marked_functional_dependencies(self.J):
+                            tape.evaluate_adj(markings=True)
 
                 # Compute the gradient on the first subinterval
                 if i == 0 and compute_gradient:
