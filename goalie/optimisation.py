@@ -262,10 +262,12 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
         :arg dJ: gradient values at the current iteration
         :type dJ: :class:`list` of :class:`firedrake.function.Function`
         """
-        R = u[0].function_space()
         for ui, dj in zip(u, dJ):
-            assert ui.function_space() is R
-            assert dj.function_space() is R
+            for fs in [ui.function_space(), dj.function_space()]:
+                if fs.ufl_element().family() != "Real":
+                    raise NotImplementedError(
+                        "Only controls in R-space are currently implemented."
+                    )
 
         # Compute descent direction
         P = [dj.copy(deepcopy=True) for dj in dJ]
@@ -274,6 +276,8 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
 
         # Barzilai-Borwein formula
         if len(self.progress["controls"]) > 1:
+            R = u[0].function_space()
+
             # Get all the quantities in the same space
             u_prev = [Function(R, val=val) for val in self.progress["controls"][-2]]
             dJ_prev = [Function(R, val=val) for val in self.progress["gradients"][-1]]
