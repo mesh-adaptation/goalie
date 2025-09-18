@@ -279,8 +279,12 @@ class QoIOptimiser_GradientDescent(QoIOptimiser_Base):
             R = u[0].function_space()
 
             # Get all the quantities in the same space
-            u_prev = [Function(R, val=val) for val in self.progress["controls"][-2]]
-            dJ_prev = [Function(R, val=val) for val in self.progress["gradients"][-1]]
+            u_prev = [
+                Function(R, val=float(val)) for val in self.progress["controls"][-2]
+            ]
+            dJ_prev = [
+                Function(R, val=float(val)) for val in self.progress["gradients"][-1]
+            ]
 
             # Evaluate the formula
             dJ_diff = assemble(
