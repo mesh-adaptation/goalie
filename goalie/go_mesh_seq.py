@@ -8,6 +8,7 @@ from copy import deepcopy
 import numpy as np
 import ufl
 from animate.interpolation import interpolate
+from animate.utility import function_data_sum
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
 from firedrake.petsc import PETSc
 
@@ -377,7 +378,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 for indicator in by_mesh:
                     if absolute_value:
                         indicator.interpolate(abs(indicator))
-                    estimator += dt * indicator.dat.global_data.sum()
+                    estimator += dt * function_data_sum(indicator)
         return estimator
 
     def check_estimator_convergence(self):

@@ -8,7 +8,7 @@ import firedrake
 import numpy as np
 from animate.interpolation import transfer
 from animate.quality import QualityMeasure
-from animate.utility import Mesh
+from animate.utility import Mesh, function_data_max
 from firedrake.adjoint import pyadjoint
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
@@ -192,7 +192,7 @@ class MeshSeq:
                 nv = self.vertex_counts[0][i]
                 qm = QualityMeasure(mesh)
                 ar = qm("aspect_ratio")
-                mar = ar.dat.global_data.max()
+                mar = function_data_max(ar)
                 self.debug(
                     f"{i}: {nc:7d} cells, {nv:7d} vertices,  max aspect ratio {mar:.2f}"
                 )

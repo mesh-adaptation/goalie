@@ -5,7 +5,7 @@ Utility functions and classes for mesh adaptation.
 import os
 
 import firedrake
-import numpy as np
+from animate.utility import function_data_sum
 
 __all__ = ["AttrDict", "create_directory", "effectivity_index"]
 
@@ -43,8 +43,7 @@ def effectivity_index(error_indicator, Je):
     el = error_indicator.ufl_element()
     if not (el.family() == "Discontinuous Lagrange" and el.degree() == 0):
         raise ValueError("Error indicator must be P0.")
-    eta = error_indicator.dat.global_data.sum()
-    return np.abs(eta / Je)
+    return abs(function_data_sum(error_indicator) / Je)
 
 
 def create_directory(path, comm=firedrake.COMM_WORLD):
