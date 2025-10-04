@@ -37,17 +37,18 @@ class OptimisationProgress(AttrDict):
     """
 
     def __init__(self):
-        self.reset()
-
-    def reset(self):
-        """
-        Reset the progress tracks to their initial state as empty lists.
-        """
         self["cputime"] = []
         self["dofs"] = []
         self["qoi"] = []
         self["controls"] = []
         self["gradients"] = []
+
+    def reset(self):
+        """
+        Reset the progress tracks to their initial state as empty lists.
+        """
+        for key in self:
+            self[key] = []
 
     def convert_for_output(self):
         r"""
@@ -105,6 +106,7 @@ class QoIOptimiser_Base(abc.ABC):
                 )
         self.params = params
         self.progress = OptimisationProgress()
+        self.mesh_seq.progress = self.progress
         self.adaptor = adaptor
         self.adaptive = adaptor is not None
         self.adaptor_kwargs = adaptor_kwargs
