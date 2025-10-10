@@ -18,8 +18,16 @@ from .function_data import IndicatorData
 from .log import pyrint
 from .options import GoalOrientedAdaptParameters
 from .time_partition import TimePartition
+from .utility import AttrDict
 
 __all__ = ["GoalOrientedMeshSeq"]
+
+
+def prolong(*args):
+    """
+    Shortcut for prolongation between meshes in a hierarchy.
+    """
+    return TransferManager().prolong(*args)
 
 
 class GoalOrientedMeshSeq(AdjointMeshSeq):
@@ -33,6 +41,24 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self._forms = None
         self._prev_form_coeffs = None
         self._changed_form_coeffs = None
+
+    @property
+    def initial_condition(self):
+        """
+        Get the initial conditions associated with the first subinterval.
+
+        :returns: a dictionary whose keys are field names and whose values are the
+            corresponding initial conditions applied on the first subinterval
+        :rtype: :class:`~.AttrDict` with :class:`str` keys and
+            :class:`firedrake.function.Function` values
+        """
+        ics = AttrDict(self.get_initial_condition())
+        for key, ic in ics.items():
+            if ic.function_space().mesh() != self.meshes[0]:
+                prolonged = Function(self.function_spaces[key][0])
+                prolong(ic, prolonged)
+                ics[key] = prolonged
+        return ics
 
     def read_forms(self, forms_dictionary):
         """
@@ -158,8 +184,11 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         if enrichment_method == "p":
             field_metadata = {}
             for fieldname, field in self.field_metadata.items():
-                element = field.get_element(meshes[0])
-                element = element.reconstruct(degree=element.degree() + num_enrichments)
+                if field.solved_for:
+                    element = field.get_element(meshes[0])
+                    element = element.reconstruct(
+                        degree=element.degree() + num_enrichments
+                    )
                 field_metadata[fieldname] = Field(
                     fieldname,
                     finite_element=element,
@@ -184,8 +213,13 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             get_solver=self._get_solver,
             get_qoi=self._get_qoi,
             qoi_type=self.qoi_type,
+            test_case_setup=self.test_case_setup,
         )
         enriched_mesh_seq._update_function_spaces()
+        # TODO: Need to set field_functions up on the correct mesh
+        # enriched_mesh_seq._reinitialise_fields(
+        #     enriched_mesh_seq.get_initial_condition()
+        # )
 
         return enriched_mesh_seq
 
@@ -201,10 +235,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :type enrichment_method: :class:`str`
         :returns: the function for mapping function data between mesh sequences
         """
-        if enrichment_method == "h":
-            return TransferManager().prolong
-        else:
-            return interpolate
+        return prolong if enrichment_method == "h" else interpolate
 
     def _create_indicators(self):
         """
@@ -224,7 +255,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
     @PETSc.Log.EventDecorator()
     def indicate_errors(
-        self, enrichment_kwargs=None, solver_kwargs=None, indicator_fn=get_dwr_indicator
+        self,
+        enrichment_kwargs=None,
+        solver_kwargs=None,
+        adj_solver_kwargs=None,
+        indicator_fn=get_dwr_indicator,
+        compute_gradient=False,
     ):
         """
         Compute goal-oriented error indicators for each subinterval based on solving the
@@ -240,15 +276,23 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             key 'qoi_kwargs'
         :type solver_kwargs: :class:`dict` with :class:`str` keys and values which may
             take various types
+        :kwarg adj_solver_kwargs: parameters for the adjoint solver
+        :type adj_solver_kwargs: :class:`dict` with :class:`str` keys and values which
+            may take various types
         :kwarg indicator_fn: function which maps the form, adjoint error and enriched
             space(s) as arguments to the error indicator
             :class:`firedrake.function.Function`
+        :kwarg compute_gradient: if ``True``, the gradient of the QoI with respect to
+            the initial conditions is computed and is available via the `gradient`
+            attribute
+        :type compute_gradient: :class:`bool`
         :returns: solution and indicator data objects
         :rtype1: :class:`~.AdjointSolutionData`
         :rtype2: :class:`~.IndicatorData`
         """
         solver_kwargs = solver_kwargs or {}
-        default_enrichment_kwargs = {"enrichment_method": "p", "num_enrichments": 1}
+        adj_solver_kwargs = adj_solver_kwargs or {}
+        default_enrichment_kwargs = {"enrichment_method": "h", "num_enrichments": 1}
         enrichment_kwargs = dict(default_enrichment_kwargs, **(enrichment_kwargs or {}))
         enriched_mesh_seq = self.get_enriched_mesh_seq(**enrichment_kwargs)
         transfer = self._get_transfer_function(enrichment_kwargs["enrichment_method"])
@@ -257,12 +301,17 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self._create_indicators()
 
         # Initialise adjoint solver generators on the MeshSeq and its enriched version
-        adj_sol_gen = self._solve_adjoint(**solver_kwargs)
+        adj_sol_gen = self._solve_adjoint(
+            solver_kwargs=solver_kwargs,
+            adj_solver_kwargs=adj_solver_kwargs,
+            compute_gradient=compute_gradient,
+        )
         # Track form coefficient changes in the enriched problem if the problem is
         # unsteady
         adj_sol_gen_enriched = enriched_mesh_seq._solve_adjoint(
+            solver_kwargs=solver_kwargs,
+            adj_solver_kwargs=adj_solver_kwargs,
             track_coefficients=not self.steady,
-            **solver_kwargs,
         )
 
         FWD, ADJ = "forward", "adjoint"
@@ -396,15 +445,75 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 f" contains False values for indices {self._subintervals_not_checked}."
             )
             return False
-        if len(self.estimator_values) >= max(2, self.params.miniter + 1):
+        if len(self.estimator_values) >= max(2, self.adapt_parameters.miniter + 1):
             ee_, ee = self.estimator_values[-2:]
-            if abs(ee - ee_) < self.params.estimator_rtol * abs(ee_):
+            if abs(ee - ee_) < self.adapt_parameters.estimator_rtol * abs(ee_):
                 pyrint(
                     f"Error estimator converged after {self.fp_iteration + 1}"
                     " iterations under relative tolerance"
-                    f" {self.params.estimator_rtol}."
+                    f" {self.adapt_parameters.estimator_rtol}."
                 )
                 return True
+        return False
+
+    @PETSc.Log.EventDecorator()
+    def _adapt_and_check(self, adaptor, adaptor_kwargs=None):
+        """
+        Apply mesh adaptation using a fixed point iteration loop approach.
+
+        :arg adaptor: function for adapting the mesh sequence. Its arguments are the
+            mesh sequence and the solution and indicator data objects. It should return
+            ``True`` if the convergence criteria checks are to be skipped for this
+            iteration. Otherwise, it should return ``False``.
+        :arg adaptor: :class:`function`
+        :kwarg adaptor_kwargs: parameters to pass to the adaptor
+        :type adaptor_kwargs: :class:`dict` with :class:`str` keys and values which may
+            take various types
+        :return: `True` if convergence is reached, else `False`
+        :rtype: :class:`bool`
+        """
+        adaptor_kwargs = adaptor_kwargs or {}
+
+        # Check for QoI convergence
+        # TODO #23: Put this check inside the adjoint solve as an optional return
+        #           condition so that we can avoid unnecessary extra solves
+        self.qoi_values.append(self.J)
+        qoi_converged = self.check_qoi_convergence()
+        if self.adapt_parameters.convergence_criteria == "any" and qoi_converged:
+            pyrint("QoI convergence detected.")
+            self.converged[:] = True
+            return True
+
+        # Check for error estimator convergence
+        self.estimator_values.append(self.error_estimate())
+        ee_converged = self.check_estimator_convergence()
+        if self.adapt_parameters.convergence_criteria == "any" and ee_converged:
+            pyrint("Error estimator convergence detected.")
+            self.converged[:] = True
+            return True
+
+        # Adapt meshes and log element counts
+        continue_unconditionally = adaptor(
+            self, self.solutions, self.indicators, **adaptor_kwargs
+        )
+        if self.adapt_parameters.drop_out_converged:
+            self.check_convergence[:] = np.logical_not(
+                np.logical_or(continue_unconditionally, self.converged)
+            )
+        self.element_counts.append(self.count_elements())
+        self.vertex_counts.append(self.count_vertices())
+
+        # Check for element count convergence
+        self.converged[:] = self.check_element_count_convergence()
+        elem_converged = self.converged.all()
+        if self.adapt_parameters.convergence_criteria == "any" and elem_converged:
+            pyrint("Element count convergence detected.")
+            return True
+
+        # Convergence check for 'all' mode
+        if qoi_converged and ee_converged and elem_converged:
+            pyrint("Convergence of all quantities detected.")
+            return True
         return False
 
     @PETSc.Log.EventDecorator()
@@ -412,7 +521,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self,
         adaptor,
         parameters=None,
-        update_params=None,
+        update_parameters=None,
         enrichment_kwargs=None,
         adaptor_kwargs=None,
         solver_kwargs=None,
@@ -425,11 +534,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             mesh sequence and the solution and indicator data objects. It should return
             ``True`` if the convergence criteria checks are to be skipped for this
             iteration. Otherwise, it should return ``False``.
+        :arg adaptor: :class:`function`
         :kwarg parameters: parameters to apply to the mesh adaptation process
         :type parameters: :class:`~.GoalOrientedAdaptParameters`
-        :kwarg update_params: function for updating :attr:`~.MeshSeq.params` at each
-            iteration. Its arguments are the parameter class and the fixed point
-            iteration
+        :kwarg update_parameters: function for updating
+            :attr:`~.MeshSeq.adapt_parameters` at each iteration. Its arguments are the
+            parameter class and the fixed point iteration
         :kwarg enrichment_kwargs: keyword arguments to pass to the global enrichment
             method
         :type enrichment_kwargs: :class:`dict` with :class:`str` keys and values which
@@ -449,9 +559,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         """
         # TODO #124: adaptor no longer needs solution and indicator data to be passed
         #            explicitly
-        self.params = parameters or GoalOrientedAdaptParameters()
+        self._adapt_parameters = parameters or GoalOrientedAdaptParameters()
         enrichment_kwargs = enrichment_kwargs or {}
-        adaptor_kwargs = adaptor_kwargs or {}
         solver_kwargs = solver_kwargs or {}
         self._reset_counts()
         self.qoi_values = []
@@ -459,10 +568,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self.converged[:] = False
         self.check_convergence[:] = True
 
-        for fp_iteration in range(self.params.maxiter):
+        for fp_iteration in range(self.adapt_parameters.maxiter):
             self.fp_iteration = fp_iteration
-            if update_params is not None:
-                update_params(self.params, self.fp_iteration)
+            if update_parameters is not None:
+                update_parameters(self.adapt_parameters, self.fp_iteration)
 
             # Indicate errors over all meshes
             self.indicate_errors(
@@ -471,52 +580,22 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 indicator_fn=indicator_fn,
             )
 
-            # Check for QoI convergence
-            # TODO #23: Put this check inside the adjoint solve as an optional return
-            #           condition so that we can avoid unnecessary extra solves
-            self.qoi_values.append(self.J)
-            qoi_converged = self.check_qoi_convergence()
-            if self.params.convergence_criteria == "any" and qoi_converged:
-                self.converged[:] = True
-                break
-
-            # Check for error estimator convergence
-            self.estimator_values.append(self.error_estimate())
-            ee_converged = self.check_estimator_convergence()
-            if self.params.convergence_criteria == "any" and ee_converged:
-                self.converged[:] = True
-                break
-
-            # Adapt meshes and log element counts
-            continue_unconditionally = adaptor(
-                self, self.solutions, self.indicators, **adaptor_kwargs
-            )
-            if self.params.drop_out_converged:
-                self.check_convergence[:] = np.logical_not(
-                    np.logical_or(continue_unconditionally, self.converged)
-                )
-            self.element_counts.append(self.count_elements())
-            self.vertex_counts.append(self.count_vertices())
-
-            # Check for element count convergence
-            self.converged[:] = self.check_element_count_convergence()
-            elem_converged = self.converged.all()
-            if self.params.convergence_criteria == "any" and elem_converged:
-                break
-
-            # Convergence check for 'all' mode
-            if qoi_converged and ee_converged and elem_converged:
+            # Apply the adaptor and check for convergence
+            converged = self._adapt_and_check(adaptor, adaptor_kwargs=adaptor_kwargs)
+            if converged:
                 break
         else:
-            if self.params.convergence_criteria == "all":
-                pyrint(f"Failed to converge in {self.params.maxiter} iterations.")
+            if self.adapt_parameters.convergence_criteria == "all":
+                pyrint(
+                    f"Failed to converge in {self.adapt_parameters.maxiter} iterations."
+                )
                 self.converged[:] = False
             else:
                 for i, conv in enumerate(self.converged):
                     if not conv:
                         pyrint(
                             f"Failed to converge on subinterval {i} in"
-                            f" {self.params.maxiter} iterations."
+                            f" {self.adapt_parameters.maxiter} iterations."
                         )
 
         return self.solutions, self.indicators

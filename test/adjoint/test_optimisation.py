@@ -40,13 +40,13 @@ class TestOptimisationProgress(unittest.TestCase):
         self.progress.reset()
         self.test_initial_state()
 
-    def test_convert_to_float(self):
+    def test_convert_for_output(self):
         mesh = VertexOnlyMesh(UnitIntervalMesh(1), [[0.5]])
         R = FunctionSpace(mesh, "R", 0)
         self.progress["qoi"] = [Function(R).assign(1.0)]
         self.progress["control"] = [Function(R).assign(2.0)]
         self.progress["gradient"] = [Function(R).assign(3.0)]
-        self.progress.convert_to_float()
+        self.progress.convert_for_output()
         self.assertEqual(self.progress["qoi"], [1.0])
         self.assertEqual(self.progress["control"], [2.0])
         self.assertEqual(self.progress["gradient"], [3.0])
@@ -87,7 +87,7 @@ class TestQoIOptimiserExceptions(unittest.TestCase):
         optimiser.progress["qoi"] = [1.0]
         mesh_seq.J = 2.0
         with self.assertRaises(ConvergenceError) as cm:
-            optimiser.check_divergence()
+            optimiser.check_qoi_divergence()
         self.assertEqual(str(cm.exception), "QoI divergence detected.")
 
     def test_maxiter_error(self):
@@ -166,18 +166,18 @@ class TestQoIOptimiserConvergence(unittest.TestCase):
         optimiser = QoIOptimiser(self.mesh_seq, "a", self.parameters)
         optimiser.progress["gradient"] = [1.0]
         self.mesh_seq._gradient = {"a": 1e-06}
-        self.assertTrue(optimiser.converged)
+        self.assertTrue(optimiser.check_gradient_convergence())
 
     def test_gradient_not_converged(self):
         optimiser = QoIOptimiser(self.mesh_seq, "a", self.parameters)
         optimiser.progress["gradient"] = [1.0]
         self.mesh_seq._gradient = {"a": 1.0}
-        self.assertFalse(optimiser.converged)
+        self.assertFalse(optimiser.check_gradient_convergence())
 
     def test_minimise(self):
         optimiser = QoIOptimiser(self.mesh_seq, "a", self.parameters)
         optimiser.minimise()
-        self.assertTrue(optimiser.converged)
+        self.assertTrue(optimiser.check_gradient_convergence())
 
 
 if __name__ == "__main__":
