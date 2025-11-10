@@ -98,7 +98,7 @@ def space_time_normalise(
     """
     if isinstance(metric_parameters, dict):
         metric_parameters = [metric_parameters for _ in range(len(time_partition))]
-    d = metrics[0].function_space().mesh().topological_dimension()
+    d = metrics[0].function_space().mesh().topological_dimension
     if len(metrics) != len(time_partition):
         raise ValueError(
             "Number of metrics does not match number of subintervals:"

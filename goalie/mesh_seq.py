@@ -181,7 +181,7 @@ class MeshSeq:
         if not isinstance(meshes, list):
             meshes = [Mesh(meshes) for subinterval in self.subintervals]
         self.meshes = meshes
-        dim = np.array([mesh.topological_dimension() for mesh in meshes])
+        dim = np.array([mesh.topological_dimension for mesh in meshes])
         if dim.min() != dim.max():
             raise ValueError("Meshes must all have the same topological dimension.")
         self.dim = dim.min()
