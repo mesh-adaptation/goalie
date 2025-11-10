@@ -377,7 +377,8 @@ class MeshSeq:
         )
         for fieldname in self.field_functions:
             consistent &= all(
-                mesh == fs.mesh() for mesh, fs in zip(self.meshes, self._fs[fieldname])
+                mesh == fs.mesh()
+                for mesh, fs in zip(self.meshes, self._fs[fieldname], strict=True)
             )
             consistent &= all(
                 self._fs[fieldname][0].ufl_element() == fs.ufl_element()
@@ -398,9 +399,9 @@ class MeshSeq:
                     for fieldname in self.field_functions
                 }
             )
-        assert (
-            self._function_spaces_consistent()
-        ), "Meshes and function spaces are inconsistent"
+        assert self._function_spaces_consistent(), (
+            "Meshes and function spaces are inconsistent"
+        )
 
     @property
     def function_spaces(self):
@@ -613,7 +614,7 @@ class MeshSeq:
         else:
             converged = np.array([False] * len(self), dtype=bool)
         if len(self.element_counts) >= max(2, self.params.miniter + 1):
-            for i, (ne_, ne) in enumerate(zip(*self.element_counts[-2:])):
+            for i, (ne_, ne) in enumerate(zip(*self.element_counts[-2:], strict=True)):
                 if not self.check_convergence[i]:
                     self.info(
                         f"Skipping element count convergence check on subinterval {i})"
@@ -624,14 +625,14 @@ class MeshSeq:
                     converged[i] = True
                     if len(self) == 1:
                         pyrint(
-                            f"Element count converged after {self.fp_iteration+1}"
+                            f"Element count converged after {self.fp_iteration + 1}"
                             " iterations under relative tolerance"
                             f" {self.params.element_rtol}."
                         )
                     else:
                         pyrint(
                             f"Element count converged on subinterval {i} after"
-                            f" {self.fp_iteration+1} iterations under relative"
+                            f" {self.fp_iteration + 1} iterations under relative"
                             f" tolerance {self.params.element_rtol}."
                         )
 

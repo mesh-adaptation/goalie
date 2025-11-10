@@ -102,7 +102,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 # Coefficients at the current timestep
                 coeffs = form.coefficients()
                 for coeff_idx, (coeff, init_coeff) in enumerate(
-                    zip(coeffs, self._prev_form_coeffs[fieldname])
+                    zip(coeffs, self._prev_form_coeffs[fieldname], strict=True)
                 ):
                     # Skip solution fields since they are stored separately
                     if coeff.name().split("_old")[0] in self.function_spaces:
@@ -372,7 +372,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             by_field = self.indicators[fieldname]
             assert not isinstance(by_field, Function)
             assert isinstance(by_field, Iterable)
-            for by_mesh, dt in zip(by_field, self.time_partition.timesteps):
+            for by_mesh, dt in zip(
+                by_field, self.time_partition.timesteps, strict=True
+            ):
                 assert not isinstance(by_mesh, Function) and isinstance(
                     by_mesh, Iterable
                 )

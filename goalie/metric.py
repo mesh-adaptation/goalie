@@ -47,7 +47,7 @@ def enforce_variable_constraints(
         h_max = [h_max] * len(metrics)
     if not isinstance(a_max, Iterable):
         a_max = [a_max] * len(metrics)
-    for metric, hmin, hmax, amax in zip(metrics, h_min, h_max, a_max):
+    for metric, hmin, hmax, amax in zip(metrics, h_min, h_max, a_max, strict=True):
         metric.set_parameters(
             {
                 "dm_plex_metric_h_min": hmin,
@@ -112,7 +112,7 @@ def space_time_normalise(
 
     # Preparation step
     metric_parameters = metric_parameters.copy()
-    for metric, mp in zip(metrics, metric_parameters):
+    for metric, mp in zip(metrics, metric_parameters, strict=True):
         if not isinstance(mp, dict):
             raise TypeError(
                 "Expected metric_parameters to consist of dictionaries,"
@@ -147,7 +147,7 @@ def space_time_normalise(
         integral = 0
         p = mp["dm_plex_metric_p"]
         exponent = 0.5 if np.isinf(p) else p / (2 * p + d)
-        for metric, S in zip(metrics, time_partition):
+        for metric, S in zip(metrics, time_partition, strict=True):
             dX = (ufl.ds if boundary else ufl.dx)(metric.function_space().mesh())
             scaling = pow(S.num_timesteps, 2 * exponent)
             integral += scaling * firedrake.assemble(
@@ -158,7 +158,7 @@ def space_time_normalise(
         global_factor = firedrake.Constant(pow(target / integral, 2 / d))
     debug(f"space_time_normalise: global scale factor={float(global_factor):.4e}")
 
-    for metric, S in zip(metrics, time_partition):
+    for metric, S in zip(metrics, time_partition, strict=True):
         # Normalise according to the global normalisation factor
         metric.normalise(
             global_factor=global_factor,

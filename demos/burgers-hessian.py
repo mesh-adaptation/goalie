@@ -147,7 +147,7 @@ def adaptor(mesh_seq, solutions):
     num_elem = mesh_seq.count_elements()
     pyrint(f"fixed point iteration {iteration + 1}:")
     for i, (complexity, ndofs, nelem) in enumerate(
-        zip(complexities, num_dofs, num_elem)
+        zip(complexities, num_dofs, num_elem, strict=True)
     ):
         pyrint(
             f"  subinterval {i}, complexity: {complexity:4.0f}"
