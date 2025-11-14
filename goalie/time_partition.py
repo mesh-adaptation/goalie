@@ -106,7 +106,9 @@ class TimePartition:
 
         # Get number of timesteps on each subinterval
         self.num_timesteps_per_subinterval = []
-        for i, ((ts, tf), dt) in enumerate(zip(self.subintervals, self.timesteps)):
+        for i, ((ts, tf), dt) in enumerate(
+            zip(self.subintervals, self.timesteps, strict=True)
+        ):
             num_timesteps = (tf - ts) / dt
             self.num_timesteps_per_subinterval.append(int(np.round(num_timesteps)))
             if not np.isclose(num_timesteps, self.num_timesteps_per_subinterval[-1]):
@@ -127,7 +129,9 @@ class TimePartition:
         self.num_exports_per_subinterval = [
             tsps // tspe + 1
             for tspe, tsps in zip(
-                self.num_timesteps_per_export, self.num_timesteps_per_subinterval
+                self.num_timesteps_per_export,
+                self.num_timesteps_per_subinterval,
+                strict=True,
             )
         ]
         self.debug("num_exports_per_subinterval")
@@ -217,8 +221,8 @@ class TimePartition:
             if not np.isclose(self.subintervals[i][1], self.subintervals[i + 1][0]):
                 raise ValueError(
                     f"The end of subinterval {i} does not match the start of"
-                    f" subinterval {i+1}: {self.subintervals[i][1]} !="
-                    f" {self.subintervals[i+1][0]}."
+                    f" subinterval {i + 1}: {self.subintervals[i][1]} !="
+                    f" {self.subintervals[i + 1][0]}."
                 )
         if not np.isclose(self.subintervals[-1][1], self.end_time):
             raise ValueError(
@@ -243,7 +247,11 @@ class TimePartition:
                 f" != {len(self.num_timesteps_per_subinterval)}."
             )
         for i, (tspe, tsps) in enumerate(
-            zip(self.num_timesteps_per_export, self.num_timesteps_per_subinterval)
+            zip(
+                self.num_timesteps_per_export,
+                self.num_timesteps_per_subinterval,
+                strict=True,
+            )
         ):
             if not isinstance(tspe, int):
                 raise TypeError(

@@ -181,7 +181,7 @@ class MeshSeq:
         if not isinstance(meshes, list):
             meshes = [Mesh(meshes) for subinterval in self.subintervals]
         self.meshes = meshes
-        dim = np.array([mesh.topological_dimension() for mesh in meshes])
+        dim = np.array([mesh.topological_dimension for mesh in meshes])
         if dim.min() != dim.max():
             raise ValueError("Meshes must all have the same topological dimension.")
         self.dim = dim.min()
@@ -377,7 +377,8 @@ class MeshSeq:
         )
         for fieldname in self.field_functions:
             consistent &= all(
-                mesh == fs.mesh() for mesh, fs in zip(self.meshes, self._fs[fieldname])
+                mesh == fs.mesh()
+                for mesh, fs in zip(self.meshes, self._fs[fieldname], strict=True)
             )
             consistent &= all(
                 self._fs[fieldname][0].ufl_element() == fs.ufl_element()
@@ -613,7 +614,7 @@ class MeshSeq:
         else:
             converged = np.array([False] * len(self), dtype=bool)
         if len(self.element_counts) >= max(2, self.params.miniter + 1):
-            for i, (ne_, ne) in enumerate(zip(*self.element_counts[-2:])):
+            for i, (ne_, ne) in enumerate(zip(*self.element_counts[-2:], strict=True)):
                 if not self.check_convergence[i]:
                     self.info(
                         f"Skipping element count convergence check on subinterval {i})"

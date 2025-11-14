@@ -16,7 +16,7 @@ def uniform_mesh(dim, n, length=1, **kwargs):
 
 
 def uniform_metric(function_space, scaling):
-    dim = function_space.mesh().topological_dimension()
+    dim = function_space.mesh().topological_dimension
     metric = RiemannianMetric(function_space)
     metric.interpolate(scaling * ufl.Identity(dim))
     return metric

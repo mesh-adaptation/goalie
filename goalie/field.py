@@ -125,7 +125,7 @@ class Field:
 
         if self.vector:
             finite_element = VectorElement(
-                finite_element, dim=finite_element.cell.topological_dimension()
+                finite_element, dim=finite_element.cell.topological_dimension
             )
         return finite_element
 
