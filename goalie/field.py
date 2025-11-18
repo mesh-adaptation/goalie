@@ -1,8 +1,8 @@
+import ufl
 from finat.ufl import (
     FiniteElementBase,
     VectorElement,
 )
-import ufl
 from firedrake.functionspace import FunctionSpace, make_scalar_element
 from firedrake.utility_meshes import UnitIntervalMesh
 
