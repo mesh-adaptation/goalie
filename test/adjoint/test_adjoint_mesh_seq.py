@@ -630,4 +630,4 @@ class TestDetectChangedCoefficients(BaseClasses.GoalOrientedBaseClass):
         changed_coeffs_dict = mesh_seq._changed_form_coeffs[self.field.name]
         coeff_idx = next(iter(changed_coeffs_dict))
         for export_idx, f in changed_coeffs_dict[coeff_idx].items():
-            self.assertTrue(f.vector().gather() == [1.0001 + export_idx * coeff_diff])
+            self.assertTrue(f.dat.data == [1.0001 + export_idx * coeff_diff])

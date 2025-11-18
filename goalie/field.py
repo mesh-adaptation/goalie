@@ -1,3 +1,4 @@
+import ufl
 from finat.ufl import (
     FiniteElementBase,
     VectorElement,
@@ -111,7 +112,11 @@ class Field:
         :rtype: An appropriate subclass of :class:`~.FiniteElementBase`
         """
         if self.finite_element is not None:
-            assert self.finite_element.cell == mesh.coordinates.ufl_element().cell
+            if isinstance(self.finite_element.cell, ufl.cell.CellSequence):
+                for cell in self.finite_element.cell.cells:
+                    assert cell == mesh.coordinates.ufl_element().cell
+            else:
+                assert self.finite_element.cell == mesh.coordinates.ufl_element().cell
             return self.finite_element
 
         finite_element = make_scalar_element(
@@ -125,7 +130,7 @@ class Field:
 
         if self.vector:
             finite_element = VectorElement(
-                finite_element, dim=finite_element.cell.topological_dimension()
+                finite_element, dim=finite_element.cell.topological_dimension
             )
         return finite_element
 

@@ -8,8 +8,9 @@ import firedrake
 import numpy as np
 from animate.interpolation import transfer
 from animate.quality import QualityMeasure
-from animate.utility import Mesh
+from animate.utility import Mesh, function_data_max
 from firedrake.adjoint import pyadjoint
+from firedrake.mesh import MeshSequenceGeometry
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
 
@@ -181,7 +182,7 @@ class MeshSeq:
         if not isinstance(meshes, list):
             meshes = [Mesh(meshes) for subinterval in self.subintervals]
         self.meshes = meshes
-        dim = np.array([mesh.topological_dimension() for mesh in meshes])
+        dim = np.array([mesh.topological_dimension for mesh in meshes])
         if dim.min() != dim.max():
             raise ValueError("Meshes must all have the same topological dimension.")
         self.dim = dim.min()
@@ -192,7 +193,7 @@ class MeshSeq:
                 nv = self.vertex_counts[0][i]
                 qm = QualityMeasure(mesh)
                 ar = qm("aspect_ratio")
-                mar = ar.vector().gather().max()
+                mar = function_data_max(ar)
                 self.debug(
                     f"{i}: {nc:7d} cells, {nv:7d} vertices,  max aspect ratio {mar:.2f}"
                 )
@@ -348,7 +349,7 @@ class MeshSeq:
                 if logger.level == DEBUG:
                     next(solver_gen)
                     f, f_ = self.field_functions[next(iter(self.field_functions))]
-                    if np.array_equal(f.vector().array(), f_.vector().array()):
+                    if np.array_equal(f.dat.data_ro, f_.dat.data_ro):
                         self.debug(
                             "Current and lagged solutions are equal. Does the"
                             " solver yield before updating lagged solutions?"
@@ -376,9 +377,17 @@ class MeshSeq:
             len(self) == len(self._fs[fieldname]) for fieldname in self.field_functions
         )
         for fieldname in self.field_functions:
-            consistent &= all(
-                mesh == fs.mesh() for mesh, fs in zip(self.meshes, self._fs[fieldname])
-            )
+            if isinstance(self._fs[fieldname][0].mesh(), MeshSequenceGeometry):
+                consistent &= all(
+                    mesh1 == mesh2
+                    for mesh1, fs in zip(self.meshes, self._fs[fieldname], strict=True)
+                    for mesh2 in fs.mesh()
+                )
+            else:
+                consistent &= all(
+                    mesh == fs.mesh()
+                    for mesh, fs in zip(self.meshes, self._fs[fieldname], strict=True)
+                )
             consistent &= all(
                 self._fs[fieldname][0].ufl_element() == fs.ufl_element()
                 for fs in self._fs[fieldname]
@@ -398,9 +407,9 @@ class MeshSeq:
                     for fieldname in self.field_functions
                 }
             )
-        assert (
-            self._function_spaces_consistent()
-        ), "Meshes and function spaces are inconsistent"
+        assert self._function_spaces_consistent(), (
+            "Meshes and function spaces are inconsistent"
+        )
 
     @property
     def function_spaces(self):
@@ -613,7 +622,7 @@ class MeshSeq:
         else:
             converged = np.array([False] * len(self), dtype=bool)
         if len(self.element_counts) >= max(2, self.params.miniter + 1):
-            for i, (ne_, ne) in enumerate(zip(*self.element_counts[-2:])):
+            for i, (ne_, ne) in enumerate(zip(*self.element_counts[-2:], strict=True)):
                 if not self.check_convergence[i]:
                     self.info(
                         f"Skipping element count convergence check on subinterval {i})"
@@ -624,14 +633,14 @@ class MeshSeq:
                     converged[i] = True
                     if len(self) == 1:
                         pyrint(
-                            f"Element count converged after {self.fp_iteration+1}"
+                            f"Element count converged after {self.fp_iteration + 1}"
                             " iterations under relative tolerance"
                             f" {self.params.element_rtol}."
                         )
                     else:
                         pyrint(
                             f"Element count converged on subinterval {i} after"
-                            f" {self.fp_iteration+1} iterations under relative"
+                            f" {self.fp_iteration + 1} iterations under relative"
                             f" tolerance {self.params.element_rtol}."
                         )
 

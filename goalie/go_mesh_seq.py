@@ -8,6 +8,7 @@ from copy import deepcopy
 import numpy as np
 import ufl
 from animate.interpolation import interpolate
+from animate.utility import function_data_sum
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
 from firedrake.petsc import PETSc
 
@@ -102,14 +103,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 # Coefficients at the current timestep
                 coeffs = form.coefficients()
                 for coeff_idx, (coeff, init_coeff) in enumerate(
-                    zip(coeffs, self._prev_form_coeffs[fieldname])
+                    zip(coeffs, self._prev_form_coeffs[fieldname], strict=True)
                 ):
                     # Skip solution fields since they are stored separately
                     if coeff.name().split("_old")[0] in self.function_spaces:
                         continue
-                    if not np.allclose(
-                        coeff.vector().array(), init_coeff.vector().array()
-                    ):
+                    if not np.allclose(coeff.dat.data_ro, init_coeff.dat.data_ro):
                         if coeff_idx not in self._changed_form_coeffs[fieldname]:
                             self._changed_form_coeffs[fieldname][coeff_idx] = {
                                 0: deepcopy(init_coeff)
@@ -372,14 +371,16 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             by_field = self.indicators[fieldname]
             assert not isinstance(by_field, Function)
             assert isinstance(by_field, Iterable)
-            for by_mesh, dt in zip(by_field, self.time_partition.timesteps):
+            for by_mesh, dt in zip(
+                by_field, self.time_partition.timesteps, strict=True
+            ):
                 assert not isinstance(by_mesh, Function) and isinstance(
                     by_mesh, Iterable
                 )
                 for indicator in by_mesh:
                     if absolute_value:
                         indicator.interpolate(abs(indicator))
-                    estimator += dt * indicator.vector().gather().sum()
+                    estimator += dt * function_data_sum(indicator)
         return estimator
 
     def check_estimator_convergence(self):
