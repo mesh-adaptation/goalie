@@ -12,8 +12,6 @@ authors = [
 ]
 maintainers = [
   {name = "Joseph G. Wallwork", email = "joe.wallwork@outlook.com"},
-  {name = "Davor Dundovic"},
-  {name = "Eleda Johnson"},
   {name = "Stephan C. Kramer"},
 ]
 description = "Goal-oriented error estimation and mesh adaptation for finite element problems solved using Firedrake"
