@@ -2,6 +2,7 @@ from finat.ufl import (
     FiniteElementBase,
     VectorElement,
 )
+import ufl
 from firedrake.functionspace import FunctionSpace, make_scalar_element
 from firedrake.utility_meshes import UnitIntervalMesh
 
@@ -111,7 +112,11 @@ class Field:
         :rtype: An appropriate subclass of :class:`~.FiniteElementBase`
         """
         if self.finite_element is not None:
-            assert self.finite_element.cell == mesh.coordinates.ufl_element().cell
+            if isinstance(self.finite_element.cell, ufl.cell.CellSequence):
+                for cell in self.finite_element.cell.cells:
+                    assert cell == mesh.coordinates.ufl_element().cell
+            else:
+                assert self.finite_element.cell == mesh.coordinates.ufl_element().cell
             return self.finite_element
 
         finite_element = make_scalar_element(

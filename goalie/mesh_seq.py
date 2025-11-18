@@ -10,6 +10,7 @@ from animate.interpolation import transfer
 from animate.quality import QualityMeasure
 from animate.utility import Mesh, function_data_max
 from firedrake.adjoint import pyadjoint
+from firedrake.mesh import MeshSequenceGeometry
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
 
@@ -376,10 +377,17 @@ class MeshSeq:
             len(self) == len(self._fs[fieldname]) for fieldname in self.field_functions
         )
         for fieldname in self.field_functions:
-            consistent &= all(
-                mesh == fs.mesh()
-                for mesh, fs in zip(self.meshes, self._fs[fieldname], strict=True)
-            )
+            if isinstance(self._fs[fieldname][0].mesh(), MeshSequenceGeometry):
+                consistent &= all(
+                    mesh1 == mesh2
+                    for mesh1, fs in zip(self.meshes, self._fs[fieldname], strict=True)
+                    for mesh2 in fs.mesh()
+                )
+            else:
+                consistent &= all(
+                    mesh == fs.mesh()
+                    for mesh, fs in zip(self.meshes, self._fs[fieldname], strict=True)
+                )
             consistent &= all(
                 self._fs[fieldname][0].ufl_element() == fs.ufl_element()
                 for fs in self._fs[fieldname]
