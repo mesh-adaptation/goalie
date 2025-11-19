@@ -6,6 +6,7 @@ from collections.abc import Iterable
 
 import numpy as np
 
+from .field import Field
 from .log import debug
 
 __all__ = ["TimePartition", "TimeInterval", "TimeInstant"]
@@ -24,11 +25,10 @@ class TimePartition:
         end_time,
         num_subintervals,
         timesteps,
-        field_names,
+        field_metadata,
         num_timesteps_per_export=1,
         start_time=0.0,
         subintervals=None,
-        field_types=None,
     ):
         r"""
         :arg end_time: end time of the interval of interest
@@ -38,8 +38,10 @@ class TimePartition:
         :arg timesteps: a list timesteps to be used on each subinterval, or a single
             timestep to use for all subintervals
         :type timesteps: :class:`list` of :class:`float`\s or :class:`float`
-        :arg field_names: the list of field names to consider
-        :type field_names: :class:`list` of :class:`str`\s or :class:`str`
+        :arg field_metadata: the Field or list or dict thereof to consider. In the case
+            of a dict, the keys should be consistent with the field names
+        :type field_metadata: :class:`~.Field`, :class:`list` of :class:`~.Field`\s, or
+            :class:`dict` with :class:`str` keys and :class:`~.Field` values
         :kwarg num_timesteps_per_export: a list of numbers of timesteps per export for
             each subinterval, or a single number to use for all subintervals
         :type num_timesteps_per_export: :class:`list` of :class`int`\s or :class:`int`
@@ -48,15 +50,28 @@ class TimePartition:
         :kwarg subinterals: sequence of subintervals (which need not be of uniform
             length), or ``None`` to use uniform subintervals (the default)
         :type subintervals: :class:`list` of :class:`tuple`\s
-        :kwarg field_types: a list of strings indicating whether each field is
-            'unsteady' or 'steady', i.e., does the corresponding equation involve time
-            derivatives or not?
-        :type field_types: :class:`list` of :class:`str`\s or :class:`str`
         """
         debug(100 * "-")
-        if isinstance(field_names, str):
-            field_names = [field_names]
-        self.field_names = field_names
+
+        # Extract field metadata as a dictionary with field names as keys, if not
+        # already in this format
+        if isinstance(field_metadata, Field):
+            field_metadata = [field_metadata]
+        if not isinstance(field_metadata, (dict, list)):
+            raise TypeError(
+                "field_metadata argument must be a Field or a dict or list thereof."
+            )
+        if isinstance(field_metadata, dict):
+            for fieldname, field in field_metadata.items():
+                if fieldname != field.name:
+                    raise ValueError("Inconstent field names passed as field_metadata.")
+            self.field_metadata = field_metadata
+        else:
+            if not all(isinstance(field, Field) for field in field_metadata):
+                raise TypeError("All fields must be instances of Field.")
+            self.field_metadata = {field.name: field for field in field_metadata}
+
+        self.field_names = list(self.field_metadata.keys())
         self.start_time = start_time
         self.end_time = end_time
         self.num_subintervals = int(np.round(num_subintervals))
@@ -91,7 +106,9 @@ class TimePartition:
 
         # Get number of timesteps on each subinterval
         self.num_timesteps_per_subinterval = []
-        for i, ((ts, tf), dt) in enumerate(zip(self.subintervals, self.timesteps)):
+        for i, ((ts, tf), dt) in enumerate(
+            zip(self.subintervals, self.timesteps, strict=True)
+        ):
             num_timesteps = (tf - ts) / dt
             self.num_timesteps_per_subinterval.append(int(np.round(num_timesteps)))
             if not np.isclose(num_timesteps, self.num_timesteps_per_subinterval[-1]):
@@ -112,7 +129,9 @@ class TimePartition:
         self.num_exports_per_subinterval = [
             tsps // tspe + 1
             for tspe, tsps in zip(
-                self.num_timesteps_per_export, self.num_timesteps_per_subinterval
+                self.num_timesteps_per_export,
+                self.num_timesteps_per_subinterval,
+                strict=True,
             )
         ]
         self.debug("num_exports_per_subinterval")
@@ -120,16 +139,6 @@ class TimePartition:
             self.num_subintervals == 1 and self.num_timesteps_per_subinterval[0] == 1
         )
         self.debug("steady")
-
-        # Process field types
-        if field_types is None:
-            num_fields = len(self.field_names)
-            field_types = ["steady" if self.steady else "unsteady"] * num_fields
-        elif isinstance(field_types, str):
-            field_types = [field_types]
-        self.field_types = field_types
-        self._check_field_types()
-        debug("field_types")
         debug(100 * "-")
 
     def debug(self, attr):
@@ -152,13 +161,13 @@ class TimePartition:
 
     def __repr__(self):
         timesteps = ", ".join([str(dt) for dt in self.timesteps])
-        field_names = ", ".join([f"'{field_name}'" for field_name in self.field_names])
+        fields = ", ".join([repr(field) for field in self.field_metadata.values()])
         return (
             f"TimePartition("
             f"end_time={self.end_time}, "
             f"num_subintervals={self.num_subintervals}, "
             f"timesteps=[{timesteps}], "
-            f"field_names=[{field_names}])"
+            f"field_metadata=[{fields}])"
         )
 
     def __len__(self):
@@ -184,10 +193,9 @@ class TimePartition:
             end_time=self.subintervals[sl.stop - 1][1],
             num_subintervals=num_subintervals,
             timesteps=self.timesteps[sl],
-            field_names=self.field_names,
+            field_metadata=self.field_metadata,
             num_timesteps_per_export=self.num_timesteps_per_export[sl],
             start_time=self.subintervals[sl.start][0],
-            field_types=self.field_types,
         )
 
     @property
@@ -213,8 +221,8 @@ class TimePartition:
             if not np.isclose(self.subintervals[i][1], self.subintervals[i + 1][0]):
                 raise ValueError(
                     f"The end of subinterval {i} does not match the start of"
-                    f" subinterval {i+1}: {self.subintervals[i][1]} !="
-                    f" {self.subintervals[i+1][0]}."
+                    f" subinterval {i + 1}: {self.subintervals[i][1]} !="
+                    f" {self.subintervals[i + 1][0]}."
                 )
         if not np.isclose(self.subintervals[-1][1], self.end_time):
             raise ValueError(
@@ -239,7 +247,11 @@ class TimePartition:
                 f" != {len(self.num_timesteps_per_subinterval)}."
             )
         for i, (tspe, tsps) in enumerate(
-            zip(self.num_timesteps_per_export, self.num_timesteps_per_subinterval)
+            zip(
+                self.num_timesteps_per_export,
+                self.num_timesteps_per_subinterval,
+                strict=True,
+            )
         ):
             if not isinstance(tspe, int):
                 raise TypeError(
@@ -253,19 +265,6 @@ class TimePartition:
                     f" {tsps} | {tspe} != 0."
                 )
 
-    def _check_field_types(self):
-        if len(self.field_names) != len(self.field_types):
-            raise ValueError(
-                "Number of field names does not match number of field types:"
-                f" {len(self.field_names)} != {len(self.field_types)}."
-            )
-        for field_name, field_type in zip(self.field_names, self.field_types):
-            if field_type not in ("unsteady", "steady"):
-                raise ValueError(
-                    f"Expected field type for field '{field_name}' to be either"
-                    f" 'unsteady' or 'steady', but got '{field_type}'."
-                )
-
     def __eq__(self, other):
         if len(self) != len(other):
             return False
@@ -275,22 +274,11 @@ class TimePartition:
             and np.allclose(
                 self.num_exports_per_subinterval, other.num_exports_per_subinterval
             )
-            and self.field_names == other.field_names
-            and self.field_types == other.field_types
+            and self.field_metadata == other.field_metadata
         )
 
     def __ne__(self, other):
-        if len(self) != len(other):
-            return True
-        return (
-            not np.allclose(self.subintervals, other.subintervals)
-            or not np.allclose(self.timesteps, other.timesteps)
-            or not np.allclose(
-                self.num_exports_per_subinterval, other.num_exports_per_subinterval
-            )
-            or not self.field_names == other.field_names
-            or not self.field_types == other.field_types
-        )
+        return not self.__eq__(other)
 
 
 class TimeInterval(TimePartition):
@@ -306,15 +294,18 @@ class TimeInterval(TimePartition):
         else:
             end_time = args[0]
         timestep = args[1]
-        field_names = args[2]
-        super().__init__(end_time, 1, timestep, field_names, **kwargs)
+        field_metadata = args[2]
+        super().__init__(end_time, 1, timestep, field_metadata, **kwargs)
 
     def __repr__(self):
+        field_metadata = ", ".join(
+            [repr(field) for field in self.field_metadata.values()]
+        )
         return (
             f"TimeInterval("
             f"end_time={self.end_time}, "
             f"timestep={self.timestep}, "
-            f"field_names={self.field_names})"
+            f"field_metadata=[{field_metadata}])"
         )
 
     @property
@@ -333,7 +324,7 @@ class TimeInstant(TimeInterval):
     Under the hood this means dividing :math:`[0,1)` into a single timestep.
     """
 
-    def __init__(self, field_names, **kwargs):
+    def __init__(self, field_metadata, **kwargs):
         if "end_time" in kwargs:
             if "time" in kwargs:
                 raise ValueError("Both 'time' and 'end_time' are set.")
@@ -341,12 +332,13 @@ class TimeInstant(TimeInterval):
         else:
             time = kwargs.pop("time", 1.0)
         timestep = time
-        super().__init__(time, timestep, field_names, **kwargs)
+        super().__init__(time, timestep, field_metadata, **kwargs)
 
     def __str__(self):
         return f"({self.end_time})"
 
     def __repr__(self):
-        return (
-            f"TimeInstant(" f"time={self.end_time}, " f"field_names={self.field_names})"
+        field_metadata = ", ".join(
+            [repr(field) for field in self.field_metadata.values()]
         )
+        return f"TimeInstant(time={self.end_time}, field_metadata=[{field_metadata}])"

@@ -7,8 +7,7 @@
 # `another previous demo <./point_discharge2d.py.html>`__ to provide the first
 # exposition of goal-oriented mesh adaptation in these demos.
 #
-# We copy over the setup as before. The only difference is that we import from
-# `goalie_adjoint` rather than `goalie`. ::
+# We copy over the setup as before. ::
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -17,13 +16,10 @@ from animate.metric import RiemannianMetric
 from firedrake import *
 from matplotlib import ticker
 
-from goalie_adjoint import *
+from goalie import *
 
-field_names = ["c"]
-
-
-def get_function_spaces(mesh):
-    return {"c": FunctionSpace(mesh, "CG", 1)}
+mesh = RectangleMesh(50, 10, 50, 10)
+fields = [Field("c", family="Lagrange", degree=1, unsteady=False)]
 
 
 def source(mesh):
@@ -35,7 +31,7 @@ def source(mesh):
 def get_solver(mesh_seq):
     def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
-        c = mesh_seq.fields["c"]
+        c = mesh_seq.field_functions["c"]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
 
@@ -72,7 +68,7 @@ def get_solver(mesh_seq):
 
 def get_qoi(mesh_seq, index):
     def qoi():
-        c = mesh_seq.fields["c"]
+        c = mesh_seq.field_functions["c"]
         x, y = SpatialCoordinate(mesh_seq[index])
         xr, yr, rr = 20, 7.5, 0.5
         kernel = conditional((x - xr) ** 2 + (y - yr) ** 2 < rr**2, 1, 0)
@@ -84,12 +80,10 @@ def get_qoi(mesh_seq, index):
 # Since we want to do goal-oriented mesh adaptation, we use a
 # :class:`GoalOrientedMeshSeq`. ::
 
-mesh = RectangleMesh(50, 10, 50, 10)
-time_partition = TimeInstant(field_names)
+time_partition = TimeInstant(fields)
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     mesh,
-    get_function_spaces=get_function_spaces,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="steady",
@@ -317,7 +311,6 @@ def adaptor(mesh_seq, solutions, indicators):
 mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     mesh,
-    get_function_spaces=get_function_spaces,
     get_solver=get_solver,
     get_qoi=get_qoi,
     qoi_type="steady",

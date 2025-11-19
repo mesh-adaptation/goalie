@@ -8,14 +8,17 @@ from copy import deepcopy
 import numpy as np
 import ufl
 from animate.interpolation import interpolate
+from animate.utility import function_data_sum
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
 from firedrake.petsc import PETSc
 
 from .adjoint import AdjointMeshSeq
 from .error_estimation import get_dwr_indicator
+from .field import Field
 from .function_data import IndicatorData
 from .log import pyrint
 from .options import GoalOrientedAdaptParameters
+from .time_partition import TimePartition
 
 __all__ = ["GoalOrientedMeshSeq"]
 
@@ -40,16 +43,18 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             values are the UFL forms
         :type forms_dictionary: :class:`dict`
         """
-        for field, form in forms_dictionary.items():
-            if field not in self.fields:
+        for fieldname, form in forms_dictionary.items():
+            if fieldname not in self.solution_names:
                 raise ValueError(
-                    f"Unexpected field '{field}' in forms dictionary."
-                    f" Expected one of {self.time_partition.field_names}."
+                    f"Unexpected field '{fieldname}' in forms dictionary."
+                    f" Expected one of {self.solution_names}."
                 )
-            if not isinstance(form, ufl.Form):
-                raise TypeError(
-                    f"Expected a UFL form for field '{field}', not '{type(form)}'."
-                )
+            if self.field_metadata[fieldname].solved_for:
+                if not isinstance(form, ufl.Form):
+                    raise TypeError(
+                        f"Expected a UFL form for field '{fieldname}', not"
+                        f" '{type(form)}'."
+                    )
         self._forms = forms_dictionary
 
     @property
@@ -86,29 +91,29 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         if export_idx == 0:
             # Copy coefficients at subinterval's first export timestep
             self._prev_form_coeffs = {
-                field: deepcopy(form.coefficients())
-                for field, form in self.forms.items()
+                fieldname: deepcopy(form.coefficients())
+                for fieldname, form in self.forms.items()
             }
-            self._changed_form_coeffs = {field: {} for field in self.fields}
+            self._changed_form_coeffs = {
+                fieldname: {} for fieldname in self.solution_names
+            }
         else:
             # Store coefficients that have changed since the previous export timestep
-            for field in self.fields:
+            for fieldname, form in self.forms.items():
                 # Coefficients at the current timestep
-                coeffs = self.forms[field].coefficients()
+                coeffs = form.coefficients()
                 for coeff_idx, (coeff, init_coeff) in enumerate(
-                    zip(coeffs, self._prev_form_coeffs[field])
+                    zip(coeffs, self._prev_form_coeffs[fieldname], strict=True)
                 ):
                     # Skip solution fields since they are stored separately
-                    if coeff.name().split("_old")[0] in self.time_partition.field_names:
+                    if coeff.name().split("_old")[0] in self.function_spaces:
                         continue
-                    if not np.allclose(
-                        coeff.vector().array(), init_coeff.vector().array()
-                    ):
-                        if coeff_idx not in self._changed_form_coeffs[field]:
-                            self._changed_form_coeffs[field][coeff_idx] = {
+                    if not np.allclose(coeff.dat.data_ro, init_coeff.dat.data_ro):
+                        if coeff_idx not in self._changed_form_coeffs[fieldname]:
+                            self._changed_form_coeffs[fieldname][coeff_idx] = {
                                 0: deepcopy(init_coeff)
                             }
-                        self._changed_form_coeffs[field][coeff_idx][export_idx] = (
+                        self._changed_form_coeffs[fieldname][coeff_idx][export_idx] = (
                             deepcopy(coeff)
                         )
                         # Use the current coeff for comparison in the next timestep
@@ -147,29 +152,39 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         else:
             meshes = self.meshes
 
+        # Apply p-refinement
+        tp = self.time_partition
+        if enrichment_method == "p":
+            field_metadata = {}
+            for fieldname, field in self.field_metadata.items():
+                element = field.get_element(meshes[0])
+                element = element.reconstruct(degree=element.degree() + num_enrichments)
+                field_metadata[fieldname] = Field(
+                    fieldname,
+                    finite_element=element,
+                    solved_for=field.solved_for,
+                    unsteady=field.unsteady,
+                )
+            tp = TimePartition(
+                tp.end_time,
+                tp.num_subintervals,
+                tp.timesteps,
+                field_metadata,
+                num_timesteps_per_export=tp.num_timesteps_per_export,
+                start_time=tp.start_time,
+                subintervals=tp.subintervals,
+            )
+
         # Construct object to hold enriched spaces
         enriched_mesh_seq = type(self)(
-            self.time_partition,
+            tp,
             meshes,
-            get_function_spaces=self._get_function_spaces,
             get_initial_condition=self._get_initial_condition,
             get_solver=self._get_solver,
             get_qoi=self._get_qoi,
             qoi_type=self.qoi_type,
         )
         enriched_mesh_seq._update_function_spaces()
-
-        # Apply p-refinement
-        if enrichment_method == "p":
-            for label, fs in enriched_mesh_seq.function_spaces.items():
-                for n, _space in enumerate(fs):
-                    element = _space.ufl_element()
-                    element = element.reconstruct(
-                        degree=element.degree() + num_enrichments
-                    )
-                    enriched_mesh_seq._fs[label][n] = FunctionSpace(
-                        enriched_mesh_seq.meshes[n], element
-                    )
 
         return enriched_mesh_seq
 
@@ -262,16 +277,19 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
             enriched_spaces = {
-                f: enriched_mesh_seq.function_spaces[f][i] for f in self.fields
+                fieldname: enriched_mesh_seq.function_spaces[fieldname][i]
+                for fieldname in self.field_functions
             }
-            for f, fs_e in enriched_spaces.items():
-                if self.field_types[f] == "steady":
-                    u[f] = enriched_mesh_seq.fields[f]
+            for fieldname, fs_e in enriched_spaces.items():
+                field = self._get_field_metadata(fieldname)
+                if field.unsteady:
+                    u[fieldname] = enriched_mesh_seq.field_functions[fieldname][0]
+                    u_[fieldname] = enriched_mesh_seq.field_functions[fieldname][1]
                 else:
-                    u[f], u_[f] = enriched_mesh_seq.fields[f]
-                u_star[f] = Function(fs_e)
-                u_star_next[f] = Function(fs_e)
-                u_star_e[f] = Function(fs_e)
+                    u[fieldname] = enriched_mesh_seq.field_functions[fieldname]
+                u_star[fieldname] = Function(fs_e)
+                u_star_next[fieldname] = Function(fs_e)
+                u_star_e[fieldname] = Function(fs_e)
 
             # Loop over each timestep
             for j in range(self.time_partition.num_exports_per_subinterval[i] - 1):
@@ -280,44 +298,55 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 # latter fields from the previous timestep. Therefore, we must transfer
                 # the lagged solution of latter fields as if they were the current
                 # timestep solutions. This assumes that the order of fields being solved
-                # for in get_solver is the same as their order in self.fields
-                for f_next in self.time_partition.field_names[1:]:
-                    transfer(self.solutions[f_next][FWD_OLD][i][j], u[f_next])
+                # for in get_solver is the same as their order in self.field_functions
+                for fieldname in self.solution_names:
+                    transfer(self.solutions[fieldname][FWD_OLD][i][j], u[fieldname])
                 # Loop over each strongly coupled field
-                for f in self.fields:
-                    # Transfer solutions associated with the current field f
-                    transfer(self.solutions[f][FWD][i][j], u[f])
-                    if self.field_types[f] == "unsteady":
-                        transfer(self.solutions[f][FWD_OLD][i][j], u_[f])
-                    transfer(self.solutions[f][ADJ][i][j], u_star[f])
-                    transfer(self.solutions[f][ADJ_NEXT][i][j], u_star_next[f])
+                for fieldname in self.solution_names:
+                    solutions = self.solutions[fieldname]
+                    enriched_solutions = enriched_mesh_seq.solutions[fieldname]
+
+                    # Transfer solutions associated with the current field
+                    transfer(solutions[FWD][i][j], u[fieldname])
+                    field = self._get_field_metadata(fieldname)
+                    if field.unsteady:
+                        transfer(solutions[FWD_OLD][i][j], u_[fieldname])
+                    transfer(solutions[ADJ][i][j], u_star[fieldname])
+                    transfer(solutions[ADJ_NEXT][i][j], u_star_next[fieldname])
 
                     # Combine adjoint solutions as appropriate
-                    u_star[f].assign(0.5 * (u_star[f] + u_star_next[f]))
-                    u_star_e[f].assign(
+                    u_star[fieldname].assign(
+                        0.5 * (u_star[fieldname] + u_star_next[fieldname])
+                    )
+                    u_star_e[fieldname].assign(
                         0.5
                         * (
-                            enriched_mesh_seq.solutions[f][ADJ][i][j]
-                            + enriched_mesh_seq.solutions[f][ADJ_NEXT][i][j]
+                            enriched_solutions[ADJ][i][j]
+                            + enriched_solutions[ADJ_NEXT][i][j]
                         )
                     )
-                    u_star_e[f] -= u_star[f]
+                    u_star_e[fieldname] -= u_star[fieldname]
 
                     # Update other time-dependent form coefficients if they changed
                     # since the previous export timestep
-                    emseq = enriched_mesh_seq
-                    if not self.steady and emseq._changed_form_coeffs[f]:
-                        for idx, coeffs in emseq._changed_form_coeffs[f].items():
+                    changed_coeffs = enriched_mesh_seq._changed_form_coeffs
+                    if not self.steady and changed_coeffs:
+                        for idx, coeffs in changed_coeffs[fieldname].items():
                             if j in coeffs:
-                                emseq.forms[f].coefficients()[idx].assign(coeffs[j])
+                                form = enriched_mesh_seq.forms[fieldname]
+                                form.coefficients()[idx].assign(coeffs[j])
 
                     # Evaluate error indicator
-                    indi_e = indicator_fn(enriched_mesh_seq.forms[f], u_star_e[f])
+                    indi_e = indicator_fn(
+                        enriched_mesh_seq.forms[fieldname], u_star_e[fieldname]
+                    )
 
                     # Transfer back to the base space
                     indi = self._transfer(indi_e, P0_spaces[i])
                     indi.interpolate(abs(indi))
-                    self.indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
+                    self.indicators[fieldname][i][j].interpolate(
+                        ufl.max_value(indi, 1.0e-16)
+                    )
 
         return self.solutions, self.indicators
 
@@ -338,20 +367,20 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 f"Expected 'absolute_value' to be a bool, not '{type(absolute_value)}'."
             )
         estimator = 0
-        for field, by_field in self.indicators.items():
-            if field not in self.time_partition.field_names:
-                raise ValueError(
-                    f"Key '{field}' does not exist in the TimePartition provided."
-                )
-            assert not isinstance(by_field, Function) and isinstance(by_field, Iterable)
-            for by_mesh, dt in zip(by_field, self.time_partition.timesteps):
+        for fieldname in self.solution_names:
+            by_field = self.indicators[fieldname]
+            assert not isinstance(by_field, Function)
+            assert isinstance(by_field, Iterable)
+            for by_mesh, dt in zip(
+                by_field, self.time_partition.timesteps, strict=True
+            ):
                 assert not isinstance(by_mesh, Function) and isinstance(
                     by_mesh, Iterable
                 )
                 for indicator in by_mesh:
                     if absolute_value:
                         indicator.interpolate(abs(indicator))
-                    estimator += dt * indicator.vector().gather().sum()
+                    estimator += dt * function_data_sum(indicator)
         return estimator
 
     def check_estimator_convergence(self):
@@ -372,8 +401,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             ee_, ee = self.estimator_values[-2:]
             if abs(ee - ee_) < self.params.estimator_rtol * abs(ee_):
                 pyrint(
-                    f"Error estimator converged after {self.fp_iteration+1} iterations"
-                    f" under relative tolerance {self.params.estimator_rtol}."
+                    f"Error estimator converged after {self.fp_iteration + 1}"
+                    " iterations under relative tolerance"
+                    f" {self.params.estimator_rtol}."
                 )
                 return True
         return False

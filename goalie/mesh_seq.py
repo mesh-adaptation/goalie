@@ -8,8 +8,9 @@ import firedrake
 import numpy as np
 from animate.interpolation import transfer
 from animate.quality import QualityMeasure
-from animate.utility import Mesh
+from animate.utility import Mesh, function_data_max
 from firedrake.adjoint import pyadjoint
+from firedrake.mesh import MeshSequenceGeometry
 from firedrake.petsc import PETSc
 from firedrake.pyplot import triplot
 
@@ -35,8 +36,6 @@ class MeshSeq:
         :arg initial_meshes: a list of meshes corresponding to the subinterval of the
             time partition, or a single mesh to use for all subintervals
         :type initial_meshes: :class:`list` or :class:`~.MeshGeometry`
-        :kwarg get_function_spaces: a function as described in
-            :meth:`~.MeshSeq.get_function_spaces`
         :kwarg get_initial_condition: a function as described in
             :meth:`~.MeshSeq.get_initial_condition`
         :kwarg get_solver: a function as described in :meth:`~.MeshSeq.get_solver`
@@ -49,13 +48,27 @@ class MeshSeq:
             take various types
         """
         self.time_partition = time_partition
-        self.fields = dict.fromkeys(time_partition.field_names)
-        self.field_types = dict(zip(self.fields, time_partition.field_types))
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
+        self.field_names = time_partition.field_names
+        self.field_metadata = time_partition.field_metadata
+        self.solution_names = [
+            fieldname
+            for fieldname in self.field_names
+            if self.field_metadata[fieldname].solved_for
+        ]
+
+        # Create a dictionary to hold field Functions with field names as keys and None
+        # as values
+        self.field_functions = dict.fromkeys(self.field_metadata)
+
         self.set_meshes(initial_meshes)
         self._fs = None
-        self._get_function_spaces = kwargs.get("get_function_spaces")
+        if "get_function_spaces" in kwargs:
+            raise KeyError(
+                "get_function_spaces is no longer supported. Specify the finite_element"
+                " argument for the Field class instead."
+            )
         self._get_initial_condition = kwargs.get("get_initial_condition")
         self._get_solver = kwargs.get("get_solver")
         self._transfer_method = kwargs.get("transfer_method", "project")
@@ -169,7 +182,7 @@ class MeshSeq:
         if not isinstance(meshes, list):
             meshes = [Mesh(meshes) for subinterval in self.subintervals]
         self.meshes = meshes
-        dim = np.array([mesh.topological_dimension() for mesh in meshes])
+        dim = np.array([mesh.topological_dimension for mesh in meshes])
         if dim.min() != dim.max():
             raise ValueError("Meshes must all have the same topological dimension.")
         self.dim = dim.min()
@@ -180,7 +193,7 @@ class MeshSeq:
                 nv = self.vertex_counts[0][i]
                 qm = QualityMeasure(mesh)
                 ar = qm("aspect_ratio")
-                mar = ar.vector().gather().max()
+                mar = function_data_max(ar)
                 self.debug(
                     f"{i}: {nc:7d} cells, {nv:7d} vertices,  max aspect ratio {mar:.2f}"
                 )
@@ -234,6 +247,11 @@ class MeshSeq:
             axes = axes[0]
         return fig, axes
 
+    def _get_field_metadata(self, fieldname):
+        if fieldname not in self.field_names:
+            raise ValueError(f"Field '{fieldname}' is not associated with the MeshSeq.")
+        return self.field_metadata[fieldname]
+
     def get_function_spaces(self, mesh):
         """
         Construct the function spaces corresponding to each field, for a given mesh.
@@ -245,9 +263,10 @@ class MeshSeq:
         :rtype: :class:`dict` with :class:`str` keys and
             :class:`firedrake.functionspaceimpl.FunctionSpace` values
         """
-        if self._get_function_spaces is None:
-            raise NotImplementedError("'get_function_spaces' needs implementing.")
-        return self._get_function_spaces(mesh)
+        function_spaces = {}
+        for fieldname, field in self.field_metadata.items():
+            function_spaces[fieldname] = field.get_function_space(mesh)
+        return function_spaces
 
     def get_initial_condition(self):
         r"""
@@ -261,8 +280,8 @@ class MeshSeq:
         if self._get_initial_condition is not None:
             return self._get_initial_condition(self)
         return {
-            field: firedrake.Function(fs[0])
-            for field, fs in self.function_spaces.items()
+            fieldname: firedrake.Function(fs[0])
+            for fieldname, fs in self.function_spaces.items()
         }
 
     def get_solver(self):
@@ -315,15 +334,13 @@ class MeshSeq:
     def _outputs_consistent(self):
         """
         Assert that function spaces and initial conditions are given in a
-        dictionary format with :attr:`MeshSeq.fields` as keys.
+        dictionary format with the same keys as :attr:`MeshSeq.field_metadata`.
         """
-        for method in ["function_spaces", "initial_condition", "solver"]:
+        for method in ["initial_condition", "solver"]:
             if getattr(self, f"_get_{method}") is None:
                 continue
             method_map = getattr(self, f"get_{method}")
-            if method == "function_spaces":
-                method_map = method_map(self.meshes[0])
-            elif method == "initial_condition":
+            if method == "initial_condition":
                 method_map = method_map()
             elif method == "solver":
                 self._reinitialise_fields(self.get_initial_condition())
@@ -331,15 +348,15 @@ class MeshSeq:
                 assert hasattr(solver_gen, "__next__"), "solver should yield"
                 if logger.level == DEBUG:
                     next(solver_gen)
-                    f, f_ = self.fields[next(iter(self.fields))]
-                    if np.array_equal(f.vector().array(), f_.vector().array()):
+                    f, f_ = self.field_functions[next(iter(self.field_functions))]
+                    if np.array_equal(f.dat.data_ro, f_.dat.data_ro):
                         self.debug(
                             "Current and lagged solutions are equal. Does the"
                             " solver yield before updating lagged solutions?"
                         )  # noqa
                 break
             assert isinstance(method_map, dict), f"get_{method} should return a dict"
-            mesh_seq_fields = set(self.fields)
+            mesh_seq_fields = set(self.field_functions)
             method_fields = set(method_map.keys())
             diff = mesh_seq_fields.difference(method_fields)
             assert len(diff) == 0, f"missing fields {diff} in get_{method}"
@@ -356,14 +373,24 @@ class MeshSeq:
         :rtype: `:class:`bool`
         """
         consistent = len(self.time_partition) == len(self)
-        consistent &= all(len(self) == len(self._fs[field]) for field in self.fields)
-        for field in self.fields:
+        consistent &= all(
+            len(self) == len(self._fs[fieldname]) for fieldname in self.field_functions
+        )
+        for fieldname in self.field_functions:
+            if isinstance(self._fs[fieldname][0].mesh(), MeshSequenceGeometry):
+                consistent &= all(
+                    mesh1 == mesh2
+                    for mesh1, fs in zip(self.meshes, self._fs[fieldname], strict=True)
+                    for mesh2 in fs.mesh()
+                )
+            else:
+                consistent &= all(
+                    mesh == fs.mesh()
+                    for mesh, fs in zip(self.meshes, self._fs[fieldname], strict=True)
+                )
             consistent &= all(
-                mesh == fs.mesh() for mesh, fs in zip(self.meshes, self._fs[field])
-            )
-            consistent &= all(
-                self._fs[field][0].ufl_element() == fs.ufl_element()
-                for fs in self._fs[field]
+                self._fs[fieldname][0].ufl_element() == fs.ufl_element()
+                for fs in self._fs[fieldname]
             )
         return consistent
 
@@ -374,13 +401,15 @@ class MeshSeq:
         if self._fs is None or not self._function_spaces_consistent():
             self._fs = AttrDict(
                 {
-                    field: [self.get_function_spaces(mesh)[field] for mesh in self]
-                    for field in self.fields
+                    fieldname: [
+                        self.get_function_spaces(mesh)[fieldname] for mesh in self
+                    ]
+                    for fieldname in self.field_functions
                 }
             )
-        assert (
-            self._function_spaces_consistent()
-        ), "Meshes and function spaces are inconsistent"
+        assert self._function_spaces_consistent(), (
+            "Meshes and function spaces are inconsistent"
+        )
 
     @property
     def function_spaces(self):
@@ -438,15 +467,18 @@ class MeshSeq:
         :type initial_conditions: :class:`dict` with :class:`str` keys and
             :class:`firedrake.function.Function` values
         """
-        for field, ic in initial_conditions.items():
+        for fieldname in self.field_names:
+            ic = initial_conditions[fieldname]
             fs = ic.function_space()
-            if self.field_types[field] == "steady":
-                self.fields[field] = firedrake.Function(fs, name=f"{field}").assign(ic)
-            else:
-                self.fields[field] = (
-                    firedrake.Function(fs, name=field),
-                    firedrake.Function(fs, name=f"{field}_old").assign(ic),
+            field = self._get_field_metadata(fieldname)
+            if field.unsteady:
+                self.field_functions[fieldname] = (
+                    firedrake.Function(fs, name=fieldname),
+                    firedrake.Function(fs, name=f"{fieldname}_old").assign(ic),
                 )
+            else:
+                self.field_functions[fieldname] = firedrake.Function(fs, name=fieldname)
+                self.field_functions[fieldname].assign(ic)
 
     @PETSc.Log.EventDecorator()
     def _solve_forward(self, update_solutions=True, solver_kwargs=None):
@@ -492,14 +524,15 @@ class MeshSeq:
                     for _ in range(tp.num_timesteps_per_export[i]):
                         next(solver_gen)
                     # Update the solution data
-                    for field, sol in self.fields.items():
-                        if not self.field_types[field] == "steady":
+                    for fieldname, sol in self.field_functions.items():
+                        field = self._get_field_metadata(fieldname)
+                        if field.unsteady:
                             assert isinstance(sol, tuple)
-                            solutions[field].forward[i][j].assign(sol[0])
-                            solutions[field].forward_old[i][j].assign(sol[1])
+                            solutions[fieldname].forward[i][j].assign(sol[0])
+                            solutions[fieldname].forward_old[i][j].assign(sol[1])
                         else:
                             assert isinstance(sol, firedrake.Function)
-                            solutions[field].forward[i][j].assign(sol)
+                            solutions[fieldname].forward[i][j].assign(sol)
             else:
                 # Solve over the entire subinterval in one go
                 for _ in range(tp.num_timesteps_per_subinterval[i]):
@@ -509,13 +542,13 @@ class MeshSeq:
             if i < num_subintervals - 1:
                 checkpoint = AttrDict(
                     {
-                        field: self._transfer(
-                            self.fields[field]
-                            if self.field_types[field] == "steady"
-                            else self.fields[field][0],
+                        fieldname: self._transfer(
+                            self.field_functions[fieldname][0]
+                            if self._get_field_metadata(fieldname).unsteady
+                            else self.field_functions[fieldname],
                             fs[i + 1],
                         )
-                        for field, fs in self._fs.items()
+                        for fieldname, fs in self._fs.items()
                     }
                 )
 
@@ -589,7 +622,7 @@ class MeshSeq:
         else:
             converged = np.array([False] * len(self), dtype=bool)
         if len(self.element_counts) >= max(2, self.params.miniter + 1):
-            for i, (ne_, ne) in enumerate(zip(*self.element_counts[-2:])):
+            for i, (ne_, ne) in enumerate(zip(*self.element_counts[-2:], strict=True)):
                 if not self.check_convergence[i]:
                     self.info(
                         f"Skipping element count convergence check on subinterval {i})"
@@ -600,14 +633,14 @@ class MeshSeq:
                     converged[i] = True
                     if len(self) == 1:
                         pyrint(
-                            f"Element count converged after {self.fp_iteration+1}"
+                            f"Element count converged after {self.fp_iteration + 1}"
                             " iterations under relative tolerance"
                             f" {self.params.element_rtol}."
                         )
                     else:
                         pyrint(
                             f"Element count converged on subinterval {i} after"
-                            f" {self.fp_iteration+1} iterations under relative"
+                            f" {self.fp_iteration + 1} iterations under relative"
                             f" tolerance {self.params.element_rtol}."
                         )
 

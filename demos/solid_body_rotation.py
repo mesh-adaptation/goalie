@@ -32,29 +32,22 @@
 # curve of discontinuities. The test case was introduced in
 # :cite:`LeVeque:1996`.
 #
-# As usual, we import from Firedrake and Goalie, with
-# adjoint mode activated. ::
+# As usual, we import from Firedrake and Goalie. ::
 
 from firedrake import *
 
-from goalie_adjoint import *
+from goalie import *
 
-# For simplicity, we use a :math:`\mathbb P1` space for the
-# concentration field. The domain of interest is again the
-# unit square, in this case shifted to have its centre at
-# the origin. ::
-
-field_names = ["c"]
-
-
-def get_function_spaces(mesh):
-    return {"c": FunctionSpace(mesh, "CG", 1)}
-
+# The domain of interest is again the unit square, in this case shifted to have its
+# centre at the origin. For simplicity, we use a :math:`\mathbb P1` space for the
+# concentration field. ::
 
 mesh = UnitSquareMesh(40, 40)
 coords = mesh.coordinates.copy(deepcopy=True)
 coords.interpolate(coords - as_vector([0.5, 0.5]))
 mesh = Mesh(coords)
+
+fields = [Field("c", family="Lagrange", degree=1)]
 
 
 # Next, let's define the initial condition, to get a
@@ -100,28 +93,20 @@ dt = pi / 300
 time_partition = TimeInterval(
     end_time,
     dt,
-    field_names,
+    fields,
     num_timesteps_per_export=25,
 )
 
-# For the purposes of plotting, we set up a :class:`MeshSeq` with
-# only the :meth:`get_function_spaces` and :meth:`get_initial_condition`
-# methods implemented. ::
+# For the purposes of plotting, we set up a :class:`MeshSeq` with only the
+# :meth:`get_initial_condition` method implemented. ::
 
 import matplotlib.pyplot as plt
 from firedrake.pyplot import tricontourf
 
-mesh_seq = MeshSeq(
-    time_partition,
-    mesh,
-    get_function_spaces=get_function_spaces,
-    get_initial_condition=get_initial_condition,
-)
-
-c_init = mesh_seq.get_initial_condition()["c"]
+mesh_seq = MeshSeq(time_partition, mesh, get_initial_condition=get_initial_condition)
 
 fig, axes = plt.subplots()
-tc = tricontourf(c_init, axes=axes)
+tc = tricontourf(mesh_seq.get_initial_condition()["c"], axes=axes)
 fig.colorbar(tc)
 axes.set_aspect("equal")
 plt.tight_layout()
@@ -143,7 +128,7 @@ plt.savefig("solid_body_rotation-init.jpg")
 def get_solver(mesh_seq):
     def solver(index):
         V = mesh_seq.function_spaces["c"][index]
-        c, c_ = mesh_seq.fields["c"]
+        c, c_ = mesh_seq.field_functions["c"]
 
         # Define velocity field
         x, y = SpatialCoordinate(mesh)
@@ -195,7 +180,7 @@ def get_solver(mesh_seq):
 
 def get_qoi(mesh_seq, index):
     def qoi():
-        c = mesh_seq.fields["c"][0]
+        c = mesh_seq.field_functions["c"][0]
         x, y = SpatialCoordinate(mesh_seq[index])
         x0, y0, r0 = 0.0, 0.25, 0.15
         ball = conditional((x - x0) ** 2 + (y - y0) ** 2 < r0**2, 1.0, 0.0)
@@ -209,7 +194,6 @@ def get_qoi(mesh_seq, index):
 mesh_seq = AdjointMeshSeq(
     time_partition,
     mesh,
-    get_function_spaces=get_function_spaces,
     get_initial_condition=get_initial_condition,
     get_solver=get_solver,
     get_qoi=get_qoi,

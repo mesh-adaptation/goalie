@@ -15,6 +15,7 @@ from firedrake.utility_meshes import UnitIntervalMesh
 from parameterized import parameterized
 
 from goalie.adjoint import AdjointMeshSeq, annotate_qoi
+from goalie.field import Field
 from goalie.time_partition import TimeInterval, TimePartition
 
 
@@ -24,8 +25,9 @@ class TestExceptions(unittest.TestCase):
     """
 
     def test_attribute_error(self):
+        field = Field("field", family="Real", degree=0, unsteady=False)
         mesh_seq = AdjointMeshSeq(
-            TimeInterval(1.0, 1.0, "field"),
+            TimeInterval(1.0, 1.0, field),
             UnitIntervalMesh(1),
             qoi_type="steady",
         )
@@ -66,10 +68,10 @@ class GradientTestMeshSeq(AdjointMeshSeq):
             fs = self.function_spaces["field"][index]
             tp = self.time_partition
             if tp.steady:
-                u = self.fields["field"]
+                u = self.field_functions["field"]
                 u_ = Function(fs, name="field_old").assign(u)
             else:
-                u, u_ = self.fields["field"]
+                u, u_ = self.field_functions["field"]
             v = TestFunction(fs)
             F = u * v * ufl.dx - Constant(self.scalar) * u_ * v * ufl.dx
 
@@ -103,14 +105,14 @@ class GradientTestMeshSeq(AdjointMeshSeq):
         tp = self.time_partition
 
         def steady_qoi():
-            return self.integrand(self.fields["field"]) * ufl.dx
+            return self.integrand(self.field_functions["field"]) * ufl.dx
 
         def end_time_qoi():
-            return self.integrand(self.fields["field"][0]) * ufl.dx
+            return self.integrand(self.field_functions["field"][0]) * ufl.dx
 
         def time_integrated_qoi(t):
             dt = tp.timesteps[index]
-            return dt * self.integrand(self.fields["field"][0]) * ufl.dx
+            return dt * self.integrand(self.field_functions["field"][0]) * ufl.dx
 
         if self.qoi_type == "steady":
             return steady_qoi
@@ -147,8 +149,9 @@ class TestGradientComputation(unittest.TestCase):
     Unit tests that check gradient values can be computed correctly.
     """
 
-    def time_partition(self, num_subintervals, dt):
-        return TimePartition(1.0, num_subintervals, dt, "field")
+    def time_partition(self, num_subintervals, dt, unsteady=True):
+        field = Field("field", family="Real", degree=0, unsteady=unsteady)
+        return TimePartition(1.0, num_subintervals, dt, field)
 
     @parameterized.expand(
         [
@@ -165,14 +168,14 @@ class TestGradientComputation(unittest.TestCase):
     def test_single_timestep_steady_qoi(self, qoi_degree, initial_value):
         mesh_seq = GradientTestMeshSeq(
             {"qoi_degree": qoi_degree, "initial_value": initial_value},
-            self.time_partition(1, 1.0),
+            self.time_partition(1, 1.0, unsteady=False),
             UnitIntervalMesh(1),
             qoi_type="steady",
         )
         mesh_seq.solve_adjoint(compute_gradient=True)
         self.assertTrue(
             np.allclose(
-                mesh_seq.gradient[0].dat.data,
+                mesh_seq.gradient["field"].dat.data,
                 mesh_seq.expected_gradient(),
             )
         )
@@ -199,7 +202,7 @@ class TestGradientComputation(unittest.TestCase):
         mesh_seq.solve_adjoint(compute_gradient=True)
         self.assertTrue(
             np.allclose(
-                mesh_seq.gradient[0].dat.data,
+                mesh_seq.gradient["field"].dat.data,
                 mesh_seq.expected_gradient(),
             )
         )
@@ -226,7 +229,7 @@ class TestGradientComputation(unittest.TestCase):
         mesh_seq.solve_adjoint(compute_gradient=True)
         self.assertTrue(
             np.allclose(
-                mesh_seq.gradient[0].dat.data,
+                mesh_seq.gradient["field"].dat.data,
                 mesh_seq.expected_gradient(),
             )
         )
@@ -253,7 +256,7 @@ class TestGradientComputation(unittest.TestCase):
         mesh_seq.solve_adjoint(compute_gradient=True)
         self.assertTrue(
             np.allclose(
-                mesh_seq.gradient[0].dat.data,
+                mesh_seq.gradient["field"].dat.data,
                 mesh_seq.expected_gradient(),
             )
         )

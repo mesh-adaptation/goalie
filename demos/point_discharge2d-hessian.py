@@ -21,13 +21,11 @@ from goalie import *
 
 # We again consider the "point discharge with diffusion" test case from the
 # `previous demo <./point_discharge2d.py.html>`__, approximating the tracer
-# concentration :math:`c` in :math:`\mathbb P1` space. ::
+# concentration :math:`c` in :math:`\mathbb P1` space. We start with a relatively coarse
+# initial mesh. ::
 
-field_names = ["c"]
-
-
-def get_function_spaces(mesh):
-    return {"c": FunctionSpace(mesh, "CG", 1)}
+mesh = RectangleMesh(50, 10, 50, 10)
+fields = [Field("c", family="Lagrange", degree=1, unsteady=False)]
 
 
 def source(mesh):
@@ -39,7 +37,7 @@ def source(mesh):
 def get_solver(mesh_seq):
     def solver(index):
         function_space = mesh_seq.function_spaces["c"][index]
-        c = mesh_seq.fields["c"]
+        c = mesh_seq.field_functions["c"]
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
 
@@ -71,15 +69,13 @@ def get_solver(mesh_seq):
     return solver
 
 
-# Take a relatively coarse initial mesh, a :class:`TimeInstant` (since we have a
-# steady-state problem), and put everything together in a :class:`MeshSeq`. ::
+# Take a :class:`TimeInstant` (since we have a steady-state problem), and put everything
+# together in a :class:`MeshSeq`. ::
 
-mesh = RectangleMesh(50, 10, 50, 10)
-time_partition = TimeInstant(field_names)
+time_partition = TimeInstant(fields)
 mesh_seq = MeshSeq(
     time_partition,
     mesh,
-    get_function_spaces=get_function_spaces,
     get_solver=get_solver,
 )
 
