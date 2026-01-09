@@ -157,6 +157,8 @@ solutions = mesh_seq.solve_forward()
 # For the purposes of this demo, we plot the solution at each exported
 # timestep using the plotting driver function :func:`plot_snapshots`. ::
 
+import numpy as np
+
 fig, axes, tcs = plot_snapshots(
     solutions, time_partition, "u", "forward", levels=np.linspace(0, 1, 9)
 )
