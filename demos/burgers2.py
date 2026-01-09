@@ -102,6 +102,8 @@ solutions = mesh_seq.solve_adjoint()
 # Snapshots of the adjoint solution are again plotted using the
 # :func:`plot_snapshots` utility function. ::
 
+import numpy as np
+
 fig, axes, tcs = plot_snapshots(
     solutions, time_partition, "u", "adjoint", levels=np.linspace(0, 0.8, 9)
 )

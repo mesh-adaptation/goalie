@@ -112,6 +112,7 @@ mesh_seq = GoalOrientedMeshSeq(
 # For simplicity, we begin by using
 # :meth:`~.RiemannianMetric.compute_isotropic_metric()`. ::
 
+import numpy as np
 
 def adaptor(mesh_seq, solutions=None, indicators=None):
     metrics = []
