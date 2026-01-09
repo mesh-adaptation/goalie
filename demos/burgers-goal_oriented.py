@@ -114,6 +114,7 @@ mesh_seq = GoalOrientedMeshSeq(
 
 import numpy as np
 
+
 def adaptor(mesh_seq, solutions=None, indicators=None):
     metrics = []
     complexities = []
