@@ -120,6 +120,8 @@ solutions = mesh_seq.solve_adjoint()
 # looping over ``solutions['adjoint']``. This can also be achieved using
 # the plotting driver function ``plot_snapshots``.
 
+import numpy as np
+
 fig, axes, tcs = plot_snapshots(
     solutions, time_partition, "u", "adjoint", levels=np.linspace(0, 0.8, 9)
 )
