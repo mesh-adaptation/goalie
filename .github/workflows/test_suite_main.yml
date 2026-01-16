@@ -1,16 +1,15 @@
-name: 'Run Goalie test suite'
+name: 'Run Goalie test suite (main)'
 
 on:
-  # Run test suite whenever main and develop branches are updated
+  # Run test suite whenever the main branch is updated
   push:
     branches:
       - main
-      - develop
     paths:
       - '**.py'
       - '**.msh'
       - '**.geo'
-      - '.github/workflows/test_suite.yml'
+      - '.github/workflows/test_suite_main.yml'
       - 'pyproject.toml'
 
   # Run test suite whenever commits are pushed to an open PR
@@ -19,7 +18,7 @@ on:
       - '**.py'
       - '**.msh'
       - '**.geo'
-      - '.github/workflows/test_suite.yml'
+      - '.github/workflows/test_suite_main.yml'
       - 'pyproject.toml'
 
   # Run test suite every Sunday at 1AM
@@ -29,3 +28,5 @@ on:
 jobs:
   test_suite:
     uses: mesh-adaptation/docs/.github/workflows/reusable_test_suite.yml@main
+    with:
+      docker-image: 'firedrake-parmmg'
