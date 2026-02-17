@@ -6,9 +6,9 @@ from collections.abc import Iterable
 
 import firedrake
 import numpy as np
+from adapt_common.reduction import function_data_max
 from animate.interpolation import transfer
 from animate.quality import QualityMeasure
-from animate.utility import Mesh, function_data_max
 from firedrake.adjoint import pyadjoint
 from firedrake.mesh import MeshSequenceGeometry
 from firedrake.petsc import PETSc
@@ -178,6 +178,13 @@ class MeshSeq:
         :type meshes: :class:`list` of :class:`firedrake.MeshGeometry`\s or
             :class:`firedrake.MeshGeometry`
         """
+
+        def Mesh(arg):
+            try:
+                return firedrake.Mesh(arg)
+            except TypeError:
+                return firedrake.Mesh(arg.coordinates)
+
         # TODO #122: Refactor to use the set method
         if not isinstance(meshes, list):
             meshes = [Mesh(meshes) for subinterval in self.subintervals]
@@ -407,9 +414,9 @@ class MeshSeq:
                     for fieldname in self.field_functions
                 }
             )
-        assert self._function_spaces_consistent(), (
-            "Meshes and function spaces are inconsistent"
-        )
+        assert (
+            self._function_spaces_consistent()
+        ), "Meshes and function spaces are inconsistent"
 
     @property
     def function_spaces(self):

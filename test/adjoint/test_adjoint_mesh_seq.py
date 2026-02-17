@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pyadjoint
 import pytest
 import ufl
-from animate.utility import norm
+from adapt_common.norms import norm
 from finat.ufl import FiniteElement, VectorElement
 from firedrake.function import Function
 from firedrake.functionspace import FunctionSpace
