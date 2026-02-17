@@ -5,7 +5,7 @@ Utility functions and classes for mesh adaptation.
 import os
 
 import firedrake
-from animate.utility import function_data_sum
+from adapt_common.reduction import function_data_sum
 
 __all__ = ["AttrDict", "create_directory", "effectivity_index"]
 
