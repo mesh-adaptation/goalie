@@ -6,9 +6,10 @@ from collections.abc import Iterable
 
 import firedrake
 import numpy as np
+from adapt_common.utility import function_data_max
 from animate.interpolation import transfer
 from animate.quality import QualityMeasure
-from animate.utility import Mesh, function_data_max
+from animate.utility import Mesh  # FIXME: No longer exists
 from firedrake.adjoint import pyadjoint
 from firedrake.mesh import MeshSequenceGeometry
 from firedrake.petsc import PETSc
