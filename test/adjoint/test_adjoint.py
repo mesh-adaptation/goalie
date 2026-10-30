@@ -10,7 +10,7 @@ import unittest
 import numpy as np
 import pyadjoint
 import pytest
-from animate.utility import errornorm, norm
+from adapt_common.norms import errornorm, norm
 from firedrake.cofunction import Cofunction
 from firedrake.output.vtk_output import VTKFile
 from firedrake.utility_meshes import UnitTriangleMesh
