@@ -1,6 +1,6 @@
 import pytest
 from firedrake.utility_meshes import UnitCubeMesh, UnitSquareMesh
-from pyop2.mpi import COMM_WORLD
+from pyop3.mpi import COMM_WORLD
 
 from goalie.field import Field
 from goalie.mesh_seq import MeshSeq

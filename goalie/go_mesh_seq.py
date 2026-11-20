@@ -7,8 +7,8 @@ from copy import deepcopy
 
 import numpy as np
 import ufl
+from adapt_common.reduction import function_data_sum
 from animate.interpolation import interpolate
-from animate.utility import function_data_sum
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager
 from firedrake.petsc import PETSc
 

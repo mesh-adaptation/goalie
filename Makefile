@@ -9,7 +9,7 @@ install:
 
 install_dev:
 	@echo "Installing Goalie for development..."
-	@python3 -m pip install -e .[dev]
+	@python3 -m pip install --no-build-isolation -e .[dev]
 	@echo "Done."
 	@echo "Setting up pre-commit..."
 	@pre-commit install

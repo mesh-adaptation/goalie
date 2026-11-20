@@ -6,9 +6,9 @@ from collections.abc import Iterable
 
 import firedrake
 import numpy as np
+from adapt_common.quality import QualityMeasure
+from adapt_common.reduction import function_data_max
 from animate.interpolation import transfer
-from animate.quality import QualityMeasure
-from animate.utility import Mesh, function_data_max
 from firedrake.adjoint import pyadjoint
 from firedrake.mesh import MeshSequenceGeometry
 from firedrake.petsc import PETSc
@@ -180,7 +180,7 @@ class MeshSeq:
         """
         # TODO #122: Refactor to use the set method
         if not isinstance(meshes, list):
-            meshes = [Mesh(meshes) for subinterval in self.subintervals]
+            meshes = [firedrake.Mesh(meshes) for subinterval in self.subintervals]
         self.meshes = meshes
         dim = np.array([mesh.topological_dimension for mesh in meshes])
         if dim.min() != dim.max():

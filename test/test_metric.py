@@ -7,8 +7,8 @@ import unittest
 import numpy as np
 import pytest
 import sensors
+from adapt_common.norms import errornorm
 from animate.metric import RiemannianMetric
-from animate.utility import errornorm
 from firedrake.functionspace import TensorFunctionSpace
 from parameterized import parameterized
 from utility import mesh_for_sensors, uniform_mesh

@@ -6,7 +6,7 @@ from functools import wraps
 
 import firedrake
 import numpy as np
-from animate.utility import norm
+from adapt_common.norms import norm
 from firedrake.adjoint import pyadjoint
 from firedrake.adjoint_utils.solving import get_solve_blocks
 from firedrake.petsc import PETSc
